@@ -17,7 +17,11 @@ definePageMeta({
 const router = useRouter();
 const message = useMessage();
 const { login, user } = useUser();
-const { login: apiLogin, loginByCode: apiLoginByCode, sendCode: apiSendCode } = useAuthApi();
+const {
+  login: apiLogin,
+  loginByCode: apiLoginByCode,
+  sendCode: apiSendCode,
+} = useAuthApi();
 const activeTab = ref("login");
 const errorMessage = ref("");
 
@@ -121,7 +125,7 @@ async function handleRegisterSendCode() {
 
     if (error.value) {
       const status = error.value.statusCode;
-      if (status === 504 || error.value.message?.includes('timeout')) {
+      if (status === 504 || error.value.message?.includes("timeout")) {
         throw new Error("请求超时，请检查网络或稍后重试");
       }
       throw new Error("网络请求失败或服务不可用");
@@ -141,7 +145,6 @@ async function handleRegisterSendCode() {
         registerCodeCounting.value = false;
       }
     }, 1000);
-
   } catch (err: any) {
     errorMessage.value = "发送验证码失败: " + err.message;
   } finally {
@@ -154,15 +157,15 @@ async function handleLogin() {
   errorMessage.value = "";
   try {
     await loginFormRef.value?.validate();
-    
+
     const { data, error } = await apiLogin({
       account: loginModel.username,
-      password: loginModel.password
+      password: loginModel.password,
     });
 
     if (error.value) {
       const status = error.value.statusCode;
-      if (status === 504 || error.value.message?.includes('timeout')) {
+      if (status === 504 || error.value.message?.includes("timeout")) {
         throw new Error("请求超时，请检查网络或稍后重试");
       }
       throw new Error("网络请求失败或服务不可用");
@@ -180,7 +183,7 @@ async function handleLogin() {
       id: userData.id,
       username: userData.username,
       email: userData.email,
-      isLoggedIn: true
+      isLoggedIn: true,
     });
 
     message.success("登录成功，欢迎回来！");
@@ -211,7 +214,7 @@ async function handleSendCode() {
 
     if (error.value) {
       const status = error.value.statusCode;
-      if (status === 504 || error.value.message?.includes('timeout')) {
+      if (status === 504 || error.value.message?.includes("timeout")) {
         throw new Error("请求超时，请检查网络或稍后重试");
       }
       throw new Error("网络请求失败或服务不可用");
@@ -231,7 +234,6 @@ async function handleSendCode() {
         codeCounting.value = false;
       }
     }, 1000);
-
   } catch (err: any) {
     errorMessage.value = "发送验证码失败: " + err.message;
   } finally {
@@ -244,15 +246,15 @@ async function handleEmailLogin() {
   errorMessage.value = "";
   try {
     await emailLoginFormRef.value?.validate();
-    
+
     const { data, error } = await apiLoginByCode({
       email: emailLoginModel.email,
-      code: emailLoginModel.code
+      code: emailLoginModel.code,
     });
 
     if (error.value) {
       const status = error.value.statusCode;
-      if (status === 504 || error.value.message?.includes('timeout')) {
+      if (status === 504 || error.value.message?.includes("timeout")) {
         throw new Error("请求超时，请检查网络或稍后重试");
       }
       throw new Error("网络请求失败或服务不可用");
@@ -269,7 +271,7 @@ async function handleEmailLogin() {
       id: userData.id,
       username: userData.username,
       email: userData.email,
-      isLoggedIn: true
+      isLoggedIn: true,
     });
 
     message.success("登录成功");
@@ -300,7 +302,9 @@ async function handleRegister() {
 </script>
 
 <template>
-  <div class="min-h-[calc(100vh-200px)] flex items-center justify-center py-10 relative">
+  <div
+    class="min-h-[calc(100vh-200px)] flex items-center justify-center py-10 relative"
+  >
     <div
       class="w-full max-w-md bg-[var(--bg-card)] rounded-2xl shadow-2xl p-8 border border-[var(--border-color)] relative overflow-hidden"
     >
@@ -314,10 +318,12 @@ async function handleRegister() {
 
       <div class="relative z-10">
         <div class="text-center mb-8">
-          <div
-            class="w-16 h-16 mx-auto mb-4"
-          >
-            <img :src="LogoSquare" alt="Yuna Logo" class="w-full h-full object-contain" />
+          <div class="w-16 h-16 mx-auto mb-4">
+            <img
+              :src="LogoSquare"
+              alt="Yuna Logo"
+              class="w-full h-full object-contain"
+            />
           </div>
           <h1 class="text-2xl font-bold text-[var(--text-main)]">
             {{ activeTab === "register" ? "创建账号" : "欢迎回来" }}
@@ -328,7 +334,13 @@ async function handleRegister() {
         </div>
 
         <n-collapse-transition :show="!!errorMessage">
-          <n-alert title="出错了" type="error" closable class="mb-6" @close="errorMessage = ''">
+          <n-alert
+            title="出错了"
+            type="error"
+            closable
+            class="mb-6"
+            @close="errorMessage = ''"
+          >
             {{ errorMessage }}
           </n-alert>
         </n-collapse-transition>
@@ -399,7 +411,7 @@ async function handleRegister() {
           </n-tab-pane>
 
           <n-tab-pane name="email-login" tab="验证码登录">
-             <n-form
+            <n-form
               ref="emailLoginFormRef"
               :model="emailLoginModel"
               :rules="emailLoginRules"
@@ -433,16 +445,16 @@ async function handleRegister() {
                       />
                     </template>
                   </n-input>
-                  <n-button 
-                    ghost 
+                  <n-button
+                    ghost
                     :disabled="codeCounting || loading"
                     @click="handleSendCode"
                   >
-                    {{ codeCounting ? `${codeCount}s` : '获取验证码' }}
+                    {{ codeCounting ? `${codeCount}s` : "获取验证码" }}
                   </n-button>
                 </n-input-group>
               </n-form-item>
-              
+
               <n-button
                 type="primary"
                 block
@@ -453,7 +465,7 @@ async function handleRegister() {
               >
                 登录 / 注册
               </n-button>
-              
+
               <div class="mt-4 text-center">
                 <p class="text-[var(--text-tertiary)] text-xs">
                   未注册的邮箱会自动注册为新账号
@@ -509,12 +521,16 @@ async function handleRegister() {
                       />
                     </template>
                   </n-input>
-                  <n-button 
-                    ghost 
+                  <n-button
+                    ghost
                     :disabled="registerCodeCounting || loading"
                     @click="handleRegisterSendCode"
                   >
-                    {{ registerCodeCounting ? `${registerCodeCount}s` : '获取验证码' }}
+                    {{
+                      registerCodeCounting
+                        ? `${registerCodeCount}s`
+                        : "获取验证码"
+                    }}
                   </n-button>
                 </n-input-group>
               </n-form-item>
@@ -550,7 +566,9 @@ async function handleRegister() {
               </n-form-item>
               <n-form-item path="agreement">
                 <n-checkbox v-model:checked="registerModel.agreement">
-                  我已阅读并同意 <n-button text type="primary">用户协议</n-button> 和 <n-button text type="primary">隐私政策</n-button>
+                  我已阅读并同意
+                  <n-button text type="primary">用户协议</n-button> 和
+                  <n-button text type="primary">隐私政策</n-button>
                 </n-checkbox>
               </n-form-item>
               <n-button
@@ -566,8 +584,6 @@ async function handleRegister() {
             </n-form>
           </n-tab-pane>
         </n-tabs>
-
-
       </div>
     </div>
   </div>

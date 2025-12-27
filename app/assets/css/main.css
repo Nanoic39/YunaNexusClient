@@ -4,35 +4,35 @@
 
 :root {
   /* Monet Palette - Light Mode */
-  
+
   /* Backgrounds */
-  --bg-layout-body: #F2F5F9;       /* Alice Blue / Cloud White - Soft cool background */
-  --bg-layout-sider: #FFFFFF;      /* Clean White */
+  --bg-layout-body: #f2f5f9; /* Alice Blue / Cloud White - Soft cool background */
+  --bg-layout-sider: #ffffff; /* Clean White */
   --bg-card: rgba(255, 255, 255, 0.9); /* Frosty White */
   --bg-header: rgba(255, 255, 255, 0.8);
-  
+
   /* Primary Brand Color - Monet Blue */
-  --color-primary: #6692E1;        
-  --color-primary-hover: #7FA4E8;
-  --color-primary-pressed: #507AC0;
-  
+  --color-primary: #6692e1;
+  --color-primary-hover: #7fa4e8;
+  --color-primary-pressed: #507ac0;
+
   /* Semantic Colors (Muted/Pastel for Impressionist feel) */
-  --color-info: #6692E1;
-  --color-success: #88B04B;        /* Muted Greenery */
-  --color-warning: #EFC050;        /* Muted Gold/Mimosa */
-  --color-error: #E57373;          /* Soft Rose/Red */
-  
+  --color-info: #6692e1;
+  --color-success: #88b04b; /* Muted Greenery */
+  --color-warning: #efc050; /* Muted Gold/Mimosa */
+  --color-error: #e57373; /* Soft Rose/Red */
+
   /* Text */
-  --text-main: #334155;            /* Slate 700 */
-  --text-secondary: #64748B;       /* Slate 500 */
-  --text-tertiary: #94A3B8;        /* Slate 400 */
-  
+  --text-main: #334155; /* Slate 700 */
+  --text-secondary: #64748b; /* Slate 500 */
+  --text-tertiary: #94a3b8; /* Slate 400 */
+
   /* Borders/Shadows */
-  --border-color: rgba(102, 146, 225, 0.15); 
+  --border-color: rgba(102, 146, 225, 0.15);
   --shadow-card: 0 8px 24px rgba(102, 146, 225, 0.08);
   --shadow-sider: 2px 0 12px rgba(102, 146, 225, 0.05);
   --glass-blur: 20px;
-  
+
   /* Radius */
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -42,18 +42,18 @@
 
 .dark {
   /* Monet Palette - Dark Mode (Starry Night) */
-  
+
   /* Backgrounds */
-  --bg-layout-body: #0F172A;       /* Slate 900 - Deep Night Sky */
-  --bg-layout-sider: #1E293B;      /* Slate 800 */
+  --bg-layout-body: #0f172a; /* Slate 900 - Deep Night Sky */
+  --bg-layout-sider: #1e293b; /* Slate 800 */
   --bg-card: rgba(30, 41, 59, 0.7);
   --bg-header: rgba(30, 41, 59, 0.8);
-  
+
   /* Text */
-  --text-main: #E2E8F0;            /* Slate 200 */
-  --text-secondary: #94A3B8;       /* Slate 400 */
-  --text-tertiary: #64748B;
-  
+  --text-main: #e2e8f0; /* Slate 200 */
+  --text-secondary: #94a3b8; /* Slate 400 */
+  --text-tertiary: #64748b;
+
   /* Borders/Shadows */
   --border-color: rgba(255, 255, 255, 0.08);
   --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.3);
@@ -64,7 +64,9 @@
 body {
   background-color: var(--bg-layout-body);
   color: var(--text-main);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 /* Page Transitions */

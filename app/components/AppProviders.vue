@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useTheme } from "~/composables/useTheme";
 
-const { theme, themeOverrides } = useTheme()
+const { theme, themeOverrides } = useTheme();
 </script>
 
 <template>

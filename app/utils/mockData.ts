@@ -11,7 +11,7 @@ export const MOCK_USER_PROFILE = {
     osu: "",
   },
   roles: [],
-  role: "", 
+  role: "",
   avatar: "",
   isLoggedIn: false,
 };
