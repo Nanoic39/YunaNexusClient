@@ -1,0 +1,32 @@
+<svg width="1000" height="200" viewBox="0 0 1000 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- 
+    Canvas Height: 200px
+    Vertical Center: y=100
+  -->
+
+  <!-- Icon Section (Left) -->
+  <!-- 
+    Original Icon Size: 512x512
+    Scale: 0.3 (Reduced slightly to fit better) -> Actual Size: 153.6px
+    Target Vertical Center: 100
+    Top Position = 100 - (153.6 / 2) = 23.2
+    Let's round to translate(40, 23)
+  -->
+  <g transform="translate(40, 23) scale(0.3)"> 
+    <rect width="512" height="512" fill="#6692E1" rx="100"/>
+    <text x="256" y="256" font-family="Arial, sans-serif" font-weight="bold" font-size="300" fill="white" text-anchor="middle" dy=".35em">Y</text>
+  </g>
+  
+  <!-- Text Section -->
+  <!-- 
+    Font Size: 80px
+    Approx Cap Height: ~56-60px
+    To center text vertically at y=100:
+    Baseline should be approx y = 100 + (CapHeight / 2) ≈ 100 + 28 = 128
+  -->
+  <g transform="translate(230, 0)">
+      <text x="0" y="128" font-family="'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif" font-weight="800" font-size="80" fill="#334155" letter-spacing="1">YUNA</text>
+      <text x="245" y="128" font-family="'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif" font-weight="300" font-size="80" fill="#64748B" letter-spacing="2">NEXUS</text>
+      <text x="520" y="128" font-family="'Segoe UI', 'Roboto', Helvetica, Arial, sans-serif" font-weight="bold" font-size="80" fill="#6692E1">CORE</text>
+  </g>
+</svg>

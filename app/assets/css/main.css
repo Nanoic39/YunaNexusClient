@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Monet Palette - Light Mode */
+  
+  /* Backgrounds */
+  --bg-layout-body: #F2F5F9;       /* Alice Blue / Cloud White - Soft cool background */
+  --bg-layout-sider: #FFFFFF;      /* Clean White */
+  --bg-card: rgba(255, 255, 255, 0.9); /* Frosty White */
+  --bg-header: rgba(255, 255, 255, 0.8);
+  
+  /* Primary Brand Color - Monet Blue */
+  --color-primary: #6692E1;        
+  --color-primary-hover: #7FA4E8;
+  --color-primary-pressed: #507AC0;
+  
+  /* Semantic Colors (Muted/Pastel for Impressionist feel) */
+  --color-info: #6692E1;
+  --color-success: #88B04B;        /* Muted Greenery */
+  --color-warning: #EFC050;        /* Muted Gold/Mimosa */
+  --color-error: #E57373;          /* Soft Rose/Red */
+  
+  /* Text */
+  --text-main: #334155;            /* Slate 700 */
+  --text-secondary: #64748B;       /* Slate 500 */
+  --text-tertiary: #94A3B8;        /* Slate 400 */
+  
+  /* Borders/Shadows */
+  --border-color: rgba(102, 146, 225, 0.15); 
+  --shadow-card: 0 8px 24px rgba(102, 146, 225, 0.08);
+  --shadow-sider: 2px 0 12px rgba(102, 146, 225, 0.05);
+  --glass-blur: 20px;
+  
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+.dark {
+  /* Monet Palette - Dark Mode (Starry Night) */
+  
+  /* Backgrounds */
+  --bg-layout-body: #0F172A;       /* Slate 900 - Deep Night Sky */
+  --bg-layout-sider: #1E293B;      /* Slate 800 */
+  --bg-card: rgba(30, 41, 59, 0.7);
+  --bg-header: rgba(30, 41, 59, 0.8);
+  
+  /* Text */
+  --text-main: #E2E8F0;            /* Slate 200 */
+  --text-secondary: #94A3B8;       /* Slate 400 */
+  --text-tertiary: #64748B;
+  
+  /* Borders/Shadows */
+  --border-color: rgba(255, 255, 255, 0.08);
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.3);
+  --shadow-sider: 2px 0 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Global Styles */
+body {
+  background-color: var(--bg-layout-body);
+  color: var(--text-main);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Page Transitions */
+.page-enter-active,
+.page-leave-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  filter: blur(4px);
+}
+
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.98);
+  filter: blur(4px);
+}
+
+/* Layout Transitions */
+.layout-enter-active,
+.layout-leave-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.layout-enter-from {
+  opacity: 0;
+  filter: blur(4px);
+}
+
+.layout-leave-to {
+  opacity: 0;
+}
