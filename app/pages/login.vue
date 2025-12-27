@@ -21,6 +21,7 @@ const {
   login: apiLogin,
   loginByCode: apiLoginByCode,
   sendCode: apiSendCode,
+  checkEmail: apiCheckEmail,
 } = useAuthApi();
 const activeTab = ref("login");
 const errorMessage = ref("");
@@ -241,12 +242,103 @@ async function handleSendCode() {
   }
 }
 
+// Auto Register Modal
+const showAutoRegisterModal = ref(false);
+const autoRegisterModel = reactive({
+  username: "",
+  password: "",
+  confirmPassword: "",
+});
+const autoRegisterRules = {
+  username: [
+    { required: true, message: "请输入用户名", trigger: "blur" },
+    {
+      validator: (rule: any, value: string) => !/[@.]/.test(value),
+      message: "用户名不能包含 '@' 或 '.'",
+      trigger: "blur",
+    },
+  ],
+  password: { required: true, message: "请输入密码", trigger: "blur" },
+  confirmPassword: [
+    { required: true, message: "请确认密码", trigger: "blur" },
+    {
+      validator: (rule: any, value: string) => {
+        return value === autoRegisterModel.password;
+      },
+      message: "两次输入的密码不一致",
+      trigger: "blur",
+    },
+  ],
+};
+const autoRegisterFormRef = ref();
+
+async function handleAutoRegister() {
+  loading.value = true;
+  errorMessage.value = "";
+  try {
+    await autoRegisterFormRef.value?.validate();
+
+    const { data, error } = await apiLoginByCode({
+      email: emailLoginModel.email,
+      code: emailLoginModel.code,
+      username: autoRegisterModel.username,
+      password: autoRegisterModel.password,
+    });
+
+    if (error.value) {
+      throw new Error(error.value.message || "注册并登录失败");
+    }
+
+    if (data.value?.code !== 200) {
+      throw new Error(data.value?.msg || "注册并登录失败");
+    }
+
+    const userData = data.value.data;
+
+    login({
+      ...MOCK_USER_PROFILE,
+      id: userData.id,
+      username: userData.username,
+      email: userData.email,
+      isLoggedIn: true,
+    });
+
+    message.success("注册成功并已登录");
+    showAutoRegisterModal.value = false;
+    router.push("/");
+  } catch (errors: any) {
+    console.error(errors);
+    errorMessage.value = errors.message || "注册失败";
+  } finally {
+    loading.value = false;
+  }
+}
+
 async function handleEmailLogin() {
   loading.value = true;
   errorMessage.value = "";
   try {
     await emailLoginFormRef.value?.validate();
 
+    // Check if email exists
+    const { data: checkData, error: checkError } = await apiCheckEmail(
+      emailLoginModel.email
+    );
+
+    if (checkError.value) {
+      throw new Error("检查邮箱失败，请稍后重试");
+    }
+
+    const isEmailRegistered = checkData.value?.data;
+
+    if (!isEmailRegistered) {
+      // Show modal to set username and password
+      showAutoRegisterModal.value = true;
+      loading.value = false;
+      return;
+    }
+
+    // Standard Login
     const { data, error } = await apiLoginByCode({
       email: emailLoginModel.email,
       code: emailLoginModel.code,
@@ -280,7 +372,10 @@ async function handleEmailLogin() {
     console.error(errors);
     errorMessage.value = errors.message || "登录失败";
   } finally {
-    loading.value = false;
+    // Only reset loading if not showing modal (modal handling has its own loading state management)
+    if (!showAutoRegisterModal.value) {
+      loading.value = false;
+    }
   }
 }
 
@@ -586,6 +681,81 @@ async function handleRegister() {
         </n-tabs>
       </div>
     </div>
+
+    <!-- Auto Register Modal -->
+    <n-modal
+      v-model:show="showAutoRegisterModal"
+      preset="card"
+      title="完善账号信息"
+      class="max-w-md"
+      :mask-closable="false"
+      :closable="true"
+    >
+      <n-form
+        ref="autoRegisterFormRef"
+        :model="autoRegisterModel"
+        :rules="autoRegisterRules"
+        size="large"
+      >
+        <n-alert type="info" class="mb-6">
+          您的邮箱尚未注册，请设置用户名和密码以完成注册。
+        </n-alert>
+
+        <n-form-item path="username" label="用户名">
+          <n-input
+            v-model:value="autoRegisterModel.username"
+            placeholder="设置用户名"
+          >
+            <template #prefix>
+              <Icon name="heroicons:user" class="text-[var(--text-tertiary)]" />
+            </template>
+          </n-input>
+        </n-form-item>
+
+        <n-form-item path="password" label="设置密码">
+          <n-input
+            v-model:value="autoRegisterModel.password"
+            type="password"
+            show-password-on="click"
+            placeholder="设置密码"
+          >
+            <template #prefix>
+              <Icon
+                name="heroicons:lock-closed"
+                class="text-[var(--text-tertiary)]"
+              />
+            </template>
+          </n-input>
+        </n-form-item>
+
+        <n-form-item path="confirmPassword" label="确认密码">
+          <n-input
+            v-model:value="autoRegisterModel.confirmPassword"
+            type="password"
+            show-password-on="click"
+            placeholder="确认密码"
+          >
+            <template #prefix>
+              <Icon
+                name="heroicons:lock-closed"
+                class="text-[var(--text-tertiary)]"
+              />
+            </template>
+          </n-input>
+        </n-form-item>
+
+        <n-button
+          type="primary"
+          block
+          size="large"
+          :loading="loading"
+          @click="handleAutoRegister"
+          class="!rounded-xl shadow-lg shadow-blue-500/20"
+        >
+          完成注册并登录
+        </n-button>
+      </n-form>
+    </n-modal>
   </div>
 </template>
 
