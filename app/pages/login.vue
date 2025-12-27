@@ -61,16 +61,25 @@ const registerFormRef = ref();
 const registerModel = reactive({
   username: "",
   email: "",
+  code: "",
   password: "",
   confirmPassword: "",
   agreement: false,
 });
 const registerRules = {
-  username: { required: true, message: "请输入用户名", trigger: "blur" },
+  username: [
+    { required: true, message: "请输入用户名", trigger: "blur" },
+    {
+      validator: (rule: any, value: string) => !/[@.]/.test(value),
+      message: "用户名不能包含 '@' 或 '.'",
+      trigger: "blur",
+    },
+  ],
   email: [
     { required: true, message: "请输入邮箱", trigger: "blur" },
     { type: "email", message: "请输入正确的邮箱格式", trigger: "blur" },
   ],
+  code: { required: true, message: "请输入验证码", trigger: "blur" },
   password: { required: true, message: "请输入密码", trigger: "blur" },
   confirmPassword: [
     { required: true, message: "请确认密码", trigger: "blur" },
@@ -90,6 +99,55 @@ const registerRules = {
 };
 
 const loading = ref(false);
+
+const registerCodeCounting = ref(false);
+const registerCodeCount = ref(60);
+
+async function handleRegisterSendCode() {
+  errorMessage.value = "";
+  if (!registerModel.email) {
+    errorMessage.value = "请先输入邮箱";
+    return;
+  }
+  // Simple email regex check
+  if (!/^\S+@\S+\.\S+$/.test(registerModel.email)) {
+    errorMessage.value = "邮箱格式不正确";
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const { data, error } = await apiSendCode(registerModel.email);
+
+    if (error.value) {
+      const status = error.value.statusCode;
+      if (status === 504 || error.value.message?.includes('timeout')) {
+        throw new Error("请求超时，请检查网络或稍后重试");
+      }
+      throw new Error("网络请求失败或服务不可用");
+    }
+
+    if (data.value?.code !== 200) {
+      throw new Error(data.value?.msg || "发送失败");
+    }
+
+    message.success("验证码已发送，请查收");
+    registerCodeCounting.value = true;
+    registerCodeCount.value = 60;
+    const timer = setInterval(() => {
+      registerCodeCount.value--;
+      if (registerCodeCount.value <= 0) {
+        clearInterval(timer);
+        registerCodeCounting.value = false;
+      }
+    }, 1000);
+
+  } catch (err: any) {
+    errorMessage.value = "发送验证码失败: " + err.message;
+  } finally {
+    loading.value = false;
+  }
+}
 
 async function handleLogin() {
   loading.value = true;
@@ -395,6 +453,12 @@ async function handleRegister() {
               >
                 登录 / 注册
               </n-button>
+              
+              <div class="mt-4 text-center">
+                <p class="text-[var(--text-tertiary)] text-xs">
+                  未注册的邮箱会自动注册为新账号
+                </p>
+              </div>
             </n-form>
           </n-tab-pane>
 
@@ -431,6 +495,28 @@ async function handleRegister() {
                     />
                   </template>
                 </n-input>
+              </n-form-item>
+              <n-form-item path="code" label="验证码">
+                <n-input-group>
+                  <n-input
+                    v-model:value="registerModel.code"
+                    placeholder="请输入验证码"
+                  >
+                    <template #prefix>
+                      <Icon
+                        name="heroicons:shield-check"
+                        class="text-[var(--text-tertiary)]"
+                      />
+                    </template>
+                  </n-input>
+                  <n-button 
+                    ghost 
+                    :disabled="registerCodeCounting || loading"
+                    @click="handleRegisterSendCode"
+                  >
+                    {{ registerCodeCounting ? `${registerCodeCount}s` : '获取验证码' }}
+                  </n-button>
+                </n-input-group>
               </n-form-item>
               <n-form-item path="password" label="密码">
                 <n-input
@@ -481,26 +567,7 @@ async function handleRegister() {
           </n-tab-pane>
         </n-tabs>
 
-        <div class="mt-8 text-center">
-          <p class="text-[var(--text-secondary)] text-sm">其他登录方式</p>
-          <div class="flex justify-center gap-4 mt-4">
-            <n-button circle secondary class="!w-12 !h-12">
-              <template #icon>
-                <Icon name="simple-icons:discord" />
-              </template>
-            </n-button>
-            <n-button circle secondary class="!w-12 !h-12">
-              <template #icon>
-                <Icon name="simple-icons:github" />
-              </template>
-            </n-button>
-            <n-button circle secondary class="!w-12 !h-12">
-              <template #icon>
-                <Icon name="simple-icons:google" />
-              </template>
-            </n-button>
-          </div>
-        </div>
+
       </div>
     </div>
   </div>
