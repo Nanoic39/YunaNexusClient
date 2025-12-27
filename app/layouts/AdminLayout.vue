@@ -527,41 +527,43 @@ function getPageTitle(path: string): string {
 
         <n-layout-content
           content-style="min-height: 100%; display: flex; flex-direction: column;"
-          class="flex-1"
+          class="flex-1 relative"
         >
-          <main
-            class="flex-1 w-full max-w-[1600px] mx-auto p-4 flex flex-col relative"
+          <Transition
+            enter-active-class="transition-opacity duration-300 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition-opacity duration-300 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
           >
-            <Transition
-              enter-active-class="transition-opacity duration-300 ease-out"
-              enter-from-class="opacity-0"
-              enter-to-class="opacity-100"
-              leave-active-class="transition-opacity duration-300 ease-in"
-              leave-from-class="opacity-100"
-              leave-to-class="opacity-0"
+            <div
+              v-if="isPageLoading"
+              class="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--bg-layout-body)]/80 backdrop-blur-sm"
+              :style="{ left: isMobile ? '0' : (collapsed ? '80px' : '260px'), top: '64px' }"
             >
-              <div
-                v-if="isPageLoading"
-                class="absolute inset-0 z-40 flex items-center justify-center bg-[var(--bg-layout-body)]/80 backdrop-blur-sm rounded-xl"
-              >
-                <div class="flex flex-col items-center gap-4">
-                  <div
-                    class="w-12 h-12 animate-spin shadow-lg flex items-center justify-center rounded-full"
-                  >
-                    <img :src="LogoSquare" alt="Yuna Logo" class="w-full h-full object-contain" />
-                  </div>
-                  <span
-                    class="text-[var(--color-primary)] font-bold text-sm tracking-wider animate-pulse"
-                    >LOADING...</span
-                  >
+              <div class="flex flex-col items-center gap-4">
+                <div
+                  class="w-12 h-12 animate-spin shadow-lg flex items-center justify-center rounded-full"
+                >
+                  <img :src="LogoSquare" alt="Yuna Logo" class="w-full h-full object-contain" />
                 </div>
+                <span
+                  class="text-[var(--color-primary)] font-bold text-sm tracking-wider animate-pulse"
+                  >LOADING...</span
+                >
               </div>
-            </Transition>
+            </div>
+          </Transition>
+
+          <main
+            class="flex-1 w-full max-w-[1600px] mx-auto p-4 flex flex-col relative z-0"
+          >
             <slot />
           </main>
 
           <n-layout-footer
-            class="bg-transparent text-center p-4 text-[var(--text-tertiary)] text-xs"
+            class="bg-transparent text-center p-4 text-[var(--text-tertiary)] text-xs z-0"
           >
             &copy; 2025 YunaNexusCore. All Rights Reserved.
           </n-layout-footer>
