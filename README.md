@@ -1,0 +1,36 @@
+# 【Client】YunaNexusCore - 系统核心模块前端
+
+## 选用技术栈
+- Framework : Nuxt (版本 ^4.2.2 )
+  - 特性 : 启用了 future: { compatibilityVersion: 4 } ，采用了 Nuxt 4 的目录结构 （源码主要位于 app/ 目录下，而不是根目录）。
+- Core Library : Vue 3 (版本 ^3.5.25 )
+  - 风格 : 全面使用 Composition API 和 <script setup> 语法。
+- Language : TypeScript
+  - 项目完全基于 TypeScript 构建，类型定义完善。
+- UI Component Library : Naive UI (版本 ^2.43.2 )
+  - 核心地位 : 项目主要 UI 库，用于构建布局、表单、反馈组件等（如 n-config-provider , n-button , n-form , n-message-provider ）。
+  - 集成方式 : 通过 unplugin-vue-components 实现按需自动导入，并在 nuxt.config.ts 中配置了 SSR 支持。
+- CSS Framework : Tailwind CSS (版本 ^3.4.0 via @nuxtjs/tailwindcss )
+  - 用于原子化样式、布局（Grid/Flex）和响应式设计。
+  - 配置支持暗色模式 ( darkMode: 'class' )。
+- Icon System : Nuxt Icon ( @nuxt/icon )
+  - 支持 Iconify 图标集。
+- Fonts : Nuxt Fonts ( @nuxt/fonts )
+  - 用于字体自动优化和加载。
+- Theme Management :
+  - @nuxtjs/color-mode : 用于管理亮色/暗色模式切换。
+  - 自定义 Composables : useTheme.ts 结合 Naive UI 的 theme-overrides 实现了深度的样式定制（如“莫奈”配色方案）。
+- State Management : Pinia (版本 ^3.0.4 via @pinia/nuxt )
+  - 用于全局状态管理，目录 app/stores/ 下包含 user.ts 和 competition.ts 等 store。
+- Data Fetching : Nuxt Data Fetching
+  - 使用 useAsyncData 和 $fetch 进行服务端/客户端数据获取。
+  - 封装了 API composables（如 useHomeApi.ts , useUser.ts ）。
+- Content Engine : Nuxt Content (版本 3.9.0 via @nuxt/content )
+  - 使用最新的 Content v3 (基于 SQL)，配合 better-sqlite3 依赖，用于管理静态内容（如 Markdown 页面）。
+- Date Library : Day.js
+  - 轻量级日期处理库。
+- Utilities :
+  - clsx & tailwind-merge : 用于动态合并 CSS 类名。
+- Build Tool : Vite (Nuxt 默认构建引擎)
+- Linting : ESLint (via @nuxt/eslint )
+- Package Manager : pnpm (根据 pnpm-lock.yaml )
