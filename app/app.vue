@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Providers are now in AppProviders component
+import AppProviders from "~/components/AppProviders.vue";
 </script>
 
 <template>

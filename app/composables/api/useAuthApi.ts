@@ -25,6 +25,18 @@ export const useAuthApi = () => {
     );
   };
 
+  const register = async (data: any) => {
+    return useFetch<{ code: number; msg: string; data: number }>(
+      "/api/auth/register",
+      {
+        method: "POST",
+        body: data,
+        timeout: 5000,
+        retry: 0,
+      }
+    );
+  };
+
   const sendCode = async (email: string) => {
     return useFetch<{ code: number; msg: string }>("/api/auth/send-code", {
       method: "POST",
@@ -35,17 +47,21 @@ export const useAuthApi = () => {
   };
 
   const checkEmail = async (email: string) => {
-    return useFetch<{ code: number; msg: string; data: boolean }>("/api/auth/check-email", {
-      method: "GET",
-      params: { email },
-      timeout: 5000,
-      retry: 0,
-    });
+    return useFetch<{ code: number; msg: string; data: boolean }>(
+      "/api/auth/check-email",
+      {
+        method: "GET",
+        params: { email },
+        timeout: 5000,
+        retry: 0,
+      }
+    );
   };
 
   return {
     login,
     loginByCode,
+    register,
     sendCode,
     checkEmail,
   };

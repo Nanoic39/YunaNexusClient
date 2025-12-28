@@ -22,6 +22,7 @@ const {
   loginByCode: apiLoginByCode,
   sendCode: apiSendCode,
   checkEmail: apiCheckEmail,
+  register: apiRegister,
 } = useAuthApi();
 const activeTab = ref("login");
 const errorMessage = ref("");
@@ -69,6 +70,8 @@ const registerModel = reactive({
   code: "",
   password: "",
   confirmPassword: "",
+  nickname: "",
+  gender: null as number | null,
   agreement: false,
 });
 const registerRules = {
@@ -102,6 +105,12 @@ const registerRules = {
     trigger: "change",
   },
 };
+
+const genderOptions = [
+  { label: "男", value: 1 },
+  { label: "女", value: 2 },
+  { label: "保密", value: 0 },
+];
 
 const loading = ref(false);
 
@@ -248,6 +257,8 @@ const autoRegisterModel = reactive({
   username: "",
   password: "",
   confirmPassword: "",
+  nickname: "",
+  gender: null as number | null,
 });
 const autoRegisterRules = {
   username: [
@@ -283,6 +294,8 @@ async function handleAutoRegister() {
       code: emailLoginModel.code,
       username: autoRegisterModel.username,
       password: autoRegisterModel.password,
+      nickname: autoRegisterModel.nickname,
+      gender: autoRegisterModel.gender,
     });
 
     if (error.value) {
@@ -383,13 +396,29 @@ async function handleRegister() {
   loading.value = true;
   try {
     await registerFormRef.value?.validate();
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const { data, error } = await apiRegister({
+      username: registerModel.username,
+      email: registerModel.email,
+      verifyCode: registerModel.code,
+      password: registerModel.password,
+      nickname: registerModel.nickname,
+      gender: registerModel.gender,
+    });
+
+    if (error.value) {
+      throw new Error(error.value.message || "注册失败");
+    }
+
+    if (data.value?.code !== 200) {
+      throw new Error(data.value?.msg || "注册失败");
+    }
 
     message.success("注册成功，请登录");
     activeTab.value = "login";
-  } catch (errors) {
+  } catch (errors: any) {
     console.error(errors);
+    errorMessage.value = errors.message || "注册失败";
   } finally {
     loading.value = false;
   }
@@ -577,32 +606,35 @@ async function handleRegister() {
               size="large"
               class="mt-6"
             >
-              <n-form-item path="username" label="用户名">
-                <n-input
-                  v-model:value="registerModel.username"
-                  placeholder="设置用户名"
-                >
-                  <template #prefix>
-                    <Icon
-                      name="heroicons:user"
-                      class="text-[var(--text-tertiary)]"
-                    />
-                  </template>
-                </n-input>
-              </n-form-item>
-              <n-form-item path="email" label="邮箱">
-                <n-input
-                  v-model:value="registerModel.email"
-                  placeholder="绑定邮箱"
-                >
-                  <template #prefix>
-                    <Icon
-                      name="heroicons:envelope"
-                      class="text-[var(--text-tertiary)]"
-                    />
-                  </template>
-                </n-input>
-              </n-form-item>
+              <div class="md:grid md:grid-cols-2 md:gap-4">
+                <n-form-item path="username" label="用户名">
+                  <n-input
+                    v-model:value="registerModel.username"
+                    placeholder="设置用户名"
+                  >
+                    <template #prefix>
+                      <Icon
+                        name="heroicons:user"
+                        class="text-[var(--text-tertiary)]"
+                      />
+                    </template>
+                  </n-input>
+                </n-form-item>
+                <n-form-item path="email" label="邮箱">
+                  <n-input
+                    v-model:value="registerModel.email"
+                    placeholder="绑定邮箱"
+                  >
+                    <template #prefix>
+                      <Icon
+                        name="heroicons:envelope"
+                        class="text-[var(--text-tertiary)]"
+                      />
+                    </template>
+                  </n-input>
+                </n-form-item>
+              </div>
+
               <n-form-item path="code" label="验证码">
                 <n-input-group>
                   <n-input
@@ -629,36 +661,62 @@ async function handleRegister() {
                   </n-button>
                 </n-input-group>
               </n-form-item>
-              <n-form-item path="password" label="密码">
-                <n-input
-                  v-model:value="registerModel.password"
-                  type="password"
-                  show-password-on="click"
-                  placeholder="设置密码"
-                >
-                  <template #prefix>
-                    <Icon
-                      name="heroicons:lock-closed"
-                      class="text-[var(--text-tertiary)]"
-                    />
-                  </template>
-                </n-input>
-              </n-form-item>
-              <n-form-item path="confirmPassword" label="确认密码">
-                <n-input
-                  v-model:value="registerModel.confirmPassword"
-                  type="password"
-                  show-password-on="click"
-                  placeholder="确认密码"
-                >
-                  <template #prefix>
-                    <Icon
-                      name="heroicons:lock-closed"
-                      class="text-[var(--text-tertiary)]"
-                    />
-                  </template>
-                </n-input>
-              </n-form-item>
+
+              <div class="md:grid md:grid-cols-2 md:gap-4">
+                <n-form-item path="password" label="密码">
+                  <n-input
+                    v-model:value="registerModel.password"
+                    type="password"
+                    show-password-on="click"
+                    placeholder="设置密码"
+                  >
+                    <template #prefix>
+                      <Icon
+                        name="heroicons:lock-closed"
+                        class="text-[var(--text-tertiary)]"
+                      />
+                    </template>
+                  </n-input>
+                </n-form-item>
+                <n-form-item path="confirmPassword" label="确认密码">
+                  <n-input
+                    v-model:value="registerModel.confirmPassword"
+                    type="password"
+                    show-password-on="click"
+                    placeholder="确认密码"
+                  >
+                    <template #prefix>
+                      <Icon
+                        name="heroicons:lock-closed"
+                        class="text-[var(--text-tertiary)]"
+                      />
+                    </template>
+                  </n-input>
+                </n-form-item>
+              </div>
+
+              <div class="md:grid md:grid-cols-2 md:gap-4">
+                <n-form-item path="nickname" label="昵称 (可选)">
+                  <n-input
+                    v-model:value="registerModel.nickname"
+                    placeholder="设置昵称"
+                  >
+                    <template #prefix>
+                      <Icon
+                        name="heroicons:face-smile"
+                        class="text-[var(--text-tertiary)]"
+                      />
+                    </template>
+                  </n-input>
+                </n-form-item>
+                <n-form-item path="gender" label="性别 (可选)">
+                  <n-select
+                    v-model:value="registerModel.gender"
+                    :options="genderOptions"
+                    placeholder="选择性别"
+                  />
+                </n-form-item>
+              </div>
               <n-form-item path="agreement">
                 <n-checkbox v-model:checked="registerModel.agreement">
                   我已阅读并同意
@@ -743,6 +801,29 @@ async function handleRegister() {
             </template>
           </n-input>
         </n-form-item>
+
+        <div class="grid grid-cols-2 gap-4">
+          <n-form-item path="nickname" label="昵称 (可选)">
+            <n-input
+              v-model:value="autoRegisterModel.nickname"
+              placeholder="设置昵称"
+            >
+              <template #prefix>
+                <Icon
+                  name="heroicons:face-smile"
+                  class="text-[var(--text-tertiary)]"
+                />
+              </template>
+            </n-input>
+          </n-form-item>
+          <n-form-item path="gender" label="性别 (可选)">
+            <n-select
+              v-model:value="autoRegisterModel.gender"
+              :options="genderOptions"
+              placeholder="选择性别"
+            />
+          </n-form-item>
+        </div>
 
         <n-button
           type="primary"
