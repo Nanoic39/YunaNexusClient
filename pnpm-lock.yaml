@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@heroicons/vue':
+    specifier: ^2.2.0
+    version: 2.2.0(vue@3.5.26)
   '@nuxt/content':
     specifier: 3.9.0
     version: 3.9.0(better-sqlite3@12.5.0)
@@ -1101,6 +1104,14 @@ packages:
     requiresBuild: true
     dev: false
     optional: true
+
+  /@heroicons/vue@2.2.0(vue@3.5.26):
+    resolution: {integrity: sha512-G3dbSxoeEKqbi/DFalhRxJU4mTXJn7GwZ7ae8NuEQzd1bqdd0jAbdaBZlHPcvPD2xI1iGzNVB4k20Un2AguYPw==}
+    peerDependencies:
+      vue: '>= 3'
+    dependencies:
+      vue: 3.5.26(typescript@5.9.3)
+    dev: false
 
   /@humanfs/core@0.19.1:
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}

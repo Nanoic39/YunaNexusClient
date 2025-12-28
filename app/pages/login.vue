@@ -492,7 +492,7 @@ async function handleRegister() {
                   <template #prefix>
                     <Icon
                       name="heroicons:user"
-                      class="text-[var(--text-tertiary)]"
+                      class="text-[var(--text-tertiary)] w-5 h-5"
                     />
                   </template>
                 </n-input>
@@ -508,7 +508,7 @@ async function handleRegister() {
                   <template #prefix>
                     <Icon
                       name="heroicons:lock-closed"
-                      class="text-[var(--text-tertiary)]"
+                      class="text-[var(--text-tertiary)] w-5 h-5"
                     />
                   </template>
                 </n-input>
@@ -565,7 +565,7 @@ async function handleRegister() {
                     <template #prefix>
                       <Icon
                         name="heroicons:shield-check"
-                        class="text-[var(--text-tertiary)]"
+                        class="text-[var(--text-tertiary)] w-5 h-5"
                       />
                     </template>
                   </n-input>
@@ -615,7 +615,7 @@ async function handleRegister() {
                     <template #prefix>
                       <Icon
                         name="heroicons:user"
-                        class="text-[var(--text-tertiary)]"
+                        class="text-[var(--text-tertiary)] w-5 h-5"
                       />
                     </template>
                   </n-input>
@@ -628,7 +628,7 @@ async function handleRegister() {
                     <template #prefix>
                       <Icon
                         name="heroicons:envelope"
-                        class="text-[var(--text-tertiary)]"
+                        class="text-[var(--text-tertiary)] w-5 h-5"
                       />
                     </template>
                   </n-input>
@@ -704,7 +704,7 @@ async function handleRegister() {
                     <template #prefix>
                       <Icon
                         name="heroicons:face-smile"
-                        class="text-[var(--text-tertiary)]"
+                        class="text-[var(--text-tertiary)] w-5 h-5"
                       />
                     </template>
                   </n-input>
@@ -765,7 +765,7 @@ async function handleRegister() {
             placeholder="设置用户名"
           >
             <template #prefix>
-              <Icon name="heroicons:user" class="text-[var(--text-tertiary)]" />
+              <Icon name="heroicons:user" class="text-[var(--text-tertiary)] w-5 h-5" />
             </template>
           </n-input>
         </n-form-item>
@@ -780,7 +780,7 @@ async function handleRegister() {
             <template #prefix>
               <Icon
                 name="heroicons:lock-closed"
-                class="text-[var(--text-tertiary)]"
+                class="text-[var(--text-tertiary)] w-5 h-5"
               />
             </template>
           </n-input>
@@ -796,7 +796,7 @@ async function handleRegister() {
             <template #prefix>
               <Icon
                 name="heroicons:lock-closed"
-                class="text-[var(--text-tertiary)]"
+                class="text-[var(--text-tertiary)] w-5 h-5"
               />
             </template>
           </n-input>
@@ -811,7 +811,7 @@ async function handleRegister() {
               <template #prefix>
                 <Icon
                   name="heroicons:face-smile"
-                  class="text-[var(--text-tertiary)]"
+                  class="text-[var(--text-tertiary)] w-5 h-5"
                 />
               </template>
             </n-input>

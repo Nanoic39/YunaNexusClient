@@ -8,17 +8,28 @@ export default defineNuxtConfig({
   },
 
   compatibilityDate: "2025-07-15",
-  modules: ["@nuxt/content", "@pinia/nuxt", "@nuxt/fonts", "@nuxt/icon", "@nuxtjs/tailwindcss", "@nuxtjs/color-mode"],
+  modules: [
+    "@nuxt/content",
+    "@pinia/nuxt",
+    "@nuxt/fonts",
+    "@nuxt/icon",
+    "@nuxtjs/tailwindcss",
+    "@nuxtjs/color-mode",
+  ],
+
+  icon: {
+    serverBundle: {
+      collections: ["heroicons"],
+    },
+  },
 
   app: {
-    pageTransition: { name: 'page', mode: 'out-in' },
-    layoutTransition: { name: 'layout', mode: 'out-in' },
+    pageTransition: { name: "page", mode: "out-in" },
+    layoutTransition: { name: "layout", mode: "out-in" },
     head: {
-      title: 'Yuna Nexus Core',
-      link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }
-      ]
-    }
+      title: "Yuna Nexus Core",
+      link: [{ rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
+    },
   },
 
   tailwindcss: {
@@ -26,7 +37,7 @@ export default defineNuxtConfig({
   },
 
   colorMode: {
-    classSuffix: '',
+    classSuffix: "",
   },
 
   css: ["~/assets/css/main.css"],
@@ -59,11 +70,12 @@ export default defineNuxtConfig({
   },
 
   nitro: {
-    devProxy: {
-      '/api': {
-        target: 'http://localhost:9001',
-        changeOrigin: true,
-      }
+    // 移除所有代理配置，使用 runtimeConfig 配置 API 地址
+  },
+
+  runtimeConfig: {
+    public: {
+      apiBase: 'http://localhost:9001'
     }
   },
 

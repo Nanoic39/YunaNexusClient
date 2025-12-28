@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import AppProviders from "~/components/AppProviders.vue";
+
+onMounted(() => {
+  document.body.classList.add('loaded');
+});
 </script>
 
 <template>
