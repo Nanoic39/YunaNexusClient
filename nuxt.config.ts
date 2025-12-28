@@ -2,6 +2,9 @@ import Components from "unplugin-vue-components/vite";
 import { NaiveUiResolver } from "unplugin-vue-components/resolvers";
 
 export default defineNuxtConfig({
+  // 关闭服务端渲染，启用 SPA 模式
+  ssr: false,
+
   // 开启 Nuxt 4 目录结构支持
   future: {
     compatibilityVersion: 4,

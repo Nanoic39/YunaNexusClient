@@ -5,7 +5,6 @@ import { useMessage } from "naive-ui";
 import { Icon } from "#components";
 import { useUser } from "~/composables/useUser";
 import { useAuthApi } from "~/composables/api/useAuthApi";
-import { MOCK_USER_PROFILE } from "~/utils/mockData";
 
 // Assets
 import LogoSquare from "~/assets/images/logo/logo_square.svg";
@@ -28,8 +27,9 @@ const activeTab = ref("login");
 const errorMessage = ref("");
 
 onMounted(() => {
+  // 检查是否已登录，如果已登录则跳转到首页
   if (user.value.isLoggedIn) {
-    message.warning("您已登录，无需重复操作");
+    // message.warning("您已登录，无需重复操作"); // 移除此提示，体验更好
     router.replace("/");
   }
 });
@@ -189,10 +189,10 @@ async function handleLogin() {
 
     // Update user state
     login({
-      ...MOCK_USER_PROFILE,
       id: userData.id,
       username: userData.username,
       email: userData.email,
+      token: userData.token,
       isLoggedIn: true,
     });
 
@@ -309,10 +309,10 @@ async function handleAutoRegister() {
     const userData = data.value.data;
 
     login({
-      ...MOCK_USER_PROFILE,
       id: userData.id,
       username: userData.username,
       email: userData.email,
+      token: userData.token,
       isLoggedIn: true,
     });
 
@@ -372,10 +372,10 @@ async function handleEmailLogin() {
     const userData = data.value.data;
 
     login({
-      ...MOCK_USER_PROFILE,
       id: userData.id,
       username: userData.username,
       email: userData.email,
+      token: userData.token,
       isLoggedIn: true,
     });
 
@@ -765,7 +765,10 @@ async function handleRegister() {
             placeholder="设置用户名"
           >
             <template #prefix>
-              <Icon name="heroicons:user" class="text-[var(--text-tertiary)] w-5 h-5" />
+              <Icon
+                name="heroicons:user"
+                class="text-[var(--text-tertiary)] w-5 h-5"
+              />
             </template>
           </n-input>
         </n-form-item>

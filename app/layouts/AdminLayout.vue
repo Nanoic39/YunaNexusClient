@@ -8,6 +8,7 @@ import { useUser } from "~/composables/useUser";
 
 // Assets
 import LogoSquare from "~/assets/images/logo/logo_square.svg";
+import DefaultAvatar from "~/assets/images/avatar/image.png";
 
 const { isDark, toggleTheme } = useTheme();
 const { fetchMenuItems } = useMenuApi();
@@ -62,6 +63,12 @@ function matchRouteToMenu() {
   if (!menuOptions.value.length) return;
 
   const currentPath = route.path;
+
+  // 如果是 profile 页面，不进行菜单高亮匹配，或者你可以添加一个专门的 profile 菜单项
+  if (currentPath.startsWith("/profile")) {
+    activeKey.value = null;
+    return;
+  }
 
   const matched = menuOptions.value.find((item: any) => {
     if (item.path === "/") return currentPath === "/";
@@ -414,9 +421,10 @@ function getPageTitle(path: string): string {
                       :size="32"
                       :src="
                         userProfile.isLoggedIn
-                          ? userProfile.avatar
+                          ? userProfile.avatar || DefaultAvatar
                           : 'https://osu.ppy.sh/images/layout/avatar-guest.png'
                       "
+                      :fallback-src="DefaultAvatar"
                       class="!rounded-lg block ring-1 ring-white/50 dark:ring-gray-700/50 transition-transform group-hover:scale-105"
                     />
                     <div
@@ -463,7 +471,8 @@ function getPageTitle(path: string): string {
                     >
                       <n-avatar
                         :size="56"
-                        :src="userProfile.avatar"
+                        :src="userProfile.avatar || DefaultAvatar"
+                        :fallback-src="DefaultAvatar"
                         class="!rounded-2xl ring-2 ring-[var(--color-primary)]/20"
                       />
                       <div class="flex flex-col overflow-hidden">
@@ -492,6 +501,16 @@ function getPageTitle(path: string): string {
 
                     <!-- Actions -->
                     <div class="grid grid-cols-1 gap-2">
+                      <n-button
+                        class="!rounded-lg"
+                        secondary
+                        @click="router.push('/profile')"
+                      >
+                        <template #icon
+                          ><Icon name="heroicons:user-circle"
+                        /></template>
+                        个人主页
+                      </n-button>
                       <n-button
                         class="!rounded-lg"
                         type="error"

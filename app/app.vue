@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
-import AppProviders from "~/components/AppProviders.vue";
+import { onMounted } from "vue";
 
 onMounted(() => {
-  document.body.classList.add('loaded');
+  document.body.classList.add("loaded");
 });
 </script>
 

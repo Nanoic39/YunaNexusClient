@@ -1,14 +1,11 @@
 import type { UserLoginVO } from "~/types/auth";
+import { useHttp } from "~/composables/useHttp";
 
 export const useAuthApi = () => {
-  const config = useRuntimeConfig();
-  const apiBase = config.public.apiBase;
-
   const login = async (data: any) => {
-    return useFetch<{ code: number; msg: string; data: UserLoginVO }>(
+    return useHttp<{ code: number; msg: string; data: UserLoginVO }>(
       "/auth/login",
       {
-        baseURL: apiBase,
         method: "POST",
         body: data,
         timeout: 5000,
@@ -18,10 +15,9 @@ export const useAuthApi = () => {
   };
 
   const loginByCode = async (data: any) => {
-    return useFetch<{ code: number; msg: string; data: UserLoginVO }>(
+    return useHttp<{ code: number; msg: string; data: UserLoginVO }>(
       "/auth/login/code",
       {
-        baseURL: apiBase,
         method: "POST",
         body: data,
         timeout: 5000,
@@ -31,10 +27,9 @@ export const useAuthApi = () => {
   };
 
   const register = async (data: any) => {
-    return useFetch<{ code: number; msg: string; data: number }>(
+    return useHttp<{ code: number; msg: string; data: number }>(
       "/auth/register",
       {
-        baseURL: apiBase,
         method: "POST",
         body: data,
         timeout: 5000,
@@ -44,8 +39,7 @@ export const useAuthApi = () => {
   };
 
   const sendCode = async (email: string) => {
-    return useFetch<{ code: number; msg: string }>("/auth/send-code", {
-      baseURL: apiBase,
+    return useHttp<{ code: number; msg: string }>("/auth/send-code", {
       method: "POST",
       params: { email },
       timeout: 5000,
@@ -54,10 +48,9 @@ export const useAuthApi = () => {
   };
 
   const checkEmail = async (email: string) => {
-    return useFetch<{ code: number; msg: string; data: boolean }>(
+    return useHttp<{ code: number; msg: string; data: boolean }>(
       "/auth/check-email",
       {
-        baseURL: apiBase,
         method: "GET",
         params: { email },
         timeout: 5000,
