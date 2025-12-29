@@ -4,31 +4,35 @@ import { API_PREFIX } from "./constants";
 
 export const useAuthApi = () => {
   const login = async (data: any) => {
-    return useHttp<{ code: number; msg: string; data: UserLoginVO }>(
-      `${API_PREFIX.USER}/auth/login`,
-      {
-        method: "POST",
-        body: data,
-        timeout: 5000,
-        retry: 0,
-      }
-    );
+    return useHttp<{
+      code: number;
+      msg: string;
+      tips: string;
+      data: UserLoginVO;
+    }>(`${API_PREFIX.USER}/auth/login`, {
+      method: "POST",
+      body: data,
+      timeout: 5000,
+      retry: 0,
+    });
   };
 
   const loginByCode = async (data: any) => {
-    return useHttp<{ code: number; msg: string; data: UserLoginVO }>(
-      `${API_PREFIX.USER}/auth/login/code`,
-      {
-        method: "POST",
-        body: data,
-        timeout: 5000,
-        retry: 0,
-      }
-    );
+    return useHttp<{
+      code: number;
+      msg: string;
+      tips: string;
+      data: UserLoginVO;
+    }>(`${API_PREFIX.USER}/auth/login/code`, {
+      method: "POST",
+      body: data,
+      timeout: 5000,
+      retry: 0,
+    });
   };
 
   const register = async (data: any) => {
-    return useHttp<{ code: number; msg: string; data: number }>(
+    return useHttp<{ code: number; msg: string; tips: string; data: number }>(
       `${API_PREFIX.USER}/auth/register`,
       {
         method: "POST",
@@ -40,7 +44,7 @@ export const useAuthApi = () => {
   };
 
   const sendCode = async (email: string) => {
-    return useHttp<{ code: number; msg: string }>(
+    return useHttp<{ code: number; msg: string; tips: string }>(
       `${API_PREFIX.USER}/auth/send-code`,
       {
         method: "POST",
@@ -52,7 +56,7 @@ export const useAuthApi = () => {
   };
 
   const checkEmail = async (email: string) => {
-    return useHttp<{ code: number; msg: string; data: boolean }>(
+    return useHttp<{ code: number; msg: string; tips: string; data: boolean }>(
       `${API_PREFIX.USER}/auth/check-email`,
       {
         method: "GET",

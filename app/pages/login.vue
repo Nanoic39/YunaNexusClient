@@ -143,7 +143,7 @@ async function handleRegisterSendCode() {
     }
 
     if (data.value?.code !== 200) {
-      throw new Error(data.value?.msg || "发送失败");
+      throw new Error(data.value?.tips || "发送失败");
     }
 
     message.success("验证码已发送，请查收");
@@ -157,7 +157,8 @@ async function handleRegisterSendCode() {
       }
     }, 1000);
   } catch (err: any) {
-    errorMessage.value = "发送验证码失败: " + err.message;
+    errorMessage.value =
+      "发送验证码失败: " + (err.message || err.tips || "未知错误");
   } finally {
     loading.value = false;
   }
@@ -183,17 +184,14 @@ async function handleLogin() {
     }
 
     if (data.value?.code !== 200) {
-      throw new Error(data.value?.msg || "登录失败");
+      throw new Error(data.value?.tips || "登录失败");
     }
 
     const userData = data.value.data;
 
     // Update user state
     login({
-      id: userData.id,
-      username: userData.username,
-      email: userData.email,
-      token: userData.token,
+      ...userData,
       isLoggedIn: true,
     });
 
@@ -201,12 +199,7 @@ async function handleLogin() {
     router.push("/");
   } catch (errors: any) {
     logger.error("Login Failed", errors);
-    // 如果是后端抛出的超长技术错误，显示友好提示
-    if (errors.message && errors.message.includes("Exception")) {
-        errorMessage.value = "系统繁忙，请稍后重试";
-    } else {
-        errorMessage.value = errors.message || "登录失败";
-    }
+    errorMessage.value = errors.message || errors.tips || "登录失败";
   } finally {
     loading.value = false;
   }
@@ -237,7 +230,7 @@ async function handleSendCode() {
     }
 
     if (data.value?.code !== 200) {
-      throw new Error(data.value?.msg || "发送失败");
+      throw new Error(data.value?.tips || "发送失败");
     }
 
     message.success("验证码已发送，请查收");
@@ -251,7 +244,8 @@ async function handleSendCode() {
       }
     }, 1000);
   } catch (err: any) {
-    errorMessage.value = "发送验证码失败: " + err.message;
+    errorMessage.value =
+      "发送验证码失败: " + (err.message || err.tips || "未知错误");
   } finally {
     loading.value = false;
   }
@@ -309,16 +303,13 @@ async function handleAutoRegister() {
     }
 
     if (data.value?.code !== 200) {
-      throw new Error(data.value?.msg || "注册并登录失败");
+      throw new Error(data.value?.tips || "注册并登录失败");
     }
 
     const userData = data.value.data;
 
     login({
-      id: userData.id,
-      username: userData.username,
-      email: userData.email,
-      token: userData.token,
+      ...userData,
       isLoggedIn: true,
     });
 
@@ -327,11 +318,7 @@ async function handleAutoRegister() {
     router.push("/");
   } catch (errors: any) {
     logger.error("Auto Register Failed", errors);
-    if (errors.message && errors.message.includes("Exception")) {
-        errorMessage.value = "系统繁忙，请稍后重试";
-    } else {
-        errorMessage.value = errors.message || "注册失败";
-    }
+    errorMessage.value = errors.message || errors.tips || "注册失败";
   } finally {
     loading.value = false;
   }
@@ -376,24 +363,21 @@ async function handleEmailLogin() {
     }
 
     if (data.value?.code !== 200) {
-      throw new Error(data.value?.msg || "登录失败");
+      throw new Error(data.value?.tips || "登录失败");
     }
 
     const userData = data.value.data;
 
     login({
-      id: userData.id,
-      username: userData.username,
-      email: userData.email,
-      token: userData.token,
+      ...userData,
       isLoggedIn: true,
     });
 
     message.success("登录成功");
     router.push("/");
   } catch (errors: any) {
-    console.error(errors);
-    errorMessage.value = errors.message || "登录失败";
+    logger.error("Email Login Failed", errors);
+    errorMessage.value = errors.message || errors.tips || "登录失败";
   } finally {
     // Only reset loading if not showing modal (modal handling has its own loading state management)
     if (!showAutoRegisterModal.value) {
@@ -421,14 +405,14 @@ async function handleRegister() {
     }
 
     if (data.value?.code !== 200) {
-      throw new Error(data.value?.msg || "注册失败");
+      throw new Error(data.value?.tips || "注册失败");
     }
 
     message.success("注册成功，请登录");
     activeTab.value = "login";
   } catch (errors: any) {
-    console.error(errors);
-    errorMessage.value = errors.message || "注册失败";
+    logger.error("Register Failed", errors);
+    errorMessage.value = errors.message || errors.tips || "注册失败";
   } finally {
     loading.value = false;
   }

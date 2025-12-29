@@ -421,7 +421,7 @@ function getPageTitle(path: string): string {
                       :size="32"
                       :src="
                         userProfile.isLoggedIn
-                          ? userProfile.avatar || DefaultAvatar
+                          ? userProfile.userInfo?.avatar || DefaultAvatar
                           : 'https://osu.ppy.sh/images/layout/avatar-guest.png'
                       "
                       :fallback-src="DefaultAvatar"
@@ -434,7 +434,8 @@ function getPageTitle(path: string): string {
                         class="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--color-primary)] transition-colors leading-none mb-0.5"
                         >{{
                           userProfile.isLoggedIn
-                            ? userProfile.username
+                            ? userProfile.userInfo?.nickname ||
+                              userProfile.username
                             : "Guest"
                         }}</span
                       >
@@ -444,14 +445,7 @@ function getPageTitle(path: string): string {
                         <template v-if="!userProfile.isLoggedIn"
                           >Visitor</template
                         >
-                        <template v-else>
-                          {{
-                            Array.isArray(userProfile.roles) &&
-                            userProfile.roles.length > 0
-                              ? userProfile.roles[0]
-                              : userProfile.role || "Member"
-                          }}
-                        </template>
+                        <template v-else> Member </template>
                       </span>
                     </div>
                     <Icon
@@ -471,32 +465,19 @@ function getPageTitle(path: string): string {
                     >
                       <n-avatar
                         :size="56"
-                        :src="userProfile.avatar || DefaultAvatar"
+                        :src="userProfile.userInfo?.avatar || DefaultAvatar"
                         :fallback-src="DefaultAvatar"
                         class="!rounded-2xl ring-2 ring-[var(--color-primary)]/20"
                       />
                       <div class="flex flex-col overflow-hidden">
                         <span
                           class="font-bold text-lg text-[var(--text-main)] truncate"
-                          >{{ userProfile.username }}</span
+                          >{{
+                            userProfile.userInfo?.nickname ||
+                            userProfile.username
+                          }}</span
                         >
                       </div>
-                    </div>
-
-                    <!-- Badges -->
-                    <div
-                      class="flex flex-wrap gap-2 mb-4"
-                      v-if="userProfile.roles && userProfile.roles.length"
-                    >
-                      <n-tag
-                        v-for="role in userProfile.roles"
-                        :key="role"
-                        size="small"
-                        :bordered="false"
-                        class="bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-medium rounded-lg"
-                      >
-                        {{ role }}
-                      </n-tag>
                     </div>
 
                     <!-- Actions -->

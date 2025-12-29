@@ -24,7 +24,7 @@ const userProfile = computed(() => user.value);
       <div class="flex flex-col md:flex-row items-center gap-6 relative z-10">
         <n-avatar
           :size="100"
-          :src="userProfile.avatar || DefaultAvatar"
+          :src="userProfile.userInfo?.avatar || DefaultAvatar"
           :fallback-src="DefaultAvatar"
           class="!rounded-3xl ring-4 ring-[var(--color-primary)]/20 shadow-xl"
         />
@@ -32,19 +32,18 @@ const userProfile = computed(() => user.value);
           class="flex flex-col items-center md:items-start text-center md:text-left"
         >
           <h1 class="text-3xl font-bold text-[var(--text-main)] mb-2">
-            {{ userProfile.username }}
+            {{ userProfile.userInfo?.nickname || userProfile.username }}
           </h1>
           <p class="text-[var(--text-secondary)] mb-4 max-w-lg">
-            {{ userProfile.bio || "这个人很懒，什么都没有写..." }}
+            {{
+              userProfile.userInfo?.biography || "这个人很懒，什么都没有写..."
+            }}
           </p>
           <div class="flex flex-wrap justify-center md:justify-start gap-2">
-            <n-tag
-              v-for="role in userProfile.roles"
-              :key="role"
-              :bordered="false"
-              class="bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-medium rounded-lg"
-            >
-              {{ role }}
+            <!-- 经验值/等级展示可以放这里 -->
+            <n-tag :bordered="false" type="info">
+              Level
+              {{ Math.floor((userProfile.userInfo?.experience || 0) / 100) }}
             </n-tag>
           </div>
         </div>
@@ -66,9 +65,17 @@ const userProfile = computed(() => user.value);
           <div
             class="flex items-center justify-between py-2 border-b border-[var(--border-color)] last:border-0"
           >
-            <span class="text-[var(--text-secondary)]">用户 ID</span>
-            <span class="text-[var(--text-main)] font-mono">{{
-              userProfile.id
+            <span class="text-[var(--text-secondary)]">用户 UUID</span>
+            <span class="text-[var(--text-main)] font-mono text-xs">{{
+              userProfile.uuid
+            }}</span>
+          </div>
+          <div
+            class="flex items-center justify-between py-2 border-b border-[var(--border-color)] last:border-0"
+          >
+            <span class="text-[var(--text-secondary)]">用户名</span>
+            <span class="text-[var(--text-main)]">{{
+              userProfile.username
             }}</span>
           </div>
           <div
@@ -82,11 +89,9 @@ const userProfile = computed(() => user.value);
           <div
             class="flex items-center justify-between py-2 border-b border-[var(--border-color)] last:border-0"
           >
-            <span class="text-[var(--text-secondary)]">注册时间</span>
+            <span class="text-[var(--text-secondary)]">性别</span>
             <span class="text-[var(--text-main)]">{{
-              userProfile.createTime
-                ? new Date(userProfile.createTime).toLocaleDateString()
-                : "未知"
+              userProfile.userInfo?.gender || "未知"
             }}</span>
           </div>
         </div>
