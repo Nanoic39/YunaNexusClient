@@ -1,10 +1,11 @@
 import type { UserLoginVO } from "~/types/auth";
 import { useHttp } from "~/composables/useHttp";
+import { API_PREFIX } from "./constants";
 
 export const useAuthApi = () => {
   const login = async (data: any) => {
     return useHttp<{ code: number; msg: string; data: UserLoginVO }>(
-      "/auth/login",
+      `${API_PREFIX.USER}/auth/login`,
       {
         method: "POST",
         body: data,
@@ -16,7 +17,7 @@ export const useAuthApi = () => {
 
   const loginByCode = async (data: any) => {
     return useHttp<{ code: number; msg: string; data: UserLoginVO }>(
-      "/auth/login/code",
+      `${API_PREFIX.USER}/auth/login/code`,
       {
         method: "POST",
         body: data,
@@ -28,7 +29,7 @@ export const useAuthApi = () => {
 
   const register = async (data: any) => {
     return useHttp<{ code: number; msg: string; data: number }>(
-      "/auth/register",
+      `${API_PREFIX.USER}/auth/register`,
       {
         method: "POST",
         body: data,
@@ -39,17 +40,20 @@ export const useAuthApi = () => {
   };
 
   const sendCode = async (email: string) => {
-    return useHttp<{ code: number; msg: string }>("/auth/send-code", {
-      method: "POST",
-      params: { email },
-      timeout: 5000,
-      retry: 0,
-    });
+    return useHttp<{ code: number; msg: string }>(
+      `${API_PREFIX.USER}/auth/send-code`,
+      {
+        method: "POST",
+        params: { email },
+        timeout: 5000,
+        retry: 0,
+      }
+    );
   };
 
   const checkEmail = async (email: string) => {
     return useHttp<{ code: number; msg: string; data: boolean }>(
-      "/auth/check-email",
+      `${API_PREFIX.USER}/auth/check-email`,
       {
         method: "GET",
         params: { email },
