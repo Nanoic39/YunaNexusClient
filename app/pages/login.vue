@@ -5,6 +5,7 @@ import { useMessage } from "naive-ui";
 import { Icon } from "#components";
 import { useUser } from "~/composables/useUser";
 import { useAuthApi } from "~/composables/api/useAuthApi";
+import { logger } from "~/utils/logger";
 
 // Assets
 import LogoSquare from "~/assets/images/logo/logo_square.svg";
@@ -199,8 +200,13 @@ async function handleLogin() {
     message.success("登录成功，欢迎回来！");
     router.push("/");
   } catch (errors: any) {
-    console.error(errors);
-    errorMessage.value = errors.message || "登录失败";
+    logger.error("Login Failed", errors);
+    // 如果是后端抛出的超长技术错误，显示友好提示
+    if (errors.message && errors.message.includes("Exception")) {
+        errorMessage.value = "系统繁忙，请稍后重试";
+    } else {
+        errorMessage.value = errors.message || "登录失败";
+    }
   } finally {
     loading.value = false;
   }
@@ -320,8 +326,12 @@ async function handleAutoRegister() {
     showAutoRegisterModal.value = false;
     router.push("/");
   } catch (errors: any) {
-    console.error(errors);
-    errorMessage.value = errors.message || "注册失败";
+    logger.error("Auto Register Failed", errors);
+    if (errors.message && errors.message.includes("Exception")) {
+        errorMessage.value = "系统繁忙，请稍后重试";
+    } else {
+        errorMessage.value = errors.message || "注册失败";
+    }
   } finally {
     loading.value = false;
   }
