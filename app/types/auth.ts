@@ -11,5 +11,15 @@ export interface UserLoginVO {
   username: string;
   email: string;
   token: string;
+  refreshToken: string;
   userInfo: UserInfoVO;
+}
+
+export interface UserUpdateDTO {
+  nickname?: string;
+  gender?: number;
+  biography?: string;
+  avatar?: string;
+  birthday?: Date;
+  
 }

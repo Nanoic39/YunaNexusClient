@@ -1,6 +1,7 @@
 export const STORAGE_PREFIX = "yuna_";
 
 export const TokenKey = "token";
+export const RefreshTokenKey = "refresh_token";
 export const UserKey = "user_info";
 
 export const storage = {

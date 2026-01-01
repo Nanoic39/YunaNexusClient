@@ -2,6 +2,7 @@
 import { useUser } from "~/composables/useUser";
 import { useTheme } from "~/composables/useTheme";
 import DefaultAvatar from "~/assets/images/avatar/image.png";
+import { calculateLevelProgress } from "@/utils/level";
 
 definePageMeta({
   layout: "admin-layout",
@@ -13,6 +14,11 @@ const { isDark } = useTheme();
 
 // 简单的用户信息展示，后续可以扩展
 const userProfile = computed(() => user.value);
+
+const levelInfo = computed(() => {
+  const exp = userProfile.value.userInfo?.experience || 0;
+  return calculateLevelProgress(exp);
+});
 </script>
 
 <template>
@@ -39,12 +45,25 @@ const userProfile = computed(() => user.value);
               userProfile.userInfo?.biography || "这个人很懒，什么都没有写..."
             }}
           </p>
-          <div class="flex flex-wrap justify-center md:justify-start gap-2">
-            <!-- 经验值/等级展示可以放这里 -->
-            <n-tag :bordered="false" type="info">
-              Level
-              {{ Math.floor((userProfile.userInfo?.experience || 0) / 100) }}
-            </n-tag>
+          <div class="flex flex-col gap-2 w-full max-w-xs">
+            <div class="flex items-center gap-2">
+              <n-tag :bordered="false" type="info" size="small" class="font-bold">
+                Lv.{{ levelInfo.level }}
+              </n-tag>
+              <span class="text-xs text-[var(--text-secondary)]">
+                {{ levelInfo.currentProgress }} / {{ levelInfo.requiredProgress }} XP
+              </span>
+            </div>
+            <n-progress
+              type="line"
+              :percentage="Number(levelInfo.percentage)"
+              :show-indicator="false"
+              :height="6"
+              :border-radius="4"
+              processing
+              color="var(--color-primary)"
+              rail-color="rgba(128, 128, 128, 0.2)"
+            />
           </div>
         </div>
       </div>

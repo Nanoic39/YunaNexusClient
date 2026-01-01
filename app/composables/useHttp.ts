@@ -1,6 +1,13 @@
-import { storage, TokenKey } from "~/utils/storage";
+import { storage, TokenKey, RefreshTokenKey } from "~/utils/storage";
 import { logger } from "~/utils/logger";
 import { message } from "~/utils/naive";
+import { useAuthApi } from "~/composables/api/useAuthApi";
+import { useUserStore } from "~/stores/user";
+
+// 是否正在刷新 Token
+let isRefreshing = false;
+// 重试队列
+let requests: any[] = [];
 
 export const useHttp = <T>(url: string, options: any = {}) => {
   const config = useRuntimeConfig();
@@ -36,13 +43,55 @@ export const useHttp = <T>(url: string, options: any = {}) => {
       }
     },
     // 处理响应错误 (4xx, 5xx)
-    onResponseError({ response }: any) {
+    async onResponseError({ response, options }: any) {
+      // 处理 401 未授权
       if (response.status === 401) {
-        // 这里不能直接使用 useUser().logout()，因为可能会导致循环引用或上下文问题
-        // 建议在组件层处理，或者使用简单的清理逻辑
-        storage.remove(TokenKey);
-        // 强制跳转
-        window.location.href = "/login";
+        const refreshTokenStr = storage.get(RefreshTokenKey);
+        
+        // 如果有 RefreshToken 且不是在请求刷新接口本身
+        if (refreshTokenStr && !url.includes('/auth/refresh')) {
+          if (!isRefreshing) {
+            isRefreshing = true;
+            try {
+              // 调用刷新接口
+              const { refreshToken } = useAuthApi();
+              const { data, error } = await refreshToken(refreshTokenStr);
+              
+              if (data.value && data.value.code === 200) {
+                 // 刷新成功，更新 Token
+                 const userStore = useUserStore();
+                 userStore.login(data.value.data);
+                 
+                 // TODO: 重试队列中的请求
+                 requests.forEach((cb) => cb(data.value?.data.token));
+                 requests = [];
+                 
+                 // 刷新当前请求的 Token 并重试 (Nuxt useFetch 内部机制较难直接重试，这里通常建议刷新页面或提示用户)
+                 // 由于 useFetch 是基于响应式的，这里直接修改 options.headers 并不能触发重试。
+                 // 实际业务中，对于重要操作可能需要封装更复杂的 fetch client。
+                 // 简单做法：刷新成功后，让用户手动重试或跳转
+                 // message.success('会话已自动续期');
+                 return; 
+              } else {
+                 throw new Error("刷新失败");
+              }
+            } catch (e) {
+               // 刷新失败，强制退出
+               storage.remove(TokenKey);
+               storage.remove(RefreshTokenKey);
+               window.location.href = "/login";
+            } finally {
+              isRefreshing = false;
+            }
+          } else {
+             // 正在刷新，将请求加入队列 (简化处理，暂时忽略)
+          }
+        } else {
+            // 没有 RefreshToken 或 刷新接口本身报错，直接退出
+            storage.remove(TokenKey);
+            storage.remove(RefreshTokenKey);
+            window.location.href = "/login";
+        }
         return;
       }
 

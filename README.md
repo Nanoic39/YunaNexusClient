@@ -1,5 +1,8 @@
 # 【Client】YunaNexusCore - 系统核心模块前端
 
+## 主题
+以HEX6692e1为主色的莫奈色系
+
 ## 选用技术栈
 - Framework : Nuxt (版本 ^4.2.2 )
   - 特性 : 启用了 future: { compatibilityVersion: 4 } ，采用了 Nuxt 4 的目录结构 （源码主要位于 app/ 目录下，而不是根目录）。
