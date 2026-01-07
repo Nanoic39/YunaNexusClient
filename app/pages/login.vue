@@ -132,18 +132,10 @@ async function handleRegisterSendCode() {
 
   loading.value = true;
   try {
-    const { data, error } = await apiSendCode(registerModel.email);
+    const data = await apiSendCode(registerModel.email);
 
-    if (error.value) {
-      const status = error.value.statusCode;
-      if (status === 504 || error.value.message?.includes("timeout")) {
-        throw new Error("请求超时，请检查网络或稍后重试");
-      }
-      throw new Error("网络请求失败或服务不可用");
-    }
-
-    if (data.value?.code !== 200) {
-      throw new Error(data.value?.tips || "发送失败");
+    if (data.code !== 200) {
+      throw new Error(data.tips || "发送失败");
     }
 
     message.success("验证码已发送，请查收");
@@ -170,24 +162,16 @@ async function handleLogin() {
   try {
     await loginFormRef.value?.validate();
 
-    const { data, error } = await apiLogin({
+    const data = await apiLogin({
       account: loginModel.username,
       password: loginModel.password,
     });
 
-    if (error.value) {
-      const status = error.value.statusCode;
-      if (status === 504 || error.value.message?.includes("timeout")) {
-        throw new Error("请求超时，请检查网络或稍后重试");
-      }
-      throw new Error("网络请求失败或服务不可用");
+    if (data.code !== 200) {
+      throw new Error(data.tips || "登录失败");
     }
 
-    if (data.value?.code !== 200) {
-      throw new Error(data.value?.tips || "登录失败");
-    }
-
-    const userData = data.value.data;
+    const userData = data.data;
 
     // Update user state
     login({
@@ -219,18 +203,10 @@ async function handleSendCode() {
 
   loading.value = true;
   try {
-    const { data, error } = await apiSendCode(emailLoginModel.email);
+    const data = await apiSendCode(emailLoginModel.email);
 
-    if (error.value) {
-      const status = error.value.statusCode;
-      if (status === 504 || error.value.message?.includes("timeout")) {
-        throw new Error("请求超时，请检查网络或稍后重试");
-      }
-      throw new Error("网络请求失败或服务不可用");
-    }
-
-    if (data.value?.code !== 200) {
-      throw new Error(data.value?.tips || "发送失败");
+    if (data.code !== 200) {
+      throw new Error(data.tips || "发送失败");
     }
 
     message.success("验证码已发送，请查收");
@@ -289,7 +265,7 @@ async function handleAutoRegister() {
   try {
     await autoRegisterFormRef.value?.validate();
 
-    const { data, error } = await apiLoginByCode({
+    const data = await apiLoginByCode({
       email: emailLoginModel.email,
       code: emailLoginModel.code,
       username: autoRegisterModel.username,
@@ -298,15 +274,11 @@ async function handleAutoRegister() {
       gender: autoRegisterModel.gender,
     });
 
-    if (error.value) {
-      throw new Error(error.value.message || "注册并登录失败");
+    if (data.code !== 200) {
+      throw new Error(data.tips || "注册并登录失败");
     }
 
-    if (data.value?.code !== 200) {
-      throw new Error(data.value?.tips || "注册并登录失败");
-    }
-
-    const userData = data.value.data;
+    const userData = data.data;
 
     login({
       ...userData,
@@ -331,15 +303,10 @@ async function handleEmailLogin() {
     await emailLoginFormRef.value?.validate();
 
     // Check if email exists
-    const { data: checkData, error: checkError } = await apiCheckEmail(
-      emailLoginModel.email
-    );
+    const checkData = await apiCheckEmail(emailLoginModel.email);
 
-    if (checkError.value) {
-      throw new Error("检查邮箱失败，请稍后重试");
-    }
-
-    const isEmailRegistered = checkData.value?.data;
+    // No explicit error check needed as useHttp handles it or throws
+    const isEmailRegistered = checkData.data;
 
     if (!isEmailRegistered) {
       // Show modal to set username and password
@@ -349,24 +316,16 @@ async function handleEmailLogin() {
     }
 
     // Standard Login
-    const { data, error } = await apiLoginByCode({
+    const data = await apiLoginByCode({
       email: emailLoginModel.email,
       code: emailLoginModel.code,
     });
 
-    if (error.value) {
-      const status = error.value.statusCode;
-      if (status === 504 || error.value.message?.includes("timeout")) {
-        throw new Error("请求超时，请检查网络或稍后重试");
-      }
-      throw new Error("网络请求失败或服务不可用");
+    if (data.code !== 200) {
+      throw new Error(data.tips || "登录失败");
     }
 
-    if (data.value?.code !== 200) {
-      throw new Error(data.value?.tips || "登录失败");
-    }
-
-    const userData = data.value.data;
+    const userData = data.data;
 
     login({
       ...userData,
@@ -391,7 +350,7 @@ async function handleRegister() {
   try {
     await registerFormRef.value?.validate();
 
-    const { data, error } = await apiRegister({
+    const data = await apiRegister({
       username: registerModel.username,
       email: registerModel.email,
       verifyCode: registerModel.code,
@@ -400,12 +359,8 @@ async function handleRegister() {
       gender: registerModel.gender,
     });
 
-    if (error.value) {
-      throw new Error(error.value.message || "注册失败");
-    }
-
-    if (data.value?.code !== 200) {
-      throw new Error(data.value?.tips || "注册失败");
+    if (data.code !== 200) {
+      throw new Error(data.tips || "注册失败");
     }
 
     message.success("注册成功，请登录");

@@ -4,19 +4,29 @@ import { message } from "~/utils/naive";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useUserStore } from "~/stores/user";
 
-// 是否正在刷新 Token
-let isRefreshing = false;
-// 重试队列
-let requests: any[] = [];
+// 是否正在刷新 Token (Promise 锁)
+let isRefreshing: Promise<any> | null = null;
+let fetcher: any;
 
-export const useHttp = <T>(url: string, options: any = {}) => {
+const SUCCESS_CODE = [200];
+
+export const useHttp = <T>(url: string, options: any = {}): Promise<T> => {
   const config = useRuntimeConfig();
   const apiBase = config.public.apiBase;
 
-  const defaults = {
+  fetcher = $fetch.create({
     baseURL: apiBase,
     // 自动为请求添加 Token
-    onRequest({ options }: any) {
+    async onRequest({ options }: any) {
+      // 如果正在刷新 Token，等待刷新完成
+      if (isRefreshing) {
+        try {
+          await isRefreshing;
+        } catch (e) {
+          // 刷新失败，不需要处理，后续逻辑会处理 Token 缺失
+        }
+      }
+
       const token = storage.get(TokenKey);
       if (token) {
         options.headers = options.headers || {};
@@ -26,97 +36,106 @@ export const useHttp = <T>(url: string, options: any = {}) => {
     // 处理响应
     onResponse({ response }: any) {
       const res = response._data;
-      // 如果 code 不为 200，视为业务错误
-      if (res && res.code && res.code !== 200) {
-        // 记录 msg 到 logger
-        logger.error('API Error', {
-            url,
-            code: res.code,
-            msg: res.msg,
-            tips: res.tips
+      // 如果 code 不在 SUCCESS_CODE 中存在 ，视为业务错误 (根据后端约定)
+      // 这里只记录日志，不抛出错误，以便业务层处理 data.code
+      if (res && res.code && !SUCCESS_CODE.includes(res.code)) {
+        logger.error("API Error", {
+          url,
+          code: res.code,
+          msg: res.msg,
+          tips: res.tips,
         });
-        
-        // 显示 tips 给用户
-        if (process.client && res.tips) {
-            message.error(res.tips);
-        }
       }
     },
     // 处理响应错误 (4xx, 5xx)
-    async onResponseError({ response, options }: any) {
+    async onResponseError({ response, options, request }: any) {
       // 处理 401 未授权
       if (response.status === 401) {
         const refreshTokenStr = storage.get(RefreshTokenKey);
-        
+
         // 如果有 RefreshToken 且不是在请求刷新接口本身
-        if (refreshTokenStr && !url.includes('/auth/refresh')) {
+        if (refreshTokenStr && !url.includes("/auth/refresh")) {
+          // 如果没有正在刷新，开启刷新任务
           if (!isRefreshing) {
-            isRefreshing = true;
-            try {
-              // 调用刷新接口
-              const { refreshToken } = useAuthApi();
-              const { data, error } = await refreshToken(refreshTokenStr);
-              
-              if (data.value && data.value.code === 200) {
-                 // 刷新成功，更新 Token
-                 const userStore = useUserStore();
-                 userStore.login(data.value.data);
-                 
-                 // TODO: 重试队列中的请求
-                 requests.forEach((cb) => cb(data.value?.data.token));
-                 requests = [];
-                 
-                 // 刷新当前请求的 Token 并重试 (Nuxt useFetch 内部机制较难直接重试，这里通常建议刷新页面或提示用户)
-                 // 由于 useFetch 是基于响应式的，这里直接修改 options.headers 并不能触发重试。
-                 // 实际业务中，对于重要操作可能需要封装更复杂的 fetch client。
-                 // 简单做法：刷新成功后，让用户手动重试或跳转
-                 // message.success('会话已自动续期');
-                 return; 
-              } else {
-                 throw new Error("刷新失败");
+            isRefreshing = new Promise(async (resolve, reject) => {
+              try {
+                const refreshRes: any = await $fetch(
+                  `${apiBase}/auth/refresh`,
+                  {
+                    method: "POST",
+                    params: { refreshToken: refreshTokenStr },
+                  }
+                );
+
+                if (refreshRes && refreshRes.code === 200) {
+                  // 刷新成功，更新 Token
+                  const userStore = useUserStore();
+                  userStore.login(refreshRes.data);
+                  resolve(refreshRes.data.token);
+                } else {
+                  reject(new Error("刷新失败"));
+                }
+              } catch (e) {
+                reject(e);
               }
-            } catch (e) {
-               // 刷新失败，强制退出
-               storage.remove(TokenKey);
-               storage.remove(RefreshTokenKey);
-               window.location.href = "/login";
-            } finally {
-              isRefreshing = false;
-            }
-          } else {
-             // 正在刷新，将请求加入队列 (简化处理，暂时忽略)
+            });
           }
-        } else {
-            // 没有 RefreshToken 或 刷新接口本身报错，直接退出
+
+          try {
+            await isRefreshing;
+            // 刷新成功后，重试原请求
+            // 更新 Authorization 头
+            const newToken = storage.get(TokenKey);
+            options.headers = options.headers || {};
+            options.headers.Authorization = `Bearer ${newToken}`;
+
+            // 递归调用 fetcher 进行重试，onResponseError 中返回响应会作为最终结果
+            return fetcher(request as string, options as any);
+          } catch (e) {
+            // 刷新失败，强制退出
             storage.remove(TokenKey);
             storage.remove(RefreshTokenKey);
+            isRefreshing = null;
+            if (process.client) {
+              window.location.href = "/login";
+            }
+            throw e; // 继续抛出错误
+          } finally {
+            // 刷新完成，重置锁
+            isRefreshing = null;
+          }
+        } else {
+          // 没有 RefreshToken 或 刷新接口本身报错，直接退出
+          storage.remove(TokenKey);
+          storage.remove(RefreshTokenKey);
+          if (process.client) {
             window.location.href = "/login";
+          }
         }
         return;
       }
 
       // 记录错误
-      logger.error('HTTP Error', {
-          url,
-          status: response.status,
-          statusText: response.statusText,
-          data: response._data
+      logger.error("HTTP Error", {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        data: response._data,
       });
 
       // 显示固定错误信息
       if (process.client) {
-          message.error('网络请求失败或服务不可用');
+        message.error("网络请求失败或服务不可用");
       }
     },
     // 处理请求错误 (网络超时, DNS等)
     onRequestError({ error }: any) {
-        logger.error('Request Error', error);
-        if (process.client) {
-            message.error('请求超时，请检查网络或稍后重试');
-        }
-    }
-  };
+      logger.error("Request Error", error);
+      if (process.client) {
+        message.error("请求超时，请检查网络或稍后重试");
+      }
+    },
+  });
 
-  // 合并选项，options 优先级更高
-  return useFetch<T>(url, { ...defaults, ...options });
+  return fetcher(url, { ...options });
 };
