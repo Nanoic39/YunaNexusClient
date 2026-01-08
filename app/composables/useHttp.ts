@@ -3,6 +3,7 @@ import { logger } from "~/utils/logger";
 import { message } from "~/utils/naive";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useUserStore } from "~/stores/user";
+import { API_PREFIX } from "~/composables/api/constants";
 
 // 是否正在刷新 Token (Promise 锁)
 let isRefreshing: Promise<any> | null = null;
@@ -59,10 +60,10 @@ export const useHttp = <T>(url: string, options: any = {}): Promise<T> => {
           if (!isRefreshing) {
             isRefreshing = new Promise(async (resolve, reject) => {
               try {
-                const refreshRes: any = await $fetch(
-                  `${apiBase}/auth/refresh`,
+                const refreshRes: any = await fetcher(
+                  `${API_PREFIX.USER}/auth/refresh`,
                   {
-                    method: "POST",
+                    method: "GET",
                     params: { refreshToken: refreshTokenStr },
                   }
                 );

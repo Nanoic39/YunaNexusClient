@@ -4,9 +4,11 @@ import { useTheme } from "~/composables/useTheme";
 import DefaultAvatar from "~/assets/images/avatar/image.png";
 import { calculateLevelProgress } from "@/utils/level";
 import { useProfileApi } from "~/composables/api/useProfileApi";
+import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useUserStore } from "~/stores/user";
 import { storage, TokenKey, RefreshTokenKey } from "~/utils/storage";
 import AvatarEditor from "./AvatarEditor.vue";
+import { onMounted } from "vue";
 
 definePageMeta({
   layout: "admin-layout",
@@ -28,6 +30,18 @@ const showAvatarEditor = ref(false);
 const uploading = ref(false);
 const { uploadAvatar } = useProfileApi();
 const userStore = useUserStore();
+const { validToken } = useAuthApi();
+onMounted(async () => {
+  const token = storage.get(TokenKey) as any;
+  if (token) {
+    try {
+      await validToken(token);
+    } catch {}
+  } else {
+    userStore.logout();
+    navigateTo("/login");
+  }
+});
 
 function openAvatarEditor() {
   showAvatarEditor.value = true;
@@ -38,8 +52,11 @@ async function handleAvatarSaved(blob: Blob) {
   try {
     const res = await uploadAvatar(blob);
     if (res.code === 200 && res.data?.avatarUrl) {
-      const current: any = userStore.user.value;
-      const updated = { ...current, userInfo: { ...(current?.userInfo || {}), avatar: res.data.avatarUrl } };
+      const baseline: any = (storage.get(UserKey) as any) || (userStore.user.value as any) || {};
+      const updated = {
+        ...baseline,
+        userInfo: { ...(baseline.userInfo || {}), avatar: res.data.avatarUrl },
+      };
       userStore.login({
         ...updated,
         token: storage.get(TokenKey) as any,
@@ -64,19 +81,17 @@ async function handleAvatarSaved(blob: Blob) {
           :size="100"
           :src="userProfile.userInfo?.avatar || DefaultAvatar"
           :fallback-src="DefaultAvatar"
-          class="!rounded-3xl ring-4 ring-[var(--color-primary)]/20 shadow-xl"
+          :round="false"
+          class="rounded-2xl ring-4 ring-[var(--color-primary)]/20 shadow-xl cursor-pointer"
+          @click="openAvatarEditor"
         />
-        <div class="mt-3">
-          <n-button type="primary" size="small" @click="openAvatarEditor">编辑头像</n-button>
-        </div>
+
         <n-modal v-model:show="showAvatarEditor">
-          <div class="p-2">
-            <AvatarEditor
-              :initial-src="userProfile.userInfo?.avatar || DefaultAvatar"
-              @save="handleAvatarSaved"
-              @cancel="showAvatarEditor=false"
-            />
-          </div>
+          <AvatarEditor
+            :initial-src="userProfile.userInfo?.avatar || DefaultAvatar"
+            @save="handleAvatarSaved"
+            @cancel="showAvatarEditor=false"
+          />
         </n-modal>
         <div
           class="flex flex-col items-center md:items-start text-center md:text-left"

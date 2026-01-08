@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { RefreshTokenKey, storage, TokenKey, UserKey } from "~/utils/storage";
-import { useHttp } from "~/composables/useHttp";
-import { API_PREFIX } from "~/composables/api/constants";
+import { useAuthApi } from "~/composables/api/useAuthApi";
+import { logger } from "~/utils/logger";
 
 export const useUserStore = defineStore("user", () => {
   const user = ref<any>({
@@ -20,56 +20,58 @@ export const useUserStore = defineStore("user", () => {
       const refreshToken = storage.get(RefreshTokenKey);
       const userInfo = storage.get(UserKey);
 
-      console.log("[用户状态] 正在初始化...", {
+      logger.info("[用户状态] 正在初始化...", {
         hasToken: !!token,
         hasRefreshToken: !!refreshToken,
         hasUserInfo: !!userInfo,
       });
 
-       const hasLocalSession =
-         !!userInfo &&
-         (isValidToken(token as any) || isValidToken(refreshToken as any));
+      const hasLocalSession =
+        !!userInfo &&
+        (isEmptyToken(token as any) || isEmptyToken(refreshToken as any));
 
-       if (hasLocalSession) {
-         // 通过后端接口校验 Token 有效性（任一有效即可）
-         let serverValid = false;
-         try {
-           const res = await useHttp<{ code: number }>(
-             `${API_PREFIX.USER}/auth/validate`,
-             { method: "GET", retry: 0, timeout: 4000 }
-           );
-           serverValid = res.code === 200;
-         } catch (e) {
-           serverValid = false;
-         }
-
-         if (serverValid) {
-           user.value = { ...userInfo, isLoggedIn: true };
-           console.log("[用户状态] 服务器校验通过，状态恢复成功");
-         } else {
-           console.log("[用户状态] 服务器校验失败，执行登出");
-           logout();
-         }
-       } else {
-         console.log(
-           "[用户状态] 本地存储无有效会话，Token 与 RefreshToken 均无效或缺失"
-         );
-         if (token || refreshToken || userInfo) {
-           logout();
-         }
-       }
+      if (hasLocalSession) {
+        const { refreshToken: apiRefreshToken, validToken: apiValidToken } =
+          useAuthApi();
+        // 先验证 Token 是否有效，失败则尝试刷新
+        const validRes = await apiValidToken(token as string);
+        if (validRes.code !== 200) {
+          try {
+            const refreshRes = await apiRefreshToken(refreshToken as string);
+            if (refreshRes && refreshRes.code === 200 && refreshRes.data) {
+              logger.info("[用户状态] 成功", "服务器校验通过，状态恢复成功");
+              login(refreshRes.data);
+            } else {
+              logger.error("[用户状态] 所有token刷新失败，执行登出", null);
+              logout();
+              return;
+            }
+          } catch (e) {
+            logger.error("[用户状态] 刷新异常，执行登出", e);
+            logout();
+            return;
+          }
+        } else {
+          user.value = { ...(userInfo as any), isLoggedIn: true };
+          logger.info("[用户状态] 成功", "校验成功，状态已恢复");
+        }
+      } else {
+        // hasLocalSession 校验失败
+        logger.error("[用户状态] 失败", "本地存储无有效会话，状态恢复失败");
+        logout();
+      }
     } catch (e) {
-      console.error("[用户状态] 状态恢复失败:", e);
+      logger.error("[用户状态] 状态恢复失败:", e);
       logout();
     }
   }
 
   /**
-   * 验证 Token 是否有效
+   * 验证 Token 是否存在
    * @param token 待验证的 Token
-   * @returns 是否有效
+   * @returns 是否存在
    */
-  function isValidToken(token: string): boolean {
+  function isEmptyToken(token: string): boolean {
     return typeof token === "string" && token.length > 0;
   }
 

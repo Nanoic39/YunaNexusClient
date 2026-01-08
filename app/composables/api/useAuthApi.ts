@@ -109,11 +109,28 @@ export const useAuthApi = () => {
       tips: string;
       data: UserLoginVO;
     }>(`${API_PREFIX.USER}/auth/refresh`, {
-      method: "POST",
+      method: "GET",
       params: { refreshToken },
       timeout: 5000,
       retry: 0,
     });
+  };
+
+  /**
+   * 验证 Token 是否有效
+   * @param token 待验证的 Token
+   * @returns 验证结果
+   */
+  const validToken = async (token?: string) => {
+    return useHttp<{ code: number; msg: string; tips: string }>(
+      `${API_PREFIX.USER}/auth/validate`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 5000,
+        retry: 0,
+      }
+    );
   };
 
   return {
@@ -123,5 +140,6 @@ export const useAuthApi = () => {
     sendCode,
     checkEmail,
     refreshToken,
+    validToken,
   };
 };

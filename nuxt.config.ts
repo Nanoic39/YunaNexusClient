@@ -27,12 +27,16 @@ export default defineNuxtConfig({
   },
 
   app: {
-    pageTransition: { name: "page", mode: "out-in" },
-    layoutTransition: { name: "layout", mode: "out-in" },
     head: {
       title: "Yuna Nexus Core",
-      link: [{ rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
+      link: [
+        { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+        { rel: "preconnect", href: "http://localhost:8000", crossorigin: "" },
+        { rel: "dns-prefetch", href: "http://localhost:8000" }
+      ],
     },
+    pageTransition: false,
+    layoutTransition: false,
   },
 
   tailwindcss: {

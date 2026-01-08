@@ -1,18 +1,20 @@
 import { useUser } from "~/composables/useUser";
 import { useUserStore } from "~/stores/user";
-import { useHttp } from "~/composables/useHttp";
-import { API_PREFIX } from "~/composables/api/constants";
+import { useAuthApi } from "~/composables/api/useAuthApi";
+import { storage, TokenKey } from "~/utils/storage";
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  const { isLoggedIn } = useUser();
+  const token = storage.get(TokenKey);
   const userStore = useUserStore();
-
-  if (!isLoggedIn.value) {
-    return navigateTo("/login");
-  }
+  const { validToken } = useAuthApi();
 
   try {
-    const res = await useHttp<{ code: number }>(`${API_PREFIX.USER}/auth/validate`, { method: "GET", retry: 0, timeout: 4000 });
+    if (!token) {
+      userStore.logout();
+      return navigateTo("/login");
+    }
+    const { validToken } = useAuthApi();
+    const res = await validToken(token);
     if (res.code !== 200) {
       userStore.logout();
       return navigateTo("/login");
