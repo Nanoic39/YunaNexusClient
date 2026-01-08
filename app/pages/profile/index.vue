@@ -3,6 +3,10 @@ import { useUser } from "~/composables/useUser";
 import { useTheme } from "~/composables/useTheme";
 import DefaultAvatar from "~/assets/images/avatar/image.png";
 import { calculateLevelProgress } from "@/utils/level";
+import { useProfileApi } from "~/composables/api/useProfileApi";
+import { useUserStore } from "~/stores/user";
+import { storage, TokenKey, RefreshTokenKey } from "~/utils/storage";
+import AvatarEditor from "./AvatarEditor.vue";
 
 definePageMeta({
   layout: "admin-layout",
@@ -19,6 +23,34 @@ const levelInfo = computed(() => {
   const exp = userProfile.value.userInfo?.experience || 0;
   return calculateLevelProgress(exp);
 });
+
+const showAvatarEditor = ref(false);
+const uploading = ref(false);
+const { uploadAvatar } = useProfileApi();
+const userStore = useUserStore();
+
+function openAvatarEditor() {
+  showAvatarEditor.value = true;
+}
+
+async function handleAvatarSaved(blob: Blob) {
+  uploading.value = true;
+  try {
+    const res = await uploadAvatar(blob);
+    if (res.code === 200 && res.data?.avatarUrl) {
+      const current: any = userStore.user.value;
+      const updated = { ...current, userInfo: { ...(current?.userInfo || {}), avatar: res.data.avatarUrl } };
+      userStore.login({
+        ...updated,
+        token: storage.get(TokenKey) as any,
+        refreshToken: storage.get(RefreshTokenKey) as any,
+      });
+      showAvatarEditor.value = false;
+    }
+  } finally {
+    uploading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -34,6 +66,18 @@ const levelInfo = computed(() => {
           :fallback-src="DefaultAvatar"
           class="!rounded-3xl ring-4 ring-[var(--color-primary)]/20 shadow-xl"
         />
+        <div class="mt-3">
+          <n-button type="primary" size="small" @click="openAvatarEditor">编辑头像</n-button>
+        </div>
+        <n-modal v-model:show="showAvatarEditor">
+          <div class="p-2">
+            <AvatarEditor
+              :initial-src="userProfile.userInfo?.avatar || DefaultAvatar"
+              @save="handleAvatarSaved"
+              @cancel="showAvatarEditor=false"
+            />
+          </div>
+        </n-modal>
         <div
           class="flex flex-col items-center md:items-start text-center md:text-left"
         >
@@ -68,10 +112,7 @@ const levelInfo = computed(() => {
         </div>
       </div>
 
-      <!-- 背景装饰 -->
-      <div
-        class="absolute top-0 right-0 w-64 h-64 bg-[var(--color-primary)]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"
-      ></div>
+
     </div>
 
     <!-- 详细信息卡片 -->

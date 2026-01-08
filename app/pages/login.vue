@@ -26,6 +26,28 @@ const {
 } = useAuthApi();
 const activeTab = ref("login");
 const errorMessage = ref("");
+const getSafeErrorMessage = (err: any, fallback: string) => {
+  try {
+    // 过滤掉包含 URL、localhost、IP 地址的错误消息
+    const msg = String((err && err.message) || (err && err.tips) || "");
+    if (!msg) return fallback;
+    if (
+      /https?:\/\//i.test(msg) ||
+      /localhost/i.test(msg) ||
+      /\b\d{1,3}(?:\.\d{1,3}){3}\b/.test(msg)
+    )
+      return fallback;
+    if (
+      /Failed to fetch|timeout|NetworkError|ECONN|ENET|DNS|No response/i.test(
+        msg
+      )
+    )
+      return "网络请求失败或服务不可用";
+    return fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 onMounted(() => {
   // 检查是否已登录，如果已登录则跳转到首页
@@ -150,7 +172,7 @@ async function handleRegisterSendCode() {
     }, 1000);
   } catch (err: any) {
     errorMessage.value =
-      "发送验证码失败: " + (err.message || err.tips || "未知错误");
+      "发送验证码失败: " + getSafeErrorMessage(err, "未知错误");
   } finally {
     loading.value = false;
   }
@@ -183,7 +205,7 @@ async function handleLogin() {
     router.push("/");
   } catch (errors: any) {
     logger.error("Login Failed", errors);
-    errorMessage.value = errors.message || errors.tips || "登录失败";
+    errorMessage.value = getSafeErrorMessage(errors, "登录失败");
   } finally {
     loading.value = false;
   }
@@ -290,7 +312,7 @@ async function handleAutoRegister() {
     router.push("/");
   } catch (errors: any) {
     logger.error("Auto Register Failed", errors);
-    errorMessage.value = errors.message || errors.tips || "注册失败";
+    errorMessage.value = getSafeErrorMessage(errors, "注册失败");
   } finally {
     loading.value = false;
   }
@@ -336,7 +358,7 @@ async function handleEmailLogin() {
     router.push("/");
   } catch (errors: any) {
     logger.error("Email Login Failed", errors);
-    errorMessage.value = errors.message || errors.tips || "登录失败";
+    errorMessage.value = getSafeErrorMessage(errors, "登录失败");
   } finally {
     // Only reset loading if not showing modal (modal handling has its own loading state management)
     if (!showAutoRegisterModal.value) {

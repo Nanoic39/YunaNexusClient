@@ -1,5 +1,7 @@
 import { defineStore } from "pinia";
 import { RefreshTokenKey, storage, TokenKey, UserKey } from "~/utils/storage";
+import { useHttp } from "~/composables/useHttp";
+import { API_PREFIX } from "~/composables/api/constants";
 
 export const useUserStore = defineStore("user", () => {
   const user = ref<any>({
@@ -12,7 +14,7 @@ export const useUserStore = defineStore("user", () => {
    * 初始化用户状态
    * 从本地存储恢复用户会话，验证 Token 有效性
    */
-  function init() {
+  async function init() {
     try {
       const token = storage.get(TokenKey);
       const refreshToken = storage.get(RefreshTokenKey);
@@ -24,17 +26,38 @@ export const useUserStore = defineStore("user", () => {
         hasUserInfo: !!userInfo,
       });
 
-      // 验证 Token 有效性
-      if (token && userInfo && isValidToken(token)) {
-        user.value = { ...userInfo, isLoggedIn: true };
-        console.log("[用户状态] 状态恢复成功");
-      } else {
-        console.log("[用户状态] 本地存储中未找到有效会话或 Token 无效");
-        // 只有当存在部分数据时才执行清理，避免无限循环（虽然 logout 不会触发 init）
-        if (token || userInfo) {
-          logout();
-        }
-      }
+       const hasLocalSession =
+         !!userInfo &&
+         (isValidToken(token as any) || isValidToken(refreshToken as any));
+
+       if (hasLocalSession) {
+         // 通过后端接口校验 Token 有效性（任一有效即可）
+         let serverValid = false;
+         try {
+           const res = await useHttp<{ code: number }>(
+             `${API_PREFIX.USER}/auth/validate`,
+             { method: "GET", retry: 0, timeout: 4000 }
+           );
+           serverValid = res.code === 200;
+         } catch (e) {
+           serverValid = false;
+         }
+
+         if (serverValid) {
+           user.value = { ...userInfo, isLoggedIn: true };
+           console.log("[用户状态] 服务器校验通过，状态恢复成功");
+         } else {
+           console.log("[用户状态] 服务器校验失败，执行登出");
+           logout();
+         }
+       } else {
+         console.log(
+           "[用户状态] 本地存储无有效会话，Token 与 RefreshToken 均无效或缺失"
+         );
+         if (token || refreshToken || userInfo) {
+           logout();
+         }
+       }
     } catch (e) {
       console.error("[用户状态] 状态恢复失败:", e);
       logout();
@@ -47,7 +70,6 @@ export const useUserStore = defineStore("user", () => {
    * @returns 是否有效
    */
   function isValidToken(token: string): boolean {
-    // 仅检查非空字符串
     return typeof token === "string" && token.length > 0;
   }
 

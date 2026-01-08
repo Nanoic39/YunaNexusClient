@@ -229,11 +229,7 @@ function getPageTitle(path: string): string {
       >
         <div class="relative w-24 h-24 mb-8">
           <div class="absolute inset-0 flex items-center justify-center">
-            <img
-              :src="LogoSquare"
-              alt="Yuna Logo"
-              class="w-12 h-12 animate-bounce object-contain"
-            />
+            <div class="w-12 h-12 rounded-full border-2 border-[var(--color-primary)] border-t-transparent animate-spin"></div>
           </div>
         </div>
         <div class="flex flex-col items-center gap-2">
@@ -285,10 +281,14 @@ function getPageTitle(path: string): string {
               >
                 <div class="w-10 h-10 shrink-0 z-10">
                   <img
-                    :src="LogoSquare"
-                    alt="Yuna Logo"
-                    class="w-full h-full object-contain"
-                  />
+              :src="LogoSquare"
+              alt="Yuna Logo"
+              width="48"
+              height="48"
+              decoding="async"
+              loading="lazy"
+              class="w-full h-full object-contain"
+            />
                 </div>
                 <div
                   class="flex flex-col transition-all duration-300 ease-in-out overflow-hidden"
@@ -386,6 +386,10 @@ function getPageTitle(path: string): string {
                   <img
                     :src="LogoSquare"
                     alt="Yuna Logo"
+                    width="40"
+                    height="40"
+                    decoding="async"
+                    loading="lazy"
                     class="w-full h-full object-contain"
                   />
                 </div>
