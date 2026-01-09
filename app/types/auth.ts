@@ -15,11 +15,4 @@ export interface UserLoginVO {
   userInfo: UserInfoVO;
 }
 
-export interface UserUpdateDTO {
-  nickname?: string;
-  gender?: number;
-  biography?: string;
-  avatar?: string;
-  birthday?: Date;
-  
-}
+

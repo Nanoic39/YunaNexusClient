@@ -7,13 +7,15 @@ import { API_PREFIX } from "~/composables/api/constants";
 
 // 是否正在刷新 Token (Promise 锁)
 let isRefreshing: Promise<any> | null = null;
-let fetcher: any;
 
 const SUCCESS_CODE = [200];
 
 export const useHttp = <T>(url: string, options: any = {}): Promise<T> => {
   const config = useRuntimeConfig();
   const apiBase = config.public.apiBase;
+
+  // 使用本地变量而非模块级变量，避免并发冲突
+  let fetcher: any;
 
   fetcher = $fetch.create({
     baseURL: apiBase,
@@ -30,8 +32,9 @@ export const useHttp = <T>(url: string, options: any = {}): Promise<T> => {
 
       const token = storage.get(TokenKey);
       if (token) {
-        options.headers = options.headers || {};
-        options.headers.Authorization = `Bearer ${token}`;
+        const headers = new Headers(options.headers);
+        headers.set("Authorization", `Bearer ${token}`);
+        options.headers = headers;
       }
     },
     // 处理响应
@@ -52,6 +55,11 @@ export const useHttp = <T>(url: string, options: any = {}): Promise<T> => {
     async onResponseError({ response, options, request }: any) {
       // 处理 401 未授权
       if (response.status === 401) {
+        // 如果已经是重试过的请求，不再重试，直接退出
+        if (options._retry) {
+          return;
+        }
+
         const refreshTokenStr = storage.get(RefreshTokenKey);
 
         // 如果有 RefreshToken 且不是在请求刷新接口本身
@@ -60,8 +68,9 @@ export const useHttp = <T>(url: string, options: any = {}): Promise<T> => {
           if (!isRefreshing) {
             isRefreshing = new Promise(async (resolve, reject) => {
               try {
-                const refreshRes: any = await fetcher(
-                  `${API_PREFIX.USER}/auth/refresh`,
+                // 使用 $fetch 而不是 fetcher 避免循环依赖和配置污染
+                const refreshRes: any = await $fetch(
+                  `${apiBase}${API_PREFIX.USER}/auth/refresh`,
                   {
                     method: "GET",
                     params: { refreshToken: refreshTokenStr },
@@ -83,13 +92,15 @@ export const useHttp = <T>(url: string, options: any = {}): Promise<T> => {
           }
 
           try {
-            await isRefreshing;
+            const newToken = await isRefreshing;
             // 刷新成功后，重试原请求
-            // 更新 Authorization 头
-            const newToken = storage.get(TokenKey);
-            options.headers = options.headers || {};
-            options.headers.Authorization = `Bearer ${newToken}`;
+            // 标记为重试请求
+            options._retry = true;
 
+            // 更新 Authorization 头
+            const headers = new Headers(options.headers);
+            headers.set("Authorization", `Bearer ${newToken}`);
+            options.headers = headers;
             // 递归调用 fetcher 进行重试，onResponseError 中返回响应会作为最终结果
             return fetcher(request as string, options as any);
           } catch (e) {

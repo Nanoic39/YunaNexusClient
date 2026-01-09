@@ -425,7 +425,7 @@ function getPageTitle(path: string): string {
                       :size="32"
                       :src="
                         userProfile.isLoggedIn
-                          ? userProfile.userInfo?.avatar || DefaultAvatar
+                          ? userProfile.userInfo?.userInfo?.avatar || DefaultAvatar
                           : 'https://osu.ppy.sh/images/layout/avatar-guest.png'
                       "
                       :fallback-src="DefaultAvatar"
@@ -438,7 +438,7 @@ function getPageTitle(path: string): string {
                         class="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--color-primary)] transition-colors leading-none mb-0.5"
                         >{{
                           userProfile.isLoggedIn
-                            ? userProfile.userInfo?.nickname ||
+                            ? userProfile.userInfo?.userInfo?.nickname ||
                               userProfile.username
                             : "Guest"
                         }}</span
@@ -469,7 +469,7 @@ function getPageTitle(path: string): string {
                     >
                       <n-avatar
                         :size="56"
-                        :src="userProfile.userInfo?.avatar || DefaultAvatar"
+                        :src="userProfile.userInfo?.userInfo?.avatar || DefaultAvatar"
                         :fallback-src="DefaultAvatar"
                         class="!rounded-2xl ring-2 ring-[var(--color-primary)]/20"
                       />
@@ -477,7 +477,7 @@ function getPageTitle(path: string): string {
                         <span
                           class="font-bold text-lg text-[var(--text-main)] truncate"
                           >{{
-                            userProfile.userInfo?.nickname ||
+                            userProfile.userInfo?.userInfo?.nickname ||
                             userProfile.username
                           }}</span
                         >

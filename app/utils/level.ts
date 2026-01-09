@@ -21,12 +21,24 @@ export const LEVEL_CONFIG: LevelConfig[] = [];
 
 // 等级配置
 let currentExp = 0;
-for (let i = 0; i <= 100; i++) {
-  // 每级所需经验 = 100 * 等级 (1级需要100，2级需要额外200...)
-  // 总经验 = 上一级总经验 + 当前级所需增量
+// 记录上一级的增量，用于 101 级后的计算
+let lastDelta = 0;
+
+for (let i = 0; i <= 200; i++) { // 扩展到200级或更多，以覆盖101+的情况
+  let delta = 0;
   if (i > 0) {
-    currentExp += 100 * i;
+    if (i <= 100) {
+      // 前100级：每级所需增量 = 100 * 等级
+      delta = 100 * i;
+    } else {
+      // 101级后：每级所需增量 = 上一级增量 + 10 * 等级
+      // 解释：{级别-1}的经验 (理解为上一级所需经验/增量) + 10 * 等级
+      delta = lastDelta + 10 * i;
+    }
+    currentExp += delta;
+    lastDelta = delta;
   }
+  
   LEVEL_CONFIG.push({
     level: i,
     requiredExp: currentExp
