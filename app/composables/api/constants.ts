@@ -5,4 +5,6 @@
 export const API_PREFIX = {
   // 用户服务
   USER: "/api/user",
+  // 文件服务
+  FILE: "/api/file",
 } as const;

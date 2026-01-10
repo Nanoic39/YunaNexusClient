@@ -26,22 +26,50 @@ definePageMeta({
   middleware: ["auth"], // 确保只有登录用户可以访问
 });
 
-const { user } = useUser();
+const { user, avatarUrl, refreshAvatar } = useUser();
 const { isDark } = useTheme();
 
 // TODO：简单的用户信息展示，后续可以扩展
 const userProfile = computed(() => user.value);
 
+// 不再需要本地维护 avatarUrl，直接使用 useUser 提供的响应式 avatarUrl
+// 也不需要 watch userProfile 去手动加载头像，Store 会自动管理
+
+// 监听 userProfile 变化，方便调试
+watch(
+  () => userProfile.value,
+  (newVal) => {
+    // console.log("UserProfile updated:", newVal);
+    // console.log("Avatar ID:", newVal.userInfo?.avatar);
+  },
+  { deep: true }
+);
+
 const levelInfo = computed(() => {
-  // 双层userInfo是因为userProfile.value.userInfo是UserDetailDTO，而UserDetailDTO有一个userInfo字段，里面才是用户信息
-  const exp = userProfile.value.userInfo?.userInfo?.experience || 0;
+  // 兼容新旧数据结构，优先使用 normalizedUserInfo (flat)，否则尝试 deep nested (old)
+  // normalized: userProfile.value.userInfo.experience
+  // old: userProfile.value.userInfo.userInfo.experience
+  const info = userProfile.value.userInfo;
+  // @ts-ignore
+  const exp = info?.experience || info?.userInfo?.experience || 0;
   return calculateLevelProgress(exp);
 });
 
 const showAvatarEditor = ref(false);
 const uploading = ref(false);
-const { uploadAvatar, getUserProfile, updateUserProfile, changePassword, changeEmail } = useProfileApi();
-const userStore = useUserStore();
+const {
+  uploadAvatar,
+  getUserProfile,
+  updateUserProfile,
+  changePassword,
+  changeEmail,
+} = useProfileApi();
+const userStore = useUserStore(); // 移除重复定义，useUser 已包含
+
+// 页面加载时刷新用户信息，确保数据结构是最新的
+onMounted(() => {
+  refreshUserProfile();
+});
 const { validToken, sendCode } = useAuthApi();
 
 // 简介编辑状态
@@ -53,7 +81,7 @@ const bioForm = reactive({
 // 基本信息编辑状态
 const isEditingBasic = ref(false);
 const basicForm = reactive({
-  nickname: userProfile.value.userInfo?.userInfo?.nickname || "Yuna#Default",
+  nickname: userProfile.value?.userInfo?.nickname || "Yuna#Default",
   gender: 0,
   birthday: null as number | null,
 });
@@ -69,14 +97,30 @@ async function refreshUserProfile() {
   try {
     const profileRes = await getUserProfile();
     if (profileRes.code === 200 && profileRes.data) {
-      // 将后端返回的扁平数据，构造成前端需要的 userInfo 结构
-      const { uuid, username, email, ...userInfo } = profileRes.data;
+      // profileRes.data 是 UserDetailDTO (嵌套结构)
+      // 需要将其转换为 UserProfile (扁平结构)
+      const backendData = profileRes.data as any;
+      const innerInfo = backendData.userInfo || {};
+
+      // 构造符合前端 store 期望的 userInfo 结构 (对齐 UserLoginVO.userInfo)
+      // 登录接口返回的 userInfo 包含: nickname, avatar, gender, biography, experience
+      // 详情接口返回的 innerInfo (Entity) 包含: nickname, avatarId, gender, biography, experience, birthday
+
+      const normalizedUserInfo = {
+        nickname: innerInfo.nickname,
+        avatar: innerInfo.avatarId, // 映射 avatarId -> avatar
+        gender: innerInfo.gender,
+        biography: innerInfo.biography,
+        experience: innerInfo.experience,
+        birthday: innerInfo.birthday,
+      };
+
       const updatedUser = {
-        ...user.value, // 保留旧数据
-        uuid,
-        username,
-        email,
-        userInfo, // 更新为新的 userInfo 对象
+        ...user.value, // 保留旧数据 (isLoggedIn 等)
+        uuid: backendData.uuid,
+        username: backendData.username,
+        email: backendData.email,
+        userInfo: normalizedUserInfo, // 更新为标准化的 userInfo 对象
       };
 
       // 更新用户信息到store和localStorage
@@ -93,7 +137,7 @@ async function refreshUserProfile() {
 
 // 简介相关方法
 function startEditBio() {
-  bioForm.biography = userProfile.value.userInfo?.userInfo?.biography || "";
+  bioForm.biography = userProfile.value.userInfo?.biography || "";
   isEditingBio.value = true;
 }
 
@@ -119,10 +163,10 @@ async function saveEditBio() {
 
 // 基本信息相关方法
 function startEditBasic() {
-  basicForm.nickname = userProfile.value.userInfo?.userInfo?.nickname || "";
-  basicForm.gender = userProfile.value.userInfo?.userInfo?.gender || 0;
+  basicForm.nickname = userProfile.value.userInfo?.nickname || "";
+  basicForm.gender = userProfile.value.userInfo?.gender || 0;
   // 处理日期：后端不一定返回时间戳（可能之后写着写着就忘了，所以还是校验一下防止这里报错），DatePicker 需要时间戳
-  const birth = userProfile.value.userInfo?.userInfo?.birthday;
+  const birth = userProfile.value.userInfo?.birthday;
   basicForm.birthday = birth ? new Date(birth).getTime() : null;
   isEditingBasic.value = true;
 }
@@ -231,7 +275,7 @@ function openChangeEmail() {
 
 async function sendOldCode() {
   if (oldCodeTimer.value > 0) return;
-  if (!userProfile.value.email) return;
+  if (!userProfile.value?.email) return;
 
   try {
     const res = await sendCode(userProfile.value.email);
@@ -277,7 +321,7 @@ async function handleChangeEmail() {
     message.error("请填写完整信息");
     return;
   }
-  if (userProfile.value.email && !emailForm.oldEmailCode) {
+  if (userProfile.value?.email && !emailForm.oldEmailCode) {
     message.error("请填写旧邮箱验证码");
     return;
   }
@@ -287,7 +331,7 @@ async function handleChangeEmail() {
     const res = await changeEmail({
       newEmail: emailForm.newEmail,
       newEmailCode: emailForm.newEmailCode,
-      oldEmailCode: userProfile.value.email
+      oldEmailCode: userProfile.value?.email
         ? emailForm.oldEmailCode
         : undefined,
     });
@@ -327,10 +371,16 @@ async function handleAvatarSaved(blob: Blob) {
   uploading.value = true;
   try {
     const res = await uploadAvatar(blob);
-    if (res.code === 200 && res.data?.avatarUrl) {
+    if (res.code === 200 && (res.data as any)?.avatarUrl) {
       await refreshUserProfile();
+      await refreshAvatar(); // 刷新头像缓存
       showAvatarEditor.value = false;
+      message.success("头像修改成功");
+    } else {
+      message.error(res.msg || "头像上传失败");
     }
+  } catch (error) {
+    message.error("头像上传出错");
   } finally {
     uploading.value = false;
   }
@@ -344,18 +394,23 @@ async function handleAvatarSaved(blob: Blob) {
       class="bg-[var(--bg-card)] rounded-2xl p-8 border border-[var(--border-color)] shadow-sm relative overflow-hidden"
     >
       <div class="flex flex-col md:flex-row items-center gap-6 relative z-10">
-        <n-avatar
-          :size="100"
-          :src="userProfile.userInfo?.userInfo?.avatar || DefaultAvatar"
-          :fallback-src="DefaultAvatar"
-          :round="false"
-          class="rounded-2xl ring-4 ring-[var(--color-primary)]/20 shadow-xl cursor-pointer"
-          @click="openAvatarEditor"
-        />
+        <!-- 头像 -->
+        <div
+          class="relative group cursor-pointer"
+          @click="showAvatarEditor = true"
+        >
+          <n-avatar
+            :round="false"
+            :size="100"
+            :src="avatarUrl"
+            :fallback-src="DefaultAvatar"
+            class="!rounded-2xl ring-2 ring-[var(--color-primary)]/20"
+          />
+        </div>
 
         <n-modal v-model:show="showAvatarEditor">
           <AvatarEditor
-            :initial-src="userProfile.userInfo?.userInfo?.avatar || DefaultAvatar"
+            :initial-src="avatarUrl"
             @save="handleAvatarSaved"
             @cancel="showAvatarEditor = false"
           />
@@ -364,7 +419,7 @@ async function handleAvatarSaved(blob: Blob) {
           class="flex flex-col items-center md:items-start text-center md:text-left flex-1"
         >
           <h1 class="text-3xl font-bold text-[var(--text-main)] mb-2">
-            {{ userProfile.userInfo?.userInfo?.nickname || userProfile.username }}
+            {{ userProfile.userInfo?.nickname || userProfile.username }}
           </h1>
           <div class="mb-4 w-full max-w-2xl">
             <div
@@ -372,7 +427,7 @@ async function handleAvatarSaved(blob: Blob) {
             >
               <p class="text-[var(--text-secondary)]">
                 {{
-                  userProfile.userInfo?.userInfo?.biography ||
+                  userProfile.userInfo?.biography ||
                   "这个人很懒，什么都没有写..."
                 }}
               </p>
@@ -535,7 +590,7 @@ async function handleAvatarSaved(blob: Blob) {
             >
               <span class="text-[var(--text-secondary)]">昵称</span>
               <span class="text-[var(--text-main)]">{{
-                userProfile.userInfo?.userInfo?.nickname || "未设置"
+                userProfile.userInfo?.nickname || "未设置"
               }}</span>
             </div>
             <div
@@ -543,9 +598,9 @@ async function handleAvatarSaved(blob: Blob) {
             >
               <span class="text-[var(--text-secondary)]">性别</span>
               <span class="text-[var(--text-main)]">{{
-                userProfile.userInfo?.userInfo?.gender === 1
+                userProfile.userInfo?.gender === 1
                   ? "男"
-                  : userProfile.userInfo?.userInfo?.gender === 2
+                  : userProfile.userInfo?.gender === 2
                     ? "女"
                     : "保密"
               }}</span>
@@ -555,7 +610,7 @@ async function handleAvatarSaved(blob: Blob) {
             >
               <span class="text-[var(--text-secondary)]">生日</span>
               <span class="text-[var(--text-main)]">{{
-                formatDate(userProfile.userInfo?.userInfo?.birthday)
+                formatDate(userProfile.userInfo?.birthday)
               }}</span>
             </div>
             <div

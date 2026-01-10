@@ -17,6 +17,7 @@
     "@nuxt/icon": "2.1.1",
     "@nuxt/image": "2.0.0",
     "@pinia/nuxt": "^0.11.3",
+    "@vicons/ionicons5": "^0.13.0",
     "better-sqlite3": "^12.5.0",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.19",

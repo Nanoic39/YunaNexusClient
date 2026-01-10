@@ -12,7 +12,7 @@ import DefaultAvatar from "~/assets/images/avatar/image.png";
 
 const { isDark, toggleTheme } = useTheme();
 const { fetchMenuItems } = useMenuApi();
-const { user, logout } = useUser();
+const { user, logout, avatarUrl } = useUser();
 const router = useRouter();
 const route = useRoute();
 const collapsed = ref(false);
@@ -45,10 +45,15 @@ const menuOptions = computed(() => {
     return true;
   });
 
-  return items.map((item: any) => ({
-    ...item,
-    icon: renderIcon(item.iconName),
-  }));
+  const mapItems = (list: any[]): any[] => {
+    return list.map((item: any) => ({
+      ...item,
+      icon: renderIcon(item.iconName),
+      children: item.children ? mapItems(item.children) : undefined,
+    }));
+  };
+
+  return mapItems(items);
 });
 
 function checkMobile() {
@@ -70,16 +75,29 @@ function matchRouteToMenu() {
     return;
   }
 
-  const matched = menuOptions.value.find((item: any) => {
-    if (item.path === "/") return currentPath === "/";
-    return currentPath === item.path || currentPath.startsWith(item.path + "/");
-  });
+  const findMatch = (items: any[]): string | null => {
+    for (const item of items) {
+      // Check children first (more specific)
+      if (item.children && item.children.length > 0) {
+        const childMatch = findMatch(item.children);
+        if (childMatch) return childMatch;
+      }
 
-  if (matched) {
-    activeKey.value = matched.key;
-  } else {
-    activeKey.value = null;
-  }
+      if (item.path === "/") {
+        if (currentPath === "/") return item.key;
+      } else {
+        if (
+          currentPath === item.path ||
+          currentPath.startsWith(item.path + "/")
+        ) {
+          return item.key;
+        }
+      }
+    }
+    return null;
+  };
+
+  activeKey.value = findMatch(menuOptions.value);
 }
 
 watch(menuOptions, () => {
@@ -423,11 +441,7 @@ function getPageTitle(path: string): string {
                   >
                     <n-avatar
                       :size="32"
-                      :src="
-                        userProfile.isLoggedIn
-                          ? userProfile.userInfo?.userInfo?.avatar || DefaultAvatar
-                          : 'https://osu.ppy.sh/images/layout/avatar-guest.png'
-                      "
+                      :src="avatarUrl"
                       :fallback-src="DefaultAvatar"
                       class="!rounded-lg block ring-1 ring-white/50 dark:ring-gray-700/50 transition-transform group-hover:scale-105"
                     />
@@ -438,7 +452,8 @@ function getPageTitle(path: string): string {
                         class="font-bold text-sm text-[var(--text-main)] group-hover:text-[var(--color-primary)] transition-colors leading-none mb-0.5"
                         >{{
                           userProfile.isLoggedIn
-                            ? userProfile.userInfo?.userInfo?.nickname ||
+                            ? userProfile.userInfo?.nickname ||
+                              userProfile.userInfo?.userInfo?.nickname ||
                               userProfile.username
                             : "Guest"
                         }}</span
@@ -469,7 +484,7 @@ function getPageTitle(path: string): string {
                     >
                       <n-avatar
                         :size="56"
-                        :src="userProfile.userInfo?.userInfo?.avatar || DefaultAvatar"
+                        :src="avatarUrl"
                         :fallback-src="DefaultAvatar"
                         class="!rounded-2xl ring-2 ring-[var(--color-primary)]/20"
                       />
@@ -477,6 +492,7 @@ function getPageTitle(path: string): string {
                         <span
                           class="font-bold text-lg text-[var(--text-main)] truncate"
                           >{{
+                            userProfile.userInfo?.nickname ||
                             userProfile.userInfo?.userInfo?.nickname ||
                             userProfile.username
                           }}</span

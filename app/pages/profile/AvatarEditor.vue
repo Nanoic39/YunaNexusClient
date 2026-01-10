@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
-import { NUpload, NButton, NSlider, NPopconfirm } from "naive-ui";
+import { NUpload, NButton, NSlider, NPopconfirm, NIcon } from "naive-ui";
+import { RefreshOutline } from "@vicons/ionicons5";
 import DefaultAvatar from "~/assets/images/avatar/image.png";
 
 const props = defineProps<{ initialSrc?: string }>();
@@ -22,6 +23,7 @@ const lastY = ref(0);
 const hasInteracted = ref(false);
 const minScale = ref(1);
 const maxScale = 5;
+const rotation = ref(0);
 const fileList = ref<any[]>([]);
 function getPoint(e: any) {
   if (e.touches && e.touches[0]) {
@@ -83,33 +85,22 @@ function draw() {
   canvas.width = size;
   canvas.height = size;
   ctx.clearRect(0, 0, size, size);
-  const iw = image.width;
-  const ih = image.height;
-  const s = scale.value;
-  const targetW = iw * s;
-  const targetH = ih * s;
-  const dx = (size - targetW) / 2 + panX.value;
-  const dy = (size - targetH) / 2 + panY.value;
-  function drawRoundedRect(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    r: number
-  ) {
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-  }
+  const cx = size / 2;
+  const cy = size / 2;
+  
   ctx.save();
-  ctx.beginPath();
-  drawRoundedRect(ctx, 0, 0, size, size, 24);
-  ctx.clip();
+  // No clipping - save full square image
+  // Rounded preview is handled by CSS on the container
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(image, dx, dy, targetW, targetH);
+
+  // Draw image
+  // Order: Translate to center -> Apply Pan -> Rotate -> Scale -> Draw centered
+  // To ensure Pan works in screen coordinates (dragging right moves image right regardless of rotation),
+  // we translate by panX/panY FIRST (relative to screen center).
+  ctx.translate(cx + panX.value, cy + panY.value);
+  ctx.rotate((rotation.value * Math.PI) / 180);
+  ctx.scale(scale.value, scale.value);
+  ctx.drawImage(image, -image.width / 2, -image.height / 2);
   ctx.restore();
 }
 
@@ -139,7 +130,16 @@ watch(scale, () => draw());
 
 onMounted(() => {
   if (props.initialSrc) {
-    src.value = props.initialSrc;
+    if (props.initialSrc.startsWith("http") || props.initialSrc.startsWith("data:")) {
+      src.value = props.initialSrc;
+    } else {
+      // 如果是 UUID，尝试构建 URL
+      // 注意：AvatarEditor 不负责加载 Token，这里只负责显示
+      // 如果需要鉴权，应该在父组件加载完 blob url 传进来
+      // 但为了兼容，这里做个回退
+      // 实际上父组件现在传进来的是 avatarUrl (blob url) 或者 DefaultAvatar
+      src.value = props.initialSrc;
+    }
     image.onload = () => {
       imageLoaded = true;
       const size = 400;
@@ -167,6 +167,16 @@ async function handleSave() {
 
 function handleCancel() {
   emit("cancel");
+}
+
+function rotateLeft() {
+  rotation.value -= 90;
+  draw();
+}
+
+function rotateRight() {
+  rotation.value += 90;
+  draw();
 }
 
 function onWheel(e: any) {
@@ -228,6 +238,15 @@ function setDefaultAvatar() {
           <div class="mt-2 text-xs text-[var(--text-secondary)]">
             倍率：{{ scale.toFixed(2) }}x
           </div>
+        </div>
+        
+        <div class="mt-4 flex gap-2 justify-center">
+          <n-button circle secondary @click="rotateLeft" title="向左旋转">
+            <template #icon><n-icon><RefreshOutline class="transform -scale-x-100" /></n-icon></template>
+          </n-button>
+          <n-button circle secondary @click="rotateRight" title="向右旋转">
+            <template #icon><n-icon><RefreshOutline /></n-icon></template>
+          </n-button>
         </div>
       </div>
       <div

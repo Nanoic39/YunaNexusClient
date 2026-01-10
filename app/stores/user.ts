@@ -2,13 +2,59 @@ import { defineStore } from "pinia";
 import { RefreshTokenKey, storage, TokenKey, UserKey } from "~/utils/storage";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { logger } from "~/utils/logger";
+import { API_PREFIX } from "~/composables/api/constants";
+import { useHttp } from "~/composables/useHttp";
+import DefaultAvatar from "~/assets/images/avatar/image.png";
 
 export const useUserStore = defineStore("user", () => {
   const user = ref<any>({
     isLoggedIn: false,
   });
 
+  const avatarUrl = ref<string>(DefaultAvatar);
+
   const isLoggedIn = computed(() => !!user.value.isLoggedIn);
+
+  /**
+   * 异步加载并缓存头像
+   */
+  async function fetchAvatar() {
+    const avatarId = user.value.userInfo?.avatar;
+    if (!avatarId) {
+      avatarUrl.value = DefaultAvatar;
+      return;
+    }
+
+    if (avatarId.startsWith("http") || avatarId.startsWith("data:")) {
+      avatarUrl.value = avatarId;
+      return;
+    }
+
+    // 提取 UUID
+    let uuid = avatarId;
+    if (avatarId.startsWith("/file/download/")) {
+      const parts = avatarId.split("/");
+      const uuidPart = parts[parts.length - 1];
+      uuid = uuidPart.split("?")[0];
+    }
+
+    try {
+      // 释放旧的 URL 对象
+      if (avatarUrl.value && avatarUrl.value.startsWith("blob:")) {
+        URL.revokeObjectURL(avatarUrl.value);
+      }
+
+      const blob = await useHttp<Blob>(`${API_PREFIX.FILE}/file/download/${uuid}?inline=true`, {
+        method: 'GET',
+        responseType: 'blob'
+      });
+      
+      avatarUrl.value = URL.createObjectURL(blob);
+    } catch (e) {
+      console.error("加载头像失败:", e);
+      avatarUrl.value = DefaultAvatar;
+    }
+  }
 
   /**
    * 初始化用户状态
@@ -54,6 +100,7 @@ export const useUserStore = defineStore("user", () => {
         } else {
           user.value = { ...(userInfo as any), isLoggedIn: true };
           logger.info("[用户状态] 成功", "校验成功，状态已恢复");
+          fetchAvatar(); // 恢复状态后加载头像
         }
       } else {
         // hasLocalSession 校验失败
@@ -90,12 +137,19 @@ export const useUserStore = defineStore("user", () => {
       storage.set(RefreshTokenKey, refreshToken);
     }
     storage.set(UserKey, userInfo);
+    fetchAvatar(); // 登录成功后加载头像
   }
 
   /**
    * 登出账号
    */
   function logout() {
+    // 清理头像缓存
+    if (avatarUrl.value && avatarUrl.value.startsWith("blob:")) {
+      URL.revokeObjectURL(avatarUrl.value);
+    }
+    avatarUrl.value = DefaultAvatar;
+
     user.value = { isLoggedIn: false };
     storage.remove(TokenKey);
     storage.remove(RefreshTokenKey);
@@ -108,8 +162,10 @@ export const useUserStore = defineStore("user", () => {
   return {
     user,
     isLoggedIn,
+    avatarUrl,
     login,
     logout,
     init,
+    fetchAvatar,
   };
 });

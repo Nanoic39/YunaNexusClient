@@ -4,13 +4,53 @@ import type { UserProfile, UserUpdateDTO } from "~/types/profile";
 
 export const useProfileApi = () => {
   const uploadAvatar = async (file: Blob) => {
-    const url = URL.createObjectURL(file);
-    return Promise.resolve({
-      code: 200,
-      msg: "OK",
-      tips: "",
-      data: { avatarUrl: url },
+    // 1. 上传文件
+    const formData = new FormData();
+    // 给 Blob 指定文件名，否则后端接收到的是 "blob"
+    formData.append("file", file, "avatar.png");
+    formData.append("category", "1"); // 1=公开资源，允许头像被他人访问
+
+    const uploadRes = await useHttp<{
+      code: number;
+      msg: string;
+      tips: string;
+      data: {
+        uuid: string;
+        originName: string;
+        fileName: string;
+        fileSize: number;
+        mimeType: string;
+        storageType: number;
+        category: number;
+      };
+    }>(`${API_PREFIX.FILE}/file/upload`, {
+      method: "POST",
+      body: formData,
+      timeout: 20000, // 上传文件可能较慢
     });
+
+    if (uploadRes.code !== 200 || !uploadRes.data?.uuid) {
+      return uploadRes;
+    }
+
+    // 2. 更新用户信息
+    const updateRes = await updateUserProfile({
+      avatar: uploadRes.data.uuid,
+    });
+
+    // 构造返回结果，保持兼容性
+    if (updateRes.code === 200) {
+      return {
+        code: 200,
+        msg: "头像上传成功",
+        tips: "",
+        data: {
+          avatarUrl: `/api/file/file/download/${uploadRes.data.uuid}?inline=true`,
+        },
+      };
+    }
+
+    return updateRes;
   };
 
   /**
@@ -26,6 +66,7 @@ export const useProfileApi = () => {
       data: UserProfile;
     }>(`${API_PREFIX.USER}/user/profile`, {
       method: "GET",
+      params: { _t: Date.now() }, // 防止缓存
       timeout: 5000,
       retry: 0,
     });
