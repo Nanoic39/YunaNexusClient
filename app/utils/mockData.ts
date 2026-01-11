@@ -23,6 +23,12 @@ export const MOCK_MENU_ITEMS = [
         iconName: "heroicons:share",
         path: "/files/my-shares",
       },
+      {
+        label: "回收站",
+        key: "recycle-bin",
+        iconName: "heroicons:trash",
+        path: "/files/recycle-bin",
+      },
     ],
   },
   {

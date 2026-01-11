@@ -101,6 +101,36 @@ export const useFileApi = () => {
     });
   };
 
+  const getRecycleBinFiles = async (limit: number = 50) => {
+    return useHttp<{
+      code: number;
+      msg: string;
+      data: FileMeta[];
+    }>(`${API_PREFIX.FILE}/file/recycle/list`, {
+      method: "GET",
+    });
+  };
+
+  const recoverFile = async (uuid: string) => {
+    return useHttp<{
+      code: number;
+      msg: string;
+      data: null;
+    }>(`${API_PREFIX.FILE}/file/recycle/recover/${uuid}`, {
+      method: "POST",
+    });
+  };
+
+  const cleanFile = async (uuid: string) => {
+    return useHttp<{
+      code: number;
+      msg: string;
+      data: null;
+    }>(`${API_PREFIX.FILE}/file/recycle/clean/${uuid}`, {
+      method: "DELETE",
+    });
+  };
+
   /**
    * 重命名文件
    * @param uuid 文件UUID
@@ -367,5 +397,8 @@ export const useFileApi = () => {
     getShareDownloadUrl,
     updateShareStatus,
     deleteShare,
+    getRecycleBinFiles,
+    recoverFile,
+    cleanFile,
   };
 };
