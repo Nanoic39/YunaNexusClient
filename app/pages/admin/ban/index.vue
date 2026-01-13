@@ -2,14 +2,17 @@
   <div class="p-4">
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">封禁管理</h2>
-      <n-input-group style="width: 300px">
-        <n-input
-          v-model:value="keyword"
-          placeholder="搜索用户名或邮箱"
-          @keyup.enter="handleSearch"
-        />
-        <n-button type="primary" @click="handleSearch">搜索</n-button>
-      </n-input-group>
+      <div class="flex items-center gap-2">
+        <n-input-group style="width: 300px">
+          <n-input
+            v-model:value="keyword"
+            placeholder="搜索用户名或邮箱"
+            @keyup.enter="handleSearch"
+          />
+          <n-button type="primary" @click="handleSearch">搜索</n-button>
+        </n-input-group>
+        <n-button type="success" @click="handleBatchUnban" :disabled="checkedRowKeys.length === 0">批量解封</n-button>
+      </div>
     </div>
 
     <n-data-table
@@ -18,6 +21,9 @@
       :data="data"
       :loading="loading"
       :pagination="pagination"
+      :row-key="rowKey"
+      :checked-row-keys="checkedRowKeys"
+      @update:checked-row-keys="updateCheckedRowKeys"
       @update:page="handlePageChange"
     />
   </div>
@@ -59,6 +65,7 @@ const pagination = reactive<Pagination>({
   pageSize: 10,
   itemCount: 0,
 });
+const checkedRowKeys = ref<number[]>([]);
 
 const fetchData = async () => {
   loading.value = true;
@@ -86,6 +93,10 @@ const handlePageChange = (page: number) => {
   pagination.page = page;
   fetchData();
 };
+const rowKey = (row: User) => row.id;
+const updateCheckedRowKeys = (keys: number[]) => {
+  checkedRowKeys.value = keys;
+};
 
 const handleUnban = async (row: User) => {
   try {
@@ -98,8 +109,22 @@ const handleUnban = async (row: User) => {
     message.error("解封失败");
   }
 };
+const handleBatchUnban = async () => {
+  if (checkedRowKeys.value.length === 0) return;
+  try {
+    const res = (await api.unbanUsersBatch(checkedRowKeys.value)) as any;
+    if (res.code === 200) {
+      message.success("批量解封完成");
+      checkedRowKeys.value = [];
+      fetchData();
+    }
+  } catch (e) {
+    message.error("批量解封失败");
+  }
+};
 
 const createColumns = (): DataTableColumns<User> => [
+  { type: "selection" },
   { title: "ID", key: "id", width: 80 },
   { title: "用户名", key: "username" },
   { title: "邮箱", key: "email" },

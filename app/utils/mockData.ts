@@ -65,6 +65,13 @@ export const MOCK_MENU_ITEMS = [
         path: "/admin/ban",
         permission: "menu:sys:ban:list",
       },
+      {
+        label: "申诉管理",
+        key: "appeal-management",
+        iconName: "heroicons:megaphone",
+        path: "/admin/appeal",
+        permission: "menu:sys:appeal:list",
+      },
     ],
   },
   {

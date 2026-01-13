@@ -28,7 +28,7 @@ export const useUserManagementApi = () => {
       method: "GET",
     });
   };
-  
+
   const banUser = (userId: number) => {
     return useHttp(`${API_PREFIX.USER}/user/${userId}/ban`, {
       method: "POST",
@@ -37,6 +37,33 @@ export const useUserManagementApi = () => {
 
   const unbanUser = (userId: number) => {
     return useHttp(`${API_PREFIX.USER}/user/${userId}/unban`, {
+      method: "POST",
+    });
+  };
+
+  const banUsersBatch = (ids: number[]) => {
+    return useHttp(`${API_PREFIX.USER}/user/ban/batch`, {
+      method: "POST",
+      body: ids,
+    });
+  };
+
+  const unbanUsersBatch = (ids: number[]) => {
+    return useHttp(`${API_PREFIX.USER}/user/unban/batch`, {
+      method: "POST",
+      body: ids,
+    });
+  };
+
+  const deleteUsersBatch = (ids: number[]) => {
+    return useHttp(`${API_PREFIX.USER}/user/batch`, {
+      method: "DELETE",
+      body: ids,
+    });
+  };
+
+  const resetUsername = (userId: number) => {
+    return useHttp(`${API_PREFIX.USER}/user/${userId}/username/reset`, {
       method: "POST",
     });
   };
@@ -121,6 +148,40 @@ export const useUserManagementApi = () => {
     });
   };
 
+  const fetchAppeals = (
+    page: number,
+    size: number,
+    status?: number,
+    keyword?: string
+  ) => {
+    return useHttp(`${API_PREFIX.USER}/appeal/admin/list`, {
+      method: "GET",
+      params: { page, size, status, keyword },
+    });
+  };
+  const claimAppeal = (id: number) => {
+    return useHttp(`${API_PREFIX.USER}/appeal/admin/${id}/claim`, {
+      method: "POST",
+    });
+  };
+  const releaseAppeal = (id: number) => {
+    return useHttp(`${API_PREFIX.USER}/appeal/admin/${id}/release`, {
+      method: "POST",
+    });
+  };
+  const approveAppeal = (id: number, remark: string) => {
+    return useHttp(`${API_PREFIX.USER}/appeal/admin/${id}/approve`, {
+      method: "POST",
+      body: remark,
+    });
+  };
+  const rejectAppeal = (id: number, remark: string) => {
+    return useHttp(`${API_PREFIX.USER}/appeal/admin/${id}/reject`, {
+      method: "POST",
+      body: remark,
+    });
+  };
+
   return {
     fetchUsers,
     assignRoles,
@@ -128,6 +189,10 @@ export const useUserManagementApi = () => {
     fetchUserDetail,
     banUser,
     unbanUser,
+    banUsersBatch,
+    unbanUsersBatch,
+    deleteUsersBatch,
+    resetUsername,
     fetchBannedUsers,
     fetchRoles,
     createRole,
@@ -140,5 +205,10 @@ export const useUserManagementApi = () => {
     updatePermission,
     deletePermission,
     fetchCurrentUserPermissions,
+    fetchAppeals,
+    claimAppeal,
+    releaseAppeal,
+    approveAppeal,
+    rejectAppeal,
   };
 };

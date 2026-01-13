@@ -26,6 +26,7 @@ const {
 } = useAuthApi();
 const activeTab = ref("login");
 const errorMessage = ref("");
+const showAppealEntry = ref(false);
 const getSafeErrorMessage = (err: any, fallback: string) => {
   try {
     // 过滤掉包含 URL、localhost、IP 地址的错误消息
@@ -181,6 +182,7 @@ async function handleRegisterSendCode() {
 async function handleLogin() {
   loading.value = true;
   errorMessage.value = "";
+  showAppealEntry.value = false;
   try {
     await loginFormRef.value?.validate();
 
@@ -190,7 +192,11 @@ async function handleLogin() {
     });
 
     if (data.code !== 200) {
-      throw new Error(data.tips || "登录失败");
+      const tips = data.tips || "登录失败";
+      errorMessage.value = tips;
+      showAppealEntry.value = !!data.tips;
+      message.warning(tips);
+      return;
     }
 
     const userData = data.data;
@@ -205,7 +211,8 @@ async function handleLogin() {
     router.push("/");
   } catch (errors: any) {
     logger.error("Login Failed", errors);
-    errorMessage.value = getSafeErrorMessage(errors, "登录失败");
+    const tips = getSafeErrorMessage(errors, "登录失败");
+    errorMessage.value = tips;
   } finally {
     loading.value = false;
   }
@@ -321,6 +328,7 @@ async function handleAutoRegister() {
 async function handleEmailLogin() {
   loading.value = true;
   errorMessage.value = "";
+  showAppealEntry.value = false;
   try {
     await emailLoginFormRef.value?.validate();
 
@@ -344,7 +352,11 @@ async function handleEmailLogin() {
     });
 
     if (data.code !== 200) {
-      throw new Error(data.tips || "登录失败");
+      const tips = data.tips || "登录失败";
+      errorMessage.value = tips;
+      showAppealEntry.value = !!data.tips;
+      message.warning(tips);
+      return;
     }
 
     const userData = data.data;
@@ -358,7 +370,8 @@ async function handleEmailLogin() {
     router.push("/");
   } catch (errors: any) {
     logger.error("Email Login Failed", errors);
-    errorMessage.value = getSafeErrorMessage(errors, "登录失败");
+    const tips = getSafeErrorMessage(errors, "登录失败");
+    errorMessage.value = tips;
   } finally {
     // Only reset loading if not showing modal (modal handling has its own loading state management)
     if (!showAutoRegisterModal.value) {
@@ -429,16 +442,21 @@ async function handleRegister() {
         </div>
 
         <n-collapse-transition :show="!!errorMessage">
-          <n-alert
-            title="出错了"
-            type="error"
-            closable
-            class="mb-6"
-            @close="errorMessage = ''"
-          >
-            {{ errorMessage }}
-          </n-alert>
-        </n-collapse-transition>
+        <n-alert
+          title="出错了"
+          type="error"
+          closable
+          class="mb-6"
+          @close="(errorMessage = ''), (showAppealEntry = false)"
+        >
+          {{ errorMessage }}
+          <div class="mt-2">
+            <n-button v-if="showAppealEntry" text type="primary" size="small" @click="router.push('/appeal')">
+              前往申诉
+            </n-button>
+          </div>
+        </n-alert>
+      </n-collapse-transition>
 
         <n-tabs
           v-model:value="activeTab"

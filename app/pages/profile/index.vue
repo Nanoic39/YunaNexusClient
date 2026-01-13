@@ -23,7 +23,6 @@ import {
 
 definePageMeta({
   layout: "admin-layout",
-  middleware: ["auth"], // 确保只有登录用户可以访问
 });
 
 const { user, avatarUrl, refreshAvatar } = useUser();

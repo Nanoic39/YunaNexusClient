@@ -2,14 +2,30 @@
   <div class="p-4">
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">账号管理</h2>
-      <n-input-group style="width: 300px">
-        <n-input
-          v-model:value="keyword"
-          placeholder="搜索用户名或邮箱"
-          @keyup.enter="handleSearch"
-        />
-        <n-button type="primary" @click="handleSearch">搜索</n-button>
-      </n-input-group>
+      <div class="flex gap-2 items-center">
+        <n-input-group style="width: 300px">
+          <n-input
+            v-model:value="keyword"
+            placeholder="搜索用户名或邮箱"
+            @keyup.enter="handleSearch"
+          />
+          <n-button type="primary" @click="handleSearch">搜索</n-button>
+        </n-input-group>
+        <n-button
+          type="error"
+          @click="handleBatchBan"
+          :disabled="checkedRowKeys.length === 0"
+        >
+          批量封禁
+        </n-button>
+        <n-button
+          type="warning"
+          @click="handleBatchDelete"
+          :disabled="checkedRowKeys.length === 0"
+        >
+          批量删除
+        </n-button>
+      </div>
     </div>
 
     <n-data-table
@@ -18,6 +34,9 @@
       :data="data"
       :loading="loading"
       :pagination="pagination"
+      :row-key="rowKey"
+      :checked-row-keys="checkedRowKeys"
+      @update:checked-row-keys="updateCheckedRowKeys"
       @update:page="handlePageChange"
     />
 
@@ -92,6 +111,7 @@ const pagination = reactive<Pagination>({
   pageSize: 10,
   itemCount: 0,
 });
+const checkedRowKeys = ref<number[]>([]);
 
 // --- 角色分配 ---
 const showRoleModal = ref(false);
@@ -127,6 +147,10 @@ const handlePageChange = (page: number) => {
   pagination.page = page;
   fetchData();
 };
+const rowKey = (row: User) => row.id;
+const updateCheckedRowKeys = (keys: number[]) => {
+  checkedRowKeys.value = keys;
+};
 
 // --- 表格列定义 ---
 const createColumns = ({
@@ -134,6 +158,7 @@ const createColumns = ({
 }: {
   openRoleModal: (row: User) => void;
 }): DataTableColumns<User> => [
+  { type: "selection" },
   { title: "ID", key: "id", width: 80 },
   { title: "用户名", key: "username" },
   { title: "邮箱", key: "email" },
@@ -154,7 +179,7 @@ const createColumns = ({
     render(row) {
       return dayjs(row.createTime).isValid()
         ? dayjs(row.createTime).format("YYYY-MM-DD HH:mm:ss")
-        : row.createTime ?? "-";
+        : (row.createTime ?? "-");
     },
   },
   {
@@ -182,7 +207,7 @@ const createColumns = ({
         h(
           NPopconfirm,
           {
-            onPositiveClick: () => handleToggleBan(row),
+            onPositiveClick: () => handleBan(row),
             positiveText: "确定",
             negativeText: "取消",
           },
@@ -192,12 +217,31 @@ const createColumns = ({
                 NButton,
                 {
                   size: "small",
-                  type: row.status === 2 ? "success" : "error",
+                  type: "error",
                 },
-                { default: () => (row.status === 2 ? "解封" : "封禁") }
+                { default: () => "封禁" }
               ),
-            default: () =>
-              row.status === 2 ? "确认解封该用户吗？" : "确认封禁该用户吗？",
+            default: () => "确认封禁该用户吗？",
+          }
+        ),
+        h(
+          NPopconfirm,
+          {
+            onPositiveClick: () => handleResetUsername(row),
+            positiveText: "确定",
+            negativeText: "取消",
+          },
+          {
+            trigger: () =>
+              h(
+                NButton,
+                {
+                  size: "small",
+                  type: "warning",
+                },
+                { default: () => "重置用户名" }
+              ),
+            default: () => "确认重置该用户的用户名？",
           }
         ),
       ]);
@@ -210,10 +254,10 @@ const openRoleModal = async (row: User) => {
   showRoleModal.value = true;
 
   // Load all roles and user roles
-  const [rolesRes, userRolesRes] = await Promise.all([
+  const [rolesRes, userRolesRes] = (await Promise.all([
     api.fetchRoles(),
     api.fetchUserRoles(row.id),
-  ]) as [any, any];
+  ])) as [any, any];
 
   if (rolesRes.code === 200) {
     roleOptions.value = rolesRes.data.map((r: Role) => ({
@@ -246,20 +290,52 @@ const handleAssignRoles = async () => {
   }
 };
 
-const handleToggleBan = async (row: User) => {
+const handleBan = async (row: User) => {
   try {
-    let res: any;
-    if (row.status === 2) {
-      res = await api.unbanUser(row.id);
-    } else {
-      res = await api.banUser(row.id);
-    }
+    const res = (await api.banUser(row.id)) as any;
     if (res.code === 200) {
-      message.success(row.status === 2 ? "解封成功" : "封禁成功");
+      message.success("封禁成功");
       fetchData();
     }
   } catch (e) {
     message.error("操作失败");
+  }
+};
+const handleResetUsername = async (row: User) => {
+  try {
+    const res = (await api.resetUsername(row.id)) as any;
+    if (res.code === 200) {
+      message.success("用户名已重置");
+      fetchData();
+    }
+  } catch {
+    message.error("重置失败");
+  }
+};
+const handleBatchBan = async () => {
+  if (checkedRowKeys.value.length === 0) return;
+  try {
+    const res = (await api.banUsersBatch(checkedRowKeys.value)) as any;
+    if (res.code === 200) {
+      message.success("批量封禁完成");
+      checkedRowKeys.value = [];
+      fetchData();
+    }
+  } catch {
+    message.error("批量封禁失败");
+  }
+};
+const handleBatchDelete = async () => {
+  if (checkedRowKeys.value.length === 0) return;
+  try {
+    const res = (await api.deleteUsersBatch(checkedRowKeys.value)) as any;
+    if (res.code === 200) {
+      message.success("批量删除完成");
+      checkedRowKeys.value = [];
+      fetchData();
+    }
+  } catch {
+    message.error("批量删除失败");
   }
 };
 

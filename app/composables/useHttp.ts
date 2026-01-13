@@ -49,6 +49,13 @@ export const useHttp = <T = any>(url: string, options: any = {}): Promise<T> => 
           msg: res.msg,
           tips: res.tips,
         });
+        if (process.client && res.tips && !options?.suppressTips) {
+          message.error(String(res.tips));
+        }
+      } else {
+        if (process.client && res?.tips && !options?.suppressTips) {
+          message.success(String(res.tips));
+        }
       }
     },
     // 处理响应错误 (4xx, 5xx)

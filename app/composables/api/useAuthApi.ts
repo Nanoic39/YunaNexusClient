@@ -144,6 +144,15 @@ export const useAuthApi = () => {
       }
     );
   };
+  const queryAppeals = async (params: { contact?: string; account?: string }) => {
+    return useHttp<{ code: number; msg: string; tips: string; data: any[] }>(
+      `${API_PREFIX.USER}/appeal/query`,
+      {
+        method: "GET",
+        params,
+      }
+    );
+  };
   
   return {
     login,
@@ -154,5 +163,6 @@ export const useAuthApi = () => {
     refreshToken,
     validToken,
     submitAppeal,
+    queryAppeals,
   };
 };

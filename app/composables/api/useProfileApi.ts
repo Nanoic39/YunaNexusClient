@@ -58,7 +58,7 @@ export const useProfileApi = () => {
    * @param token
    * @returns
    */
-  const getUserProfile = async () => {
+  const getUserProfile = async (uuid?: string) => {
     return useHttp<{
       code: number;
       msg: string;
@@ -66,7 +66,7 @@ export const useProfileApi = () => {
       data: UserProfile;
     }>(`${API_PREFIX.USER}/user/profile`, {
       method: "GET",
-      params: { _t: Date.now() }, // 防止缓存
+      params: { _t: Date.now(), uuid },
       timeout: 5000,
       retry: 0,
     });
