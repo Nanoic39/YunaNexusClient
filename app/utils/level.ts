@@ -24,7 +24,8 @@ let currentExp = 0;
 // 记录上一级的增量，用于 101 级后的计算
 let lastDelta = 0;
 
-for (let i = 0; i <= 200; i++) { // 扩展到200级或更多，以覆盖101+的情况
+for (let i = 0; i <= 200; i++) {
+  // 扩展到200级或更多，以覆盖101+的情况
   let delta = 0;
   if (i > 0) {
     if (i <= 100) {
@@ -38,10 +39,10 @@ for (let i = 0; i <= 200; i++) { // 扩展到200级或更多，以覆盖101+的�
     currentExp += delta;
     lastDelta = delta;
   }
-  
+
   LEVEL_CONFIG.push({
     level: i,
-    requiredExp: currentExp
+    requiredExp: currentExp,
   });
 }
 
@@ -67,9 +68,9 @@ export const calculateLevel = (exp: number): number => {
  */
 export const getNextLevelExp = (level: number): number => {
   const nextLevel = level + 1;
-  const config = LEVEL_CONFIG.find(c => c.level === nextLevel);
+  const config = LEVEL_CONFIG.find((c) => c.level === nextLevel);
   const maxConfig = LEVEL_CONFIG[LEVEL_CONFIG.length - 1];
-  return config ? config.requiredExp : (maxConfig ? maxConfig.requiredExp : 0);
+  return config ? config.requiredExp : maxConfig ? maxConfig.requiredExp : 0;
 };
 
 /**
@@ -77,7 +78,7 @@ export const getNextLevelExp = (level: number): number => {
  * @param level 当前等级
  */
 export const getCurrentLevelStartExp = (level: number): number => {
-  const config = LEVEL_CONFIG.find(c => c.level === level);
+  const config = LEVEL_CONFIG.find((c) => c.level === level);
   return config ? config.requiredExp : 0;
 };
 
@@ -98,7 +99,10 @@ export const calculateLevelProgress = (exp: number) => {
   // 进度百分比
   let percentage = 0;
   if (requiredProgress > 0) {
-    percentage = Math.min(100, Math.max(0, (currentProgress / requiredProgress) * 100));
+    percentage = Math.min(
+      100,
+      Math.max(0, (currentProgress / requiredProgress) * 100)
+    );
   } else {
     // 已达最高级
     percentage = 100;
@@ -111,6 +115,6 @@ export const calculateLevelProgress = (exp: number) => {
     levelStartExp: currentLevelStartExp,
     currentProgress, // 当前等级内已获得的经验
     requiredProgress, // 当前等级升级所需总经验增量
-    percentage: percentage.toFixed(2)
+    percentage: percentage.toFixed(2),
   };
 };

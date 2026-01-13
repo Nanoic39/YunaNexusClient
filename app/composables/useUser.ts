@@ -1,14 +1,12 @@
 import { useUserStore } from "~/stores/user";
 import { storeToRefs } from "pinia";
-import { API_PREFIX } from "~/composables/api/constants";
-import DefaultAvatar from "~/assets/images/avatar/image.png";
 
 export const useUser = () => {
   const userStore = useUserStore();
-  const { user, isLoggedIn, avatarUrl } = storeToRefs(userStore);
-  const { login, logout, init, fetchAvatar } = userStore;
+  const { user, isLoggedIn, avatarUrl, permissions } = storeToRefs(userStore);
+  const { login, logout, init, fetchAvatar, fetchPermissions } = userStore;
 
-  // 为了保持兼容性，getAvatarUrl 可以暂时保留，但建议直接使用 avatarUrl 响应式变量
+  // 为了保持兼容性，getAvatarUrl 暂时保留，但建议直接使用 avatarUrl 响应式变量
   // 或者将其修改为直接返回 store 中的 avatarUrl
   const getAvatarUrl = (avatar: string | undefined | null) => {
     return avatarUrl.value;
@@ -26,10 +24,12 @@ export const useUser = () => {
     user,
     isLoggedIn,
     avatarUrl,
+    permissions,
     login,
     logout,
     init,
     getAvatarUrl,
     refreshAvatar,
+    fetchPermissions,
   };
 };

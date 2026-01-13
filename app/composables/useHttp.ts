@@ -10,7 +10,7 @@ let isRefreshing: Promise<any> | null = null;
 
 const SUCCESS_CODE = [200];
 
-export const useHttp = <T>(url: string, options: any = {}): Promise<T> => {
+export const useHttp = <T = any>(url: string, options: any = {}): Promise<T> => {
   const config = useRuntimeConfig();
   const apiBase = config.public.apiBase;
 

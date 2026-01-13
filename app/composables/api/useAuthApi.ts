@@ -133,7 +133,18 @@ export const useAuthApi = () => {
     );
   };
   
-
+  const submitAppeal = async (data: { contact: string; reason: string }) => {
+    return useHttp<{ code: number; msg: string; tips: string; data: null }>(
+      `${API_PREFIX.USER}/appeal`,
+      {
+        method: "POST",
+        body: data,
+        timeout: 5000,
+        retry: 0,
+      }
+    );
+  };
+  
   return {
     login,
     loginByCode,
@@ -142,5 +153,6 @@ export const useAuthApi = () => {
     checkEmail,
     refreshToken,
     validToken,
+    submitAppeal,
   };
 };

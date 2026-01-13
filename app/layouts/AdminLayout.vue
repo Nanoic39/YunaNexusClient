@@ -12,7 +12,7 @@ import DefaultAvatar from "~/assets/images/avatar/image.png";
 
 const { isDark, toggleTheme } = useTheme();
 const { fetchMenuItems } = useMenuApi();
-const { user, logout, avatarUrl } = useUser();
+const { user, logout, avatarUrl, permissions } = useUser();
 const router = useRouter();
 const route = useRoute();
 const collapsed = ref(false);
@@ -39,12 +39,68 @@ const removeAfterEach = router.afterEach(() => {
   }, 300);
 });
 
-const menuOptions = computed(() => {
-  const items = rawMenuItems.value.filter((item: any) => {
-    if (userProfile.value.isLoggedIn && item.key === "auth") return false;
-    return true;
-  });
+const debugEnabled = computed(() => import.meta.dev);
 
+const segmentMatch = (owned: string, required: string) => {
+  if (!owned || !required) return false;
+  if (owned === "*:*:*") return true;
+  const o = owned.split(":");
+  const r = required.split(":");
+  const len = Math.min(Math.max(o.length, r.length), 3);
+  for (let i = 0; i < len; i++) {
+    const os = o[i] ?? "";
+    const rs = r[i] ?? "";
+    if (os === "*") continue;
+    if (os !== rs) return false;
+  }
+  return true;
+};
+
+const hasPermission = (requiredPermission?: string) => {
+  if (!requiredPermission) return true;
+  const owned = permissions.value ?? [];
+  const allowed = owned.some((p: string) => segmentMatch(p, requiredPermission));
+  if (debugEnabled.value) {
+    console.debug("[权限校验]", {
+      required: requiredPermission,
+      owned,
+      allowed,
+    });
+  }
+  return allowed;
+};
+
+const filterMenu = (menu: any[]): any[] => {
+  return menu
+    .map((item) => {
+      const nextItem = { ...item };
+      if (nextItem.children) {
+        nextItem.children = filterMenu(nextItem.children);
+      }
+      return nextItem;
+    })
+    .filter((item) => {
+      if (userProfile.value.isLoggedIn && item.key === "auth") return false;
+      if (!userProfile.value.isLoggedIn) {
+        const allowPaths = ["/", "/workbench", "/about", "/login", "/register", "/appeal"];
+        const allowed =
+          (item.path &&
+            (item.path === "/" ||
+              allowPaths.some((p) => p !== "/" && item.path.startsWith(p)))) ||
+          item.key === "auth";
+        if (!allowed) return false;
+      }
+
+      const selfAllowed = hasPermission(item.permission);
+      if (item.children) {
+        return selfAllowed && item.children.length > 0;
+      }
+      return selfAllowed;
+    });
+};
+
+const menuOptions = computed(() => {
+  const filtered = filterMenu(rawMenuItems.value);
   const mapItems = (list: any[]): any[] => {
     return list.map((item: any) => ({
       ...item,
@@ -52,8 +108,7 @@ const menuOptions = computed(() => {
       children: item.children ? mapItems(item.children) : undefined,
     }));
   };
-
-  return mapItems(items);
+  return mapItems(filtered);
 });
 
 function checkMobile() {
@@ -247,7 +302,9 @@ function getPageTitle(path: string): string {
       >
         <div class="relative w-24 h-24 mb-8">
           <div class="absolute inset-0 flex items-center justify-center">
-            <div class="w-12 h-12 rounded-full border-2 border-[var(--color-primary)] border-t-transparent animate-spin"></div>
+            <div
+              class="w-12 h-12 rounded-full border-2 border-[var(--color-primary)] border-t-transparent animate-spin"
+            ></div>
           </div>
         </div>
         <div class="flex flex-col items-center gap-2">
@@ -299,14 +356,14 @@ function getPageTitle(path: string): string {
               >
                 <div class="w-10 h-10 shrink-0 z-10">
                   <img
-              :src="LogoSquare"
-              alt="Yuna Logo"
-              width="48"
-              height="48"
-              decoding="async"
-              loading="lazy"
-              class="w-full h-full object-contain"
-            />
+                    :src="LogoSquare"
+                    alt="Yuna Logo"
+                    width="48"
+                    height="48"
+                    decoding="async"
+                    loading="lazy"
+                    class="w-full h-full object-contain"
+                  />
                 </div>
                 <div
                   class="flex flex-col transition-all duration-300 ease-in-out overflow-hidden"

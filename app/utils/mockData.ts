@@ -32,6 +32,42 @@ export const MOCK_MENU_ITEMS = [
     ],
   },
   {
+    label: "用户管理",
+    key: "system",
+    iconName: "heroicons:cog-6-tooth",
+    path: "/admin",
+    children: [
+      {
+        label: "账号管理",
+        key: "user-management",
+        iconName: "heroicons:users",
+        path: "/admin/user",
+        permission: "menu:sys:user:list",
+      },
+      {
+        label: "角色管理",
+        key: "role-management",
+        iconName: "heroicons:user-group",
+        path: "/admin/role",
+        permission: "menu:sys:role:list",
+      },
+      {
+        label: "权限管理",
+        key: "permission-management",
+        iconName: "heroicons:key",
+        path: "/admin/permission",
+        permission: "menu:sys:permission:list",
+      },
+      {
+        label: "封禁管理",
+        key: "ban-management",
+        iconName: "heroicons:no-symbol",
+        path: "/admin/ban",
+        permission: "menu:sys:ban:list",
+      },
+    ],
+  },
+  {
     label: "登录/注册",
     key: "auth",
     iconName: "heroicons:arrow-right-on-rectangle",

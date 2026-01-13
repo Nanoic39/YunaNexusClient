@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { RefreshTokenKey, storage, TokenKey, UserKey } from "~/utils/storage";
 import { useAuthApi } from "~/composables/api/useAuthApi";
+import { useUserManagementApi } from "~/composables/api/useUserManagementApi";
 import { logger } from "~/utils/logger";
 import { API_PREFIX } from "~/composables/api/constants";
 import { useHttp } from "~/composables/useHttp";
@@ -9,11 +10,13 @@ import DefaultAvatar from "~/assets/images/avatar/image.png";
 export const useUserStore = defineStore("user", () => {
   const user = ref<any>({
     isLoggedIn: false,
+    permissions: [],
   });
 
   const avatarUrl = ref<string>(DefaultAvatar);
 
   const isLoggedIn = computed(() => !!user.value.isLoggedIn);
+  const permissions = computed(() => user.value.permissions || []);
 
   /**
    * 异步加载并缓存头像
@@ -57,6 +60,26 @@ export const useUserStore = defineStore("user", () => {
   }
 
   /**
+   * 获取用户权限
+   */
+  async function fetchPermissions() {
+    try {
+      const api = useUserManagementApi();
+      const res = (await api.fetchCurrentUserPermissions()) as any;
+      if (res.code === 200 && res.data) {
+        user.value.permissions = res.data.map((p: any) => p.permCode);
+        //TODO: 待删除提示文本 [用户状态] 权限加载成功
+        logger.info("[用户状态] 权限加载成功", user.value.permissions);
+      } else {
+        user.value.permissions = [];
+      }
+    } catch (e) {
+      logger.error("[用户状态] 权限加载失败", e);
+      user.value.permissions = [];
+    }
+  }
+
+  /**
    * 初始化用户状态
    * 从本地存储恢复用户会话，验证 Token 有效性
    */
@@ -86,7 +109,7 @@ export const useUserStore = defineStore("user", () => {
             const refreshRes = await apiRefreshToken(refreshToken as string);
             if (refreshRes && refreshRes.code === 200 && refreshRes.data) {
               logger.info("[用户状态] 成功", "服务器校验通过，状态恢复成功");
-              login(refreshRes.data);
+              await login(refreshRes.data);
             } else {
               logger.error("[用户状态] 所有token刷新失败，执行登出", null);
               logout();
@@ -98,9 +121,10 @@ export const useUserStore = defineStore("user", () => {
             return;
           }
         } else {
-          user.value = { ...(userInfo as any), isLoggedIn: true };
+          user.value = { ...(userInfo as any), isLoggedIn: true, permissions: [] };
           logger.info("[用户状态] 成功", "校验成功，状态已恢复");
-          fetchAvatar(); // 恢复状态后加载头像
+          await fetchAvatar(); // 恢复状态后加载头像
+          await fetchPermissions(); // 恢复状态后加载权限
         }
       } else {
         // hasLocalSession 校验失败
@@ -126,9 +150,9 @@ export const useUserStore = defineStore("user", () => {
    * 登录账号
    * @param userData 登录数据，包含 Token、RefreshToken 和用户信息
    */
-  function login(userData: any) {
+  async function login(userData: any) {
     const { token, refreshToken, ...userInfo } = userData;
-    user.value = { ...userInfo, isLoggedIn: true };
+    user.value = { ...userInfo, isLoggedIn: true, permissions: [] };
 
     if (token) {
       storage.set(TokenKey, token);
@@ -137,7 +161,8 @@ export const useUserStore = defineStore("user", () => {
       storage.set(RefreshTokenKey, refreshToken);
     }
     storage.set(UserKey, userInfo);
-    fetchAvatar(); // 登录成功后加载头像
+    await fetchAvatar(); // 登录成功后加载头像
+    await fetchPermissions(); // 登录成功后加载权限
   }
 
   /**
@@ -150,7 +175,7 @@ export const useUserStore = defineStore("user", () => {
     }
     avatarUrl.value = DefaultAvatar;
 
-    user.value = { isLoggedIn: false };
+    user.value = { isLoggedIn: false, permissions: [] };
     storage.remove(TokenKey);
     storage.remove(RefreshTokenKey);
     storage.remove(UserKey);
@@ -162,10 +187,12 @@ export const useUserStore = defineStore("user", () => {
   return {
     user,
     isLoggedIn,
+    permissions,
     avatarUrl,
     login,
     logout,
     init,
     fetchAvatar,
+    fetchPermissions,
   };
 });
