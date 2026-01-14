@@ -1,6 +1,6 @@
 import { storage, TokenKey, RefreshTokenKey } from "~/utils/storage";
 import { logger } from "~/utils/logger";
-import { message } from "~/utils/naive";
+import { globalMessage as message } from "~/utils/globalMessage";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useUserStore } from "~/stores/user";
 import { API_PREFIX } from "~/composables/api/constants";

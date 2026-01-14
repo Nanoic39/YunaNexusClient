@@ -1,6 +1,6 @@
 import { ref, reactive } from "vue";
 import { useFileApi } from "./api/useFileApi";
-import { useMessage } from "naive-ui";
+import { globalMessage as message } from "~/utils/globalMessage";
 
 export interface UploadProgress {
   uuid: string; // 临时UUID，用于区分任务
@@ -13,7 +13,8 @@ export interface UploadProgress {
 const uploadTasks = ref<UploadProgress[]>([]);
 
 export const useChunkUpload = () => {
-  const { initChunkUpload, uploadChunk, mergeChunks, getChunkConfig } = useFileApi();
+  const { initChunkUpload, uploadChunk, mergeChunks, getChunkConfig } =
+    useFileApi();
   const message = useMessage();
 
   const processQueue = async (
@@ -30,23 +31,29 @@ export const useChunkUpload = () => {
         await Promise.race(executing);
       }
       active++;
-      const p = task().then((res) => {
-        active--;
-        executing.splice(executing.indexOf(p), 1);
-        onProgress();
-        return res;
-      }).catch(err => {
-        active--;
-        executing.splice(executing.indexOf(p), 1);
-        throw err;
-      });
+      const p = task()
+        .then((res) => {
+          active--;
+          executing.splice(executing.indexOf(p), 1);
+          onProgress();
+          return res;
+        })
+        .catch((err) => {
+          active--;
+          executing.splice(executing.indexOf(p), 1);
+          throw err;
+        });
       executing.push(p);
       results.push(p);
     }
     return Promise.all(results);
   };
 
-  const upload = async (file: File, folderId?: number, onFinish?: () => void) => {
+  const upload = async (
+    file: File,
+    folderId?: number,
+    onFinish?: () => void
+  ) => {
     const task = reactive<UploadProgress>({
       uuid: crypto.randomUUID(),
       file,
@@ -63,9 +70,13 @@ export const useChunkUpload = () => {
 
       task.status = "uploading";
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-      
+
       // 2. 初始化
-      const { data: uploadId } = await initChunkUpload(file.name, totalChunks, file.size);
+      const { data: uploadId } = await initChunkUpload(
+        file.name,
+        totalChunks,
+        file.size
+      );
       if (!uploadId) throw new Error("初始化上传失败");
 
       // 3. 构建分片任务
@@ -76,7 +87,7 @@ export const useChunkUpload = () => {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
         const blob = file.slice(start, end);
-        
+
         chunkTasks.push(async () => {
           await uploadChunk(uploadId, i, blob);
           completedChunks++;
@@ -91,12 +102,11 @@ export const useChunkUpload = () => {
       task.status = "merging";
       task.progress = 95;
       await mergeChunks(uploadId, file.name, folderId);
-      
+
       task.progress = 100;
       task.status = "completed";
       message.success(`${file.name} 上传成功`);
       if (onFinish) onFinish();
-
     } catch (e: any) {
       console.error(e);
       task.status = "error";

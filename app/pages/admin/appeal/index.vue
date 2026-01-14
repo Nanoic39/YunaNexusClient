@@ -1,14 +1,7 @@
 <script setup lang="ts">
 import { h, onMounted, ref, reactive } from "vue";
-import {
-  NButton,
-  NPopconfirm,
-  useMessage,
-  NTag,
-  NInput,
-  NModal,
-  NSelect,
-} from "naive-ui";
+import { NButton, NPopconfirm, NTag, NInput, NModal, NSelect } from "naive-ui";
+import { globalMessage as message } from "~/utils/globalMessage";
 import type { DataTableColumns } from "naive-ui";
 import { useUserManagementApi } from "~/composables/api/useUserManagementApi";
 
@@ -34,7 +27,6 @@ interface Pagination {
   itemCount: number;
 }
 
-const message = useMessage();
 const api = useUserManagementApi();
 
 const loading = ref(false);
@@ -52,6 +44,9 @@ const pagination = reactive<Pagination>({
   pageSize: 10,
   itemCount: 0,
 });
+
+const showUserModal = ref(false);
+const userDetail = ref<any | null>(null);
 
 const remarkModal = ref(false);
 const remarkText = ref("");
@@ -159,10 +154,29 @@ const statusTag = (status: number) => {
   }
 };
 
-const createColumns = (): DataTableColumns<Appeal> => [
+const createColumns = (): DataTableColumns<
+  Appeal & { uuid?: string; userExist?: boolean }
+> => [
   { title: "ID", key: "id", width: 80 },
-  { title: "用户ID", key: "userId", width: 100 },
-  { title: "联系方式", key: "contact" },
+  {
+    title: "UUID",
+    key: "uuid",
+    render(row) {
+      if (!row.userExist) {
+        return h(NTag, { type: "error" }, { default: () => "用户不存在" });
+      }
+      return h(
+        NButton,
+        {
+          text: true,
+          type: "primary",
+          onClick: () => openUserModal(row.uuid, row.userExist),
+        },
+        { default: () => row.uuid || "-" }
+      );
+    },
+  },
+  { title: "账号（邮箱或用户名）", key: "contact" },
   { title: "申诉原因", key: "reason" },
   {
     title: "状态",
@@ -225,6 +239,26 @@ const createColumns = (): DataTableColumns<Appeal> => [
 
 const columns = createColumns();
 
+const openUserModal = async (uuid?: string, userExist?: boolean) => {
+  if (!uuid || !userExist) {
+    userDetail.value = null;
+    showUserModal.value = true;
+    return;
+  }
+  try {
+    const res = (await api.fetchUserProfileByUuidAdmin(uuid)) as any;
+    if (res.code === 200) {
+      userDetail.value = res.data;
+    } else {
+      userDetail.value = null;
+    }
+  } catch {
+    userDetail.value = null;
+  } finally {
+    showUserModal.value = true;
+  }
+};
+
 onMounted(() => {
   fetchData();
 });
@@ -273,6 +307,32 @@ onMounted(() => {
           <n-button type="primary" @click="submitRemark">确定</n-button>
         </div>
       </template>
+    </n-modal>
+    <n-modal
+      v-model:show="showUserModal"
+      preset="card"
+      title="用户信息"
+      style="width: 520px"
+    >
+      <div v-if="userDetail">
+        <div class="mb-2">UUID：{{ userDetail.uuid }}</div>
+        <div class="mb-2">用户名：{{ userDetail.username }}</div>
+        <div class="mb-2">邮箱：{{ userDetail.email || "-" }}</div>
+        <div class="mb-2">昵称：{{ userDetail.userInfo?.nickname || "-" }}</div>
+        <div class="mb-2">
+          性别：{{
+            userDetail.userInfo?.gender === 1
+              ? "男"
+              : userDetail.userInfo?.gender === 2
+                ? "女"
+                : "保密"
+          }}
+        </div>
+        <div class="mb-2">经验：{{ userDetail.userInfo?.experience ?? 0 }}</div>
+      </div>
+      <div v-else class="text-[var(--text-secondary)]">
+        <n-tag type="error">用户不存在</n-tag>
+      </div>
     </n-modal>
   </div>
 </template>

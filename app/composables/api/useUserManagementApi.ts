@@ -28,10 +28,26 @@ export const useUserManagementApi = () => {
       method: "GET",
     });
   };
+  const fetchUserProfileByUuidAdmin = (uuid: string) => {
+    return useHttp(`${API_PREFIX.USER}/user/admin/profile/by-uuid`, {
+      method: "GET",
+      params: { uuid },
+    });
+  };
 
-  const banUser = (userId: number) => {
+  const banUser = (
+    userId: number,
+    payload: {
+      type?: number;
+      range?: number;
+      service?: string;
+      reason: string;
+      endTime?: number;
+    }
+  ) => {
     return useHttp(`${API_PREFIX.USER}/user/${userId}/ban`, {
       method: "POST",
+      params: payload,
     });
   };
 
@@ -41,10 +57,20 @@ export const useUserManagementApi = () => {
     });
   };
 
-  const banUsersBatch = (ids: number[]) => {
+  const banUsersBatch = (
+    ids: number[],
+    payload: {
+      type?: number;
+      range?: number;
+      service?: string;
+      reason: string;
+      endTime?: number;
+    }
+  ) => {
     return useHttp(`${API_PREFIX.USER}/user/ban/batch`, {
       method: "POST",
       body: ids,
+      params: payload,
     });
   };
 
@@ -64,6 +90,11 @@ export const useUserManagementApi = () => {
 
   const resetUsername = (userId: number) => {
     return useHttp(`${API_PREFIX.USER}/user/${userId}/username/reset`, {
+      method: "POST",
+    });
+  };
+  const resetNickname = (userId: number) => {
+    return useHttp(`${API_PREFIX.USER}/user/${userId}/nickname/reset`, {
       method: "POST",
     });
   };
@@ -187,12 +218,14 @@ export const useUserManagementApi = () => {
     assignRoles,
     fetchUserRoles,
     fetchUserDetail,
+    fetchUserProfileByUuidAdmin,
     banUser,
     unbanUser,
     banUsersBatch,
     unbanUsersBatch,
     deleteUsersBatch,
     resetUsername,
+    resetNickname,
     fetchBannedUsers,
     fetchRoles,
     createRole,

@@ -65,12 +65,46 @@
         </div>
       </template>
     </n-modal>
+
+    <!-- Ban Modal -->
+    <n-modal
+      v-model:show="showBanModal"
+      preset="card"
+      title="封禁设置"
+      style="width: 520px"
+    >
+      <div class="space-y-4">
+        <n-input
+          v-model:value="banReason"
+          placeholder="请输入封禁原因（必填）"
+        />
+        <n-input
+          v-model:value="banService"
+          placeholder="封禁服务范围（可选）"
+        />
+        <n-date-picker
+          v-model:value="banEndTime"
+          type="datetime"
+          clearable
+          placeholder="封禁结束时间（可选，留空为永久）"
+        />
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <n-button @click="showBanModal = false">取消</n-button>
+          <n-button type="error" :loading="banSubmitting" @click="submitBan"
+            >确定封禁</n-button
+          >
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { h, onMounted, ref, reactive } from "vue";
-import { NButton, NTag, useMessage, NPopconfirm } from "naive-ui";
+import { NButton, NTag, NPopconfirm, NDatePicker } from "naive-ui";
+import { globalMessage as message } from "~/utils/globalMessage";
 import type { DataTableColumns } from "naive-ui";
 import { useUserManagementApi } from "~/composables/api/useUserManagementApi";
 import dayjs from "dayjs";
@@ -100,7 +134,6 @@ definePageMeta({
   layout: "admin-layout",
 });
 
-const message = useMessage();
 const api = useUserManagementApi();
 
 const loading = ref(false);
@@ -227,7 +260,7 @@ const createColumns = ({
         h(
           NPopconfirm,
           {
-            onPositiveClick: () => handleResetUsername(row),
+            onPositiveClick: () => handleResetNickname(row),
             positiveText: "确定",
             negativeText: "取消",
           },
@@ -239,9 +272,9 @@ const createColumns = ({
                   size: "small",
                   type: "warning",
                 },
-                { default: () => "重置用户名" }
+                { default: () => "重置昵称" }
               ),
-            default: () => "确认重置该用户的用户名？",
+            default: () => "确认重置该用户的昵称？",
           }
         ),
       ]);
@@ -273,6 +306,55 @@ const openRoleModal = async (row: User) => {
 
 const columns = createColumns({ openRoleModal });
 
+// Ban Modal state
+const showBanModal = ref(false);
+const banSubmitting = ref(false);
+const banReason = ref("");
+const banService = ref("");
+const banEndTime = ref<number | null>(null);
+const banTargetIds = ref<number[]>([]);
+
+const openBanModal = (ids: number[]) => {
+  banTargetIds.value = ids;
+  banReason.value = "";
+  banService.value = "";
+  banEndTime.value = null;
+  showBanModal.value = true;
+};
+
+const submitBan = async () => {
+  if (!banReason.value) {
+    message.error("请填写封禁原因");
+    return;
+  }
+  banSubmitting.value = true;
+  try {
+    const payload: any = {
+      reason: banReason.value,
+    };
+    if (banService.value) payload.service = banService.value;
+    if (banEndTime.value) payload.endTime = banEndTime.value;
+    let res: any;
+    if (banTargetIds.value.length === 1) {
+      res = await api.banUser(banTargetIds.value[0]!, payload);
+    } else {
+      res = await api.banUsersBatch(banTargetIds.value, payload);
+    }
+    if (res.code === 200) {
+      message.success("封禁成功");
+      showBanModal.value = false;
+      checkedRowKeys.value = [];
+      fetchData();
+    } else {
+      message.error(res.tips || "封禁失败");
+    }
+  } catch {
+    message.error("封禁失败");
+  } finally {
+    banSubmitting.value = false;
+  }
+};
+
 const handleAssignRoles = async () => {
   if (!currentUserId.value) return;
   assignLoading.value = true;
@@ -291,21 +373,13 @@ const handleAssignRoles = async () => {
 };
 
 const handleBan = async (row: User) => {
-  try {
-    const res = (await api.banUser(row.id)) as any;
-    if (res.code === 200) {
-      message.success("封禁成功");
-      fetchData();
-    }
-  } catch (e) {
-    message.error("操作失败");
-  }
+  openBanModal([row.id]);
 };
-const handleResetUsername = async (row: User) => {
+const handleResetNickname = async (row: User) => {
   try {
-    const res = (await api.resetUsername(row.id)) as any;
+    const res = (await api.resetNickname(row.id)) as any;
     if (res.code === 200) {
-      message.success("用户名已重置");
+      message.success("昵称已重置");
       fetchData();
     }
   } catch {
@@ -314,16 +388,7 @@ const handleResetUsername = async (row: User) => {
 };
 const handleBatchBan = async () => {
   if (checkedRowKeys.value.length === 0) return;
-  try {
-    const res = (await api.banUsersBatch(checkedRowKeys.value)) as any;
-    if (res.code === 200) {
-      message.success("批量封禁完成");
-      checkedRowKeys.value = [];
-      fetchData();
-    }
-  } catch {
-    message.error("批量封禁失败");
-  }
+  openBanModal(checkedRowKeys.value.slice());
 };
 const handleBatchDelete = async () => {
   if (checkedRowKeys.value.length === 0) return;

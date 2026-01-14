@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useMessage, NModal, NTag, NButton } from "naive-ui";
+import { NModal, NTag, NButton } from "naive-ui";
+import { globalMessage as message } from "~/utils/globalMessage";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 
@@ -10,7 +11,6 @@ definePageMeta({
   title: "账号申诉",
 });
 
-const message = useMessage();
 const router = useRouter();
 const { submitAppeal, queryAppeals } = useAuthApi();
 const { getUserProfile } = useProfileApi();
@@ -19,23 +19,23 @@ const loading = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const activeTab = ref<"submit" | "query">("submit");
-const queryContact = ref("");
 const queryAccount = ref("");
 const queryLoading = ref(false);
 const queryResults = ref<any[]>([]);
 const showUserModal = ref(false);
 const userDetail = ref<any | null>(null);
+const lastEmptyNotifyAt = ref(0);
 
 const formRef = ref();
 const model = ref({
-  contact: "",
+  account: "",
   reason: "",
 });
 
 const rules = {
-  contact: {
+  account: {
     required: true,
-    message: "请输入联系方式（邮箱或手机）",
+    message: "请输入账号（邮箱或用户名）",
     trigger: "blur",
   },
   reason: { required: true, message: "请填写申诉原因", trigger: "blur" },
@@ -48,7 +48,7 @@ async function handleSubmit() {
   try {
     await formRef.value?.validate();
     const res = await submitAppeal({
-      contact: model.value.contact,
+      account: model.value.account,
       reason: model.value.reason,
     });
     if (res.code === 200) {
@@ -85,7 +85,6 @@ async function handleQuery() {
   queryLoading.value = true;
   try {
     const res = await queryAppeals({
-      contact: queryContact.value || undefined,
       account: queryAccount.value || undefined,
     });
     if (res.code === 200) {
@@ -94,7 +93,11 @@ async function handleQuery() {
         statusText: mapStatus(r.status),
       }));
       if (!res.data || res.data.length === 0) {
-        message.info("未查询到相关申诉记录");
+        const now = Date.now();
+        if (now - lastEmptyNotifyAt.value > 1500) {
+          message.info(res.tips || "查询结果为空");
+          lastEmptyNotifyAt.value = now;
+        }
       }
     } else {
       message.error(res.tips || "查询失败");
@@ -128,7 +131,7 @@ async function openUserModal(uuid?: string, userExist?: boolean) {
 <template>
   <div class="min-h-[calc(100vh-200px)] flex items-center justify-center py-10">
     <div
-      class="w-full max-w-xl bg-[var(--bg-card)] rounded-2xl shadow-2xl p-8 border border-[var(--border-color)]"
+      class="w-full max-w-4xl bg-[var(--bg-card)] rounded-2xl shadow-2xl p-10 border border-[var(--border-color)]"
     >
       <h1 class="text-2xl font-bold mb-4">账号申诉</h1>
       <p class="text-[var(--text-secondary)] mb-6">
@@ -159,10 +162,10 @@ async function openUserModal(uuid?: string, userExist?: boolean) {
             </n-alert>
           </n-collapse-transition>
           <n-form ref="formRef" :model="model" :rules="rules" size="large">
-            <n-form-item path="contact" label="联系方式">
+            <n-form-item path="account" label="账号（邮箱或用户名）">
               <n-input
-                v-model:value="model.contact"
-                placeholder="请输入邮箱或手机"
+                v-model:value="model.account"
+                placeholder="请输入邮箱或用户名"
               />
             </n-form-item>
             <n-form-item path="reason" label="申诉原因">
@@ -189,60 +192,103 @@ async function openUserModal(uuid?: string, userExist?: boolean) {
         </n-tab-pane>
         <n-tab-pane name="query" tab="查询申诉结果">
           <div class="border rounded-lg p-4">
-            <div class="grid grid-cols-1 gap-3 mb-3">
-              <n-input
-                v-model:value="queryContact"
-                placeholder="输入申诉时填写的联系方式"
-              />
-              <n-input
-                v-model:value="queryAccount"
-                placeholder="输入账号（用户名或邮箱，可选）"
-              />
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div class="col-span-2 sm:col-span-1">
+                <n-input
+                  v-model:value="queryAccount"
+                  placeholder="输入账号（邮箱或用户名）"
+                />
+              </div>
+              <div class="col-span-2 sm:col-span-1">
+                <n-button
+                  type="primary"
+                  block
+                  :loading="queryLoading"
+                  @click="handleQuery"
+                  >查询申诉记录</n-button
+                >
+              </div>
             </div>
-            <n-button
-              type="primary"
-              block
-              :loading="queryLoading"
-              @click="handleQuery"
-              >查询申诉记录</n-button
-            >
             <div class="mt-4">
-              <n-data-table
-                :columns="[
-                  { title: '联系方式', key: 'contact' },
-                  { title: '原因', key: 'reason' },
-                  {
-                    title: 'UUID',
-                    key: 'uuid',
-                    render(row: {
-                      userExist: boolean | undefined;
-                      uuid: string | undefined;
-                    }) {
-                      if (!row.userExist) {
-                        return h(
-                          NTag,
-                          { type: 'error' },
-                          { default: () => '用户不存在' }
-                        );
-                      }
-                      return h(
-                        NButton,
-                        {
-                          text: true,
-                          type: 'primary',
-                          onClick: () => openUserModal(row.uuid, row.userExist),
-                        },
-                        { default: () => row.uuid || '-' }
-                      );
+              <div class="hidden sm:block">
+                <n-data-table
+                  size="small"
+                  :columns="[
+                    {
+                      title: '账号（邮箱或用户名）',
+                      key: 'contact',
+                      width: 220,
                     },
-                  },
-                  { title: '状态', key: 'statusText' },
-                  { title: '处理备注', key: 'processRemark' },
-                  { title: '创建时间', key: 'createTime' },
-                  { title: '更新时间', key: 'updateTime' },
-                ]"
-                :data="queryResults"
-              />
+                    { title: '原因', key: 'reason' },
+                    {
+                      title: 'UUID',
+                      key: 'uuid',
+                      render(row: {
+                        userExist: boolean | undefined;
+                        uuid: string | undefined;
+                      }) {
+                        if (!row.userExist) {
+                          return h(
+                            NTag,
+                            { type: 'error' },
+                            { default: () => '用户不存在' }
+                          );
+                        }
+                        return h(
+                          NButton,
+                          {
+                            text: true,
+                            type: 'primary',
+                            onClick: () =>
+                              openUserModal(row.uuid, row.userExist),
+                          },
+                          { default: () => row.uuid || '-' }
+                        );
+                      },
+                    },
+                    { title: '状态', key: 'statusText' },
+                    { title: '处理备注', key: 'processRemark' },
+                    { title: '创建时间', key: 'createTime' },
+                    { title: '更新时间', key: 'updateTime' },
+                  ]"
+                  :data="queryResults"
+                />
+              </div>
+              <div class="block sm:hidden">
+                <div class="space-y-3">
+                  <div
+                    v-for="row in queryResults"
+                    :key="row.id"
+                    class="border rounded-lg p-3"
+                  >
+                    <div class="flex justify-between items-center mb-1">
+                      <div class="font-medium truncate max-w-[60%]">
+                        账号：{{ row.contact || "-" }}
+                      </div>
+                      <div>
+                        <n-tag v-if="!row.userExist" type="error"
+                          >用户不存在</n-tag
+                        >
+                        <n-button
+                          v-else
+                          text
+                          type="primary"
+                          @click="openUserModal(row.uuid, row.userExist)"
+                        >
+                          {{ row.uuid || "-" }}
+                        </n-button>
+                      </div>
+                    </div>
+                    <div class="text-[var(--text-secondary)] mb-2">
+                      原因：{{ row.reason || "-" }}
+                    </div>
+                    <div class="flex justify-between text-sm">
+                      <div>状态：{{ row.statusText }}</div>
+                      <div>备注：{{ row.processRemark || "-" }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </n-tab-pane>

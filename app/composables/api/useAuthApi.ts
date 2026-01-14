@@ -132,8 +132,8 @@ export const useAuthApi = () => {
       }
     );
   };
-  
-  const submitAppeal = async (data: { contact: string; reason: string }) => {
+
+  const submitAppeal = async (data: { account: string; reason: string }) => {
     return useHttp<{ code: number; msg: string; tips: string; data: null }>(
       `${API_PREFIX.USER}/appeal`,
       {
@@ -144,16 +144,17 @@ export const useAuthApi = () => {
       }
     );
   };
-  const queryAppeals = async (params: { contact?: string; account?: string }) => {
+  const queryAppeals = async (params: { account?: string }) => {
     return useHttp<{ code: number; msg: string; tips: string; data: any[] }>(
       `${API_PREFIX.USER}/appeal/query`,
       {
         method: "GET",
         params,
+        suppressTips: true,
       }
     );
   };
-  
+
   return {
     login,
     loginByCode,

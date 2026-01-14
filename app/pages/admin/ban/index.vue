@@ -31,7 +31,8 @@
 
 <script setup lang="ts">
 import { h, onMounted, ref, reactive } from "vue";
-import { NButton, NTag, useMessage } from "naive-ui";
+import { NButton, NTag } from "naive-ui";
+import { globalMessage as message } from "~/utils/globalMessage";
 import type { DataTableColumns } from "naive-ui";
 import { useUserManagementApi } from "~/composables/api/useUserManagementApi";
 import dayjs from "dayjs";
@@ -54,7 +55,6 @@ interface Pagination {
   itemCount: number;
 }
 
-const message = useMessage();
 const api = useUserManagementApi();
 
 const loading = ref(false);

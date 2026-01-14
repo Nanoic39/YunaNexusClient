@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { useMessage } from "naive-ui";
+import { globalMessage as message } from "~/utils/globalMessage";
 import { Icon } from "#components";
 import { useUser } from "~/composables/useUser";
 import { useAuthApi } from "~/composables/api/useAuthApi";
@@ -15,7 +15,6 @@ definePageMeta({
 });
 
 const router = useRouter();
-const message = useMessage();
 const { login, user } = useUser();
 const {
   login: apiLogin,
