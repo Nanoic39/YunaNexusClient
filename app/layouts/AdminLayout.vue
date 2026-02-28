@@ -26,6 +26,19 @@ const isPageLoading = ref(false);
 let timeoutId: number | null = null;
 
 // Page transition loading state
+const roleName = computed(() => {
+  if (!userProfile.value.isLoggedIn) return "Visitor";
+  const roles = userProfile.value.roles;
+  if (roles && roles.length > 0) {
+    // Sort by roleLevel descending to show highest role
+    const sorted = [...roles].sort(
+      (a: any, b: any) => (b.roleLevel || 0) - (a.roleLevel || 0)
+    );
+    return sorted[0].roleName;
+  }
+  return "身份显示异常";
+});
+
 const removeBeforeEach = router.beforeEach((to, from, next) => {
   if (to.path !== from.path) {
     isPageLoading.value = true;
@@ -518,10 +531,7 @@ function getPageTitle(path: string): string {
                       <span
                         class="text-xs text-[var(--text-secondary)] truncate max-w-[100px] leading-none opacity-80"
                       >
-                        <template v-if="!userProfile.isLoggedIn"
-                          >Visitor</template
-                        >
-                        <template v-else> Member </template>
+                        {{ roleName }}
                       </span>
                     </div>
                     <Icon

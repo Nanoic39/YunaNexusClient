@@ -10,24 +10,28 @@ export const MOCK_MENU_ITEMS = [
     key: "files",
     iconName: "heroicons:folder",
     path: "/files",
+    permission: "menu:file:*",
     children: [
       {
         label: "我的文件",
         key: "my-files",
         iconName: "heroicons:document-duplicate",
         path: "/files/my-files",
+        permission: "menu:file:my-files",
       },
       {
         label: "我的分享",
         key: "my-shares",
         iconName: "heroicons:share",
         path: "/files/my-shares",
+        permission: "menu:file:my-shares",
       },
       {
         label: "回收站",
         key: "recycle-bin",
         iconName: "heroicons:trash",
         path: "/files/recycle-bin",
+        permission: "menu:file:recycle-bin",
       },
     ],
   },
