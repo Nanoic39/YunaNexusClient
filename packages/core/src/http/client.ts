@@ -2,6 +2,7 @@ import { readEnv, type AppEnv } from '../env'
 import { SUCCESS_CODE, type Result } from '../types'
 import { cacheCsrf, readCsrfHeader } from './csrf'
 import { ApiError, NetworkError } from './errors'
+import { refreshSession } from './refresh'
 import { session } from './session'
 
 /** 鉴权模式 */
@@ -10,7 +11,10 @@ export type AuthMode =
   | 'none'
   /** 携带 Authorization: Bearer（终端用户） */
   | 'bearer'
-  /** 携带 X-Admin-Token（管理后台） */
+  /**
+   * 管理后台：携带用户 JWT（`Authorization: Bearer`）。
+   * 与用户端共用同一账号体系（SSO），后端按 `admin` 角色放行管理台资源。
+   */
   | 'admin'
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -93,6 +97,34 @@ export class HttpClient {
 
   /** 发起请求并解包 `data` */
   async request<T>(path: string, config: RequestConfig = {}): Promise<T> {
+    const initialToken = session.state.accessToken
+    const initialIdentity = session.state.externalId
+    try {
+      return await this.execute<T>(path, config)
+    } catch (error) {
+      const authMode = config.authMode ?? this.config.authMode
+      if (error instanceof ApiError && error.isUnauthorized) {
+        if (authMode !== 'none' && session.state.accessToken !== initialToken) {
+          if (session.state.accessToken && initialIdentity && session.state.externalId === initialIdentity) {
+            return this.execute<T>(path, config)
+          }
+          throw error // 旧请求不能清除或代替另一个账号的新会话。
+        }
+        // 携令牌失效：先用 refreshToken 续期并重试一次（会话过期不该打断当前操作）
+        if (authMode !== 'none' && session.state.accessToken && (await refreshSession())) {
+          return this.execute<T>(path, config)
+        }
+        if ((authMode === 'bearer' || authMode === 'admin') && session.state.accessToken === initialToken) {
+          session.clearUser()
+          this.config.onUnauthorized?.()
+        }
+      }
+      throw error
+    }
+  }
+
+  /** 实际执行请求（`request` 在其上叠加续期重试） */
+  private async execute<T>(path: string, config: RequestConfig = {}): Promise<T> {
     const { method = 'GET', query, body, headers = {}, signal, responseType = 'json' } = config
     const authMode = config.authMode ?? this.config.authMode
     const mutate = config.mutate ?? MUTATING_METHODS.has(method)
@@ -106,8 +138,9 @@ export class HttpClient {
     if (authMode === 'bearer' && session.state.accessToken) {
       finalHeaders.Authorization = `Bearer ${session.state.accessToken}`
     }
-    if (authMode === 'admin' && session.state.adminToken) {
-      finalHeaders['X-Admin-Token'] = session.state.adminToken
+    if (authMode === 'admin' && session.state.accessToken) {
+      // 管理台与用户端共用用户 JWT；后端按 admin 角色放行
+      finalHeaders.Authorization = `Bearer ${session.state.accessToken}`
     }
 
     if (mutate && this.config.csrf) {
@@ -150,10 +183,6 @@ export class HttpClient {
         tips: result.tips,
         traceId: result.traceId,
       })
-      if (error.isUnauthorized && authMode === 'bearer') {
-        session.clearUser()
-        this.config.onUnauthorized?.()
-      }
       throw error
     }
 
@@ -207,5 +236,5 @@ export const http = new HttpClient({ authMode: 'none' })
 /** 终端用户客户端（Bearer） */
 export const userHttp = new HttpClient({ authMode: 'bearer' })
 
-/** 管理后台客户端（X-Admin-Token） */
+/** 管理后台客户端（用户 JWT，后端按 `admin` 角色放行） */
 export const adminHttp = new HttpClient({ authMode: 'admin' })

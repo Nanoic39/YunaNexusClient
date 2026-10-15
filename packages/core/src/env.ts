@@ -22,8 +22,6 @@ export interface AppEnv {
   enableMock: boolean
   /** 是否启用 CSRF 令牌回显 */
   enableCsrf: boolean
-  /** 本地联调用的管理员密钥（生产不允许配置） */
-  adminToken: string
   /** 应用标题 */
   appTitle: string
   /**
@@ -49,7 +47,6 @@ interface EnvRecord {
   VITE_API_BASE_URL?: string
   VITE_ENABLE_MOCK?: string
   VITE_ENABLE_CSRF?: string
-  VITE_ADMIN_TOKEN?: string
   VITE_APP_TITLE?: string
   VITE_USER_URL?: string
   VITE_ADMIN_URL?: string
@@ -78,7 +75,6 @@ export function readEnv(): AppEnv {
     // 生产模式强制关闭 Mock（禁止兜底）；开发模式默认开启，可用 VITE_ENABLE_MOCK=false 关闭
     enableMock: isDev && readBool(env.VITE_ENABLE_MOCK, true),
     enableCsrf: readBool(env.VITE_ENABLE_CSRF, false),
-    adminToken: isDev ? env.VITE_ADMIN_TOKEN ?? '' : '',
     appTitle: env.VITE_APP_TITLE ?? 'YunaNexus',
     // 开发环境两端跑在 localhost 的不同端口；生产环境必须由环境变量显式指定
     userAppUrl: env.VITE_USER_URL || (isDev ? 'http://localhost:5174' : ''),

@@ -4,8 +4,13 @@ import type { CurrentUserView, RoleBrief, TokenResult } from '../types'
 /**
  * 会话状态（Token / 身份 / 权限）。
  *
- * 终端用户走 `accessToken`（Bearer），管理后台走 `adminToken`（X-Admin-Token）；
- * 两者共存于同一存储，互不干扰。状态持久化到 localStorage，刷新页面不丢登录态。
+ * 全站共用一套终端用户会话（`accessToken`，`Authorization: Bearer`）：
+ * 用户端与管理端是同一账号体系（SSO），不存在独立的「管理端登录」。
+ * 是否具备管理台访问资格由用户角色中是否含根角色 `admin` 决定。
+ * 状态持久化到 localStorage，刷新页面不丢登录态。
+ *
+ * 用户端与管理端为不同域/端口部署时 localStorage 不共享，跨应用登录态通过
+ * `exportHandoff` / `applyHandoff` 以 URL 片段形式接驳（见 `./handoff`）。
  */
 
 /** 管理角色的根角色标识：持有该角色即视为具备管理后台访问资格 */
@@ -20,7 +25,6 @@ export interface SessionState {
   /** 用户昵称（登录 / GET /me 回填，用于界面展示） */
   nickname: string | null
   clientCode: string | null
-  adminToken: string | null
   /** 当前用户绑定的启用角色（`GET /permission/me` 回填） */
   roles: RoleBrief[]
   /** 当前用户权限码并集（`GET /permission/me` 回填） */
@@ -36,7 +40,6 @@ const EMPTY: SessionState = {
   externalId: null,
   nickname: null,
   clientCode: null,
-  adminToken: null,
   roles: [],
   permissions: [],
 }
@@ -45,7 +48,8 @@ function load(): SessionState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { ...EMPTY }
-    return { ...EMPTY, ...(JSON.parse(raw) as Partial<SessionState>), adminToken: sessionStorage.getItem('yuna.adminToken') }
+    const parsed = JSON.parse(raw) as Partial<SessionState>
+    return { ...EMPTY, ...parsed }
   } catch {
     return { ...EMPTY }
   }
@@ -55,9 +59,7 @@ const state = reactive<SessionState>(load())
 
 function persist(): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, adminToken: null }))
-    if (state.adminToken) sessionStorage.setItem('yuna.adminToken', state.adminToken)
-    else sessionStorage.removeItem('yuna.adminToken')
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch {
     /* 隐私模式 / 存储配额不足时静默降级为内存态 */
   }
@@ -65,6 +67,11 @@ function persist(): void {
 
 /** 写入终端用户令牌 */
 function setTokens(result: TokenResult, clientCode?: string): void {
+  if (state.externalId !== result.externalId) {
+    state.roles = []
+    state.permissions = []
+    state.nickname = null
+  }
   state.accessToken = result.accessToken
   state.refreshToken = result.refreshToken
   state.expiresAt = Date.now() + result.expiresIn * 1000
@@ -79,12 +86,6 @@ function setIdentity(externalId: string, clientCode: string, nickname?: string):
   state.externalId = externalId
   state.clientCode = clientCode
   if (nickname) state.nickname = nickname
-  persist()
-}
-
-/** 写入管理员密钥 */
-function setAdminToken(token: string | null): void {
-  state.adminToken = token
   persist()
 }
 
@@ -105,7 +106,7 @@ function hasPermission(code: string): boolean {
   return state.permissions.includes(code)
 }
 
-/** 清空终端用户令牌（不影响管理员密钥） */
+/** 清空终端用户令牌与权限视图 */
 function clearUser(): void {
   state.accessToken = null
   state.refreshToken = null
@@ -128,13 +129,12 @@ export const session = {
   state,
   /** 终端用户是否已登录（未校验过期，过期由 401 兜底） */
   isAuthenticated: computed(() => Boolean(state.accessToken)),
-  /** 管理后台是否已持有密钥 */
-  hasAdminToken: computed(() => Boolean(state.adminToken)),
   /** 是否具备管理后台访问资格（持有根角色 `admin`） */
-  canEnterAdmin: computed(() => state.roles.some((role) => role.roleCode === ADMIN_ROLE_CODE)),
+  canEnterAdmin: computed(() => Boolean(state.accessToken) && state.roles.some((role) => role.roleCode === ADMIN_ROLE_CODE)),
+  /** 管理端是否可直接进入（持有根角色 `admin`） */
+  canAccessAdmin: computed(() => Boolean(state.accessToken) && state.roles.some((role) => role.roleCode === ADMIN_ROLE_CODE)),
   setTokens,
   setIdentity,
-  setAdminToken,
   setCurrentUser,
   hasRole,
   hasPermission,

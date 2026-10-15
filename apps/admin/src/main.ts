@@ -1,8 +1,7 @@
 import { createApp } from 'vue'
-import { readEnv } from '@yuna/core'
+import { consumeHandoff, currentUserApi, readEnv, session } from '@yuna/core'
 import '@yuna/theme/styles.css'
 import App from './App.vue'
-import { router } from './router'
 
 /**
  * 应用启动引导。
@@ -15,6 +14,18 @@ async function bootstrap(): Promise<void> {
     const { startMock } = await import('@yuna/core/mock')
     await startMock()
   }
+  // 消费用户端接驳的会话片段（不同域/端口部署，登录态随导航传递），须在挂载前完成
+  await consumeHandoff()
+  // 已登录时刷新角色 / 权限视图，保证管理角色放行判据与后端一致（失败静默降级）
+  if (session.isAuthenticated.value) {
+    try {
+      session.setCurrentUser(await currentUserApi.me())
+    } catch {
+      session.setCurrentUser({ userId: 0, roles: [], permissions: [], menus: [] })
+    }
+  }
+  // 授权码清理和回跳完成后再创建 history，避免路由仍捕获旧的 callback 地址。
+  const { router } = await import('./router')
   createApp(App).use(router).mount('#app')
 }
 

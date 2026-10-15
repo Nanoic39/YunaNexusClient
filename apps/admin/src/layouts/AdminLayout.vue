@@ -30,7 +30,7 @@ function onMenuSelect(key: string): void {
 
 function onAccountSelect(key: string): void {
   if (key === 'logout') {
-    session.setAdminToken(null)
+    session.clearAll()
     void router.replace({ name: 'login' })
     return
   }

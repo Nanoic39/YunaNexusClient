@@ -50,7 +50,7 @@ export const authApi = {
   csrf: () => http.request<CsrfResult>(`${BASE}/csrf`),
 }
 
-/** 认证中心 · 管理后台接口（X-Admin-Token） */
+/** 认证中心 · 管理后台接口（用户 JWT，后端按 admin 角色放行） */
 export const authAdminApi = {
   /** 分页查询申诉 */
   listAppeals: (query: AppealQuery) =>

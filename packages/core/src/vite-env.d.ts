@@ -14,8 +14,6 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_MOCK?: string
   /** 是否启用 CSRF 令牌回显（真实网关开启 CSRF 校验时置 'true'） */
   readonly VITE_ENABLE_CSRF?: string
-  /** 管理端默认管理员密钥（仅本地联调，生产禁止写入前端） */
-  readonly VITE_ADMIN_TOKEN?: string
   /** 应用标题 */
   readonly VITE_APP_TITLE?: string
 }

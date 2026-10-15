@@ -24,6 +24,8 @@ export interface TokenResult {
 
 /** 验证码签发结果（GET /api/v1/auth/captcha） */
 export interface CaptchaResult {
+  /** 生产环境图形验证码 */
+  imageDataUrl?: string | null
   captchaId: string
   /** 仅本地开发回显，生产恒为 null */
   code: string | null

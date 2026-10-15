@@ -10,7 +10,7 @@ import {
   truncateMiddle,
   useSiderCollapsed,
 } from '@yuna/ui'
-import { authApi, readEnv, session } from '@yuna/core'
+import { authApi, buildHandoffUrl, readEnv, session } from '@yuna/core'
 import { userMenuOptions } from '@/config/menu'
 
 const route = useRoute()
@@ -64,8 +64,8 @@ function onNoticeOpen(noticeId?: number): void {
 
 async function onAccountSelect(key: string): Promise<void> {
   if (key === 'enter-admin') {
-    // 跨应用跳转：目标为独立部署的管理端，直接整页导航
-    window.location.href = env.adminAppUrl
+    // 跨应用跳转：目标为独立部署的管理端（不同域/端口），携带会话片段以免二次登录
+    window.location.href = buildHandoffUrl(env.adminAppUrl)
     return
   }
   if (key === 'logout') {

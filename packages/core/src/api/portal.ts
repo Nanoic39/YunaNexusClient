@@ -19,7 +19,7 @@ export const portalApi = {
   page: (path: string) => http.request<PortalPageContent>(`${BASE}/page`, { query: { path } }),
 }
 
-/** 门户内容 · 管理端（需 `X-Admin-Token`） */
+/** 门户内容 · 管理端（用户 JWT，后端按 admin 角色放行） */
 export const portalAdminApi = {
   getSite: () => adminHttp.request<PortalSiteView>(`${BASE}/admin/site`),
   saveSite: (body: PortalSiteSaveRequest) =>

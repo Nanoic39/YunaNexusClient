@@ -2,7 +2,7 @@
  * 门户内容后端契约（对应 yunanexus-notice 的 `PortalController` / `PortalAdminController`）。
  *
  * - 公开读：`GET /api/v1/notice/portal/content`、`GET /api/v1/notice/portal/page`（网关放行，匿名可访问）。
- * - 管理端：`/api/v1/notice/portal/admin/**`，需携带 `X-Admin-Token`。
+ * - 管理端：`/api/v1/notice/portal/admin/**`，携带用户 JWT（后端按 `admin` 角色放行）。
  *
  * 结构（page → section → element → item）与前端 `content/types.ts` 完全一致，
  * 故视图类型直接复用内容模型，仅管理端补充 `recordId` 等元数据。
