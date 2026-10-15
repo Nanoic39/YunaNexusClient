@@ -30,24 +30,27 @@
 
 后端契约明确下列接口返回 `PageResult`，但前端按**数组**消费；而 **MSW mock 也返回数组，把差异掩盖了**——这是当前 mock 环境「看起来正常」的根因。
 
-### 3.1 站内信收件箱
+### 3.1 站内信收件箱 ✅ 已修复
 
 - 现状：`packages/core/src/api/notice.ts` -> `noticeApi.inbox()` 无分页参数，返回 `NoticeRecordView[]`；`apps/user/src/views/MessagesView.vue` 直接 `notices.value = await noticeApi.inbox()`。
 - 契约：`api-contract.md` §7.3 `GET /api/v1/notice/inbox?page=1&size=20`，`data` 为 **PageResult**。
 - 后果：接真后端后 `notices.value` 拿到的是分页对象而非数组，列表渲染直接异常。
 - 改法：`inbox` 返回类型改为 `PageResult<NoticeRecordView>` 并支持 `page/size`；`MessagesView` 适配 `PageResult.records`；mock 同步改为 `paged(mockNotices, query)`。
+- ✅ **已实施**：`inbox` 现为 `PageResult<NoticeRecordView>` + `PageQuery`；`MessagesView` 取 `records` 后在本地分页与筛选；mock 走 `paged()`。
 
-### 3.2 通知记录列表
+### 3.2 通知记录列表 ✅ 已修复
 
 - 现状：`packages/core/src/api/notice.ts` -> `noticeAdminApi.list()` 返回 `NoticeRecordView[]`。
 - 契约：§7.5 `GET /api/v1/notice/record/list?...&page=1&size=20`，`data` 为 **PageResult**。
 - 改法：返回类型改 `PageResult<NoticeRecordView>`，mock 用 `paged`。
+- ✅ **已实施**：已并入通知中心改造，现为 `noticeAdminApi.listRecords()`，返回 `PageResult<NoticeRecordView>`，管理端「发送记录」页消费；mock 走 `paged()`。
 
-### 3.3 文件列表
+### 3.3 文件列表 ✅ 已修复
 
 - 现状：`packages/core/src/api/file.ts` -> `fileApi.list()` 返回 `FileView[]`。
 - 契约：§6.4 `GET /api/v1/file/list?page=1&size=20`，`data` 为 **PageResult**。
 - 改法：返回类型改 `PageResult<FileView>`。
+- ✅ **已实施**：`fileApi.list()` 现返回 `PageResult<FileView>`。
 
 > **通用建议**：mock 必须与契约同形。凡是后端返回 `PageResult` 的接口，mock 一律用 `paged()`，并显式带 `page/size`，否则 mock 会长期掩盖契约漂移。
 
@@ -129,10 +132,10 @@
 
 ## 八、附：复核清单（供前端 AI 逐条勾选）
 
-- [ ] `noticeApi.inbox` 改为 `PageResult<NoticeRecordView>`，`MessagesView` 适配 `records`
-- [ ] `noticeAdminApi.list` 改为 `PageResult<NoticeRecordView>`
-- [ ] `fileApi.list` 改为 `PageResult<FileView>`
-- [ ] mock 中上述接口改用 `paged()`，显式带 `page/size`
+- [x] `noticeApi.inbox` 改为 `PageResult<NoticeRecordView>`，`MessagesView` 适配 `records`
+- [x] `noticeAdminApi.list` 改为 `PageResult<NoticeRecordView>`（现为 `listRecords`）
+- [x] `fileApi.list` 改为 `PageResult<FileView>`
+- [x] mock 中上述接口改用 `paged()`，显式带 `page/size`
 - [ ] 新增 `api/portal.ts` 并接入 `siteContent`（读放行、写管理端）
 - [ ] 新增 `api/user.ts`（profile/tags/badges），个人中心接入
 - [ ] `HttpClient` 增加 401 自动刷新 + 重放（含并发去重）

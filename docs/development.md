@@ -33,7 +33,6 @@ MSW 依赖 `public/mockServiceWorker.js` 才能拦截请求。`pnpm msw:init` �
 | `VITE_ENABLE_MOCK` | `true` | 是否启用 MSW Mock |
 | `VITE_API_BASE_URL` | 空 | 接口基础路径；留空表示同源（开发期走 vite proxy） |
 | `VITE_ENABLE_CSRF` | `false` | 是否回显 CSRF 令牌（后端开启时同步打开） |
-| `VITE_ADMIN_TOKEN` | 空 | 本地联调用管理员密钥，**生产禁止配置** |
 | `VITE_APP_TITLE` | `YunaNexus` | 应用标题 |
 
 ## 4. 接真实网关
@@ -109,4 +108,4 @@ pnpm typecheck && pnpm build
 - 确认 `VITE_ENABLE_MOCK=true`，并检查浏览器控制台是否有 SW 注册报错。
 
 ### 页面 401 被踢回登录
-属预期行为：`handleApiError` 对 `isUnauthorized` 会清会话并跳转登录。检查 `Authorization: Bearer` / `X-Admin-Token` 是否正确注入。
+属预期行为：`handleApiError` 对 `isUnauthorized` 会清会话并跳转登录。检查 `Authorization: Bearer` 是否正确注入（管理端与用户端共用同一套用户 JWT，无独立管理端密钥）。
