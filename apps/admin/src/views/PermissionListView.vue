@@ -20,30 +20,51 @@ import {
   enabledStatusMeta,
   formatDateTime,
 } from '@yuna/ui'
-import { permissionApi } from '@yuna/core'
-import type { PermissionSavePayload, PermissionView } from '@yuna/core'
+import { buildPermissionTree, countPermissions, permissionApi } from '@yuna/core'
+import type { PermissionSavePayload, PermissionTreeNode, PermissionView } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
 
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
 
-const rows = ref<PermissionView[]>([])
+const rows = ref<PermissionTreeNode[]>([])
 const loading = ref(false)
 const keyword = ref('')
+const expandedKeys = ref<Array<string | number>>([])
 
 /* ------------------------------ 列表 ------------------------------ */
 
-const filteredRows = computed(() => {
+/** 命中节点（分组按前缀，叶子按标识/资源/描述） */
+function hit(node: PermissionTreeNode): boolean {
   const text = keyword.value.trim().toLowerCase()
-  if (!text) return rows.value
-  return rows.value.filter(
-    (row) =>
-      row.permCode.toLowerCase().includes(text) ||
-      (row.resource ?? '').toLowerCase().includes(text) ||
-      (row.description ?? '').toLowerCase().includes(text),
-  )
-})
+  if (!text) return true
+  const perm = node.permission
+  if (perm) {
+    return (
+      perm.permCode.toLowerCase().includes(text) ||
+      (perm.resource ?? '').toLowerCase().includes(text) ||
+      (perm.description ?? '').toLowerCase().includes(text)
+    )
+  }
+  return node.code.toLowerCase().includes(text)
+}
+
+/** 关键词过滤：命中分组时保留整棵子树，命中叶子时保留自身与祖先链 */
+function filterTree(nodes: PermissionTreeNode[]): PermissionTreeNode[] {
+  if (!keyword.value.trim()) return nodes
+  return nodes.flatMap((node) => {
+    if (hit(node)) return [node]
+    const children = filterTree(node.children)
+    return children.length ? [{ ...node, children }] : []
+  })
+}
+
+const filteredRows = computed(() => filterTree(rows.value))
+
+function flattenKeys(nodes: PermissionTreeNode[]): Array<string | number> {
+  return nodes.flatMap((node) => [node.key, ...flattenKeys(node.children)])
+}
 
 function actionButton(
   label: string,
@@ -53,22 +74,27 @@ function actionButton(
   return h(NButton, { size: 'small', secondary: true, type, onClick }, { default: () => label })
 }
 
-function renderActions(row: PermissionView) {
-  return h('div', { class: 'yuna-cell-actions', style: { gap: '6px' } }, [
-    actionButton('编辑', () => openEdit(row), 'primary'),
-    actionButton('删除', () => confirmRemove(row)),
-  ])
+function renderActions(row: PermissionTreeNode) {
+  const perm = row.permission
+  const actions = perm
+    ? [actionButton('编辑', () => openEdit(perm), 'primary'), actionButton('删除', () => confirmRemove(perm))]
+    : [actionButton('新增子权限', () => openCreate(row.code), 'primary')]
+  return h('div', { class: 'yuna-cell-actions', style: { gap: '6px' } }, actions)
 }
 
-const columns: DataTableColumns<PermissionView> = [
+const columns: DataTableColumns<PermissionTreeNode> = [
   {
     title: '权限标识',
-    key: 'permCode',
-    minWidth: 220,
+    key: 'label',
+    minWidth: 280,
     render: (row) =>
       h('div', { class: 'yuna-cell' }, [
-        h('span', null, row.permCode),
-        h('span', { class: 'yuna-cell__sub' }, row.description ?? '—'),
+        h('span', null, row.permission ? row.permission.permCode : row.label),
+        h(
+          'span',
+          { class: 'yuna-cell__sub' },
+          row.permission ? (row.permission.description ?? '—') : `${countPermissions(row)} 项权限`,
+        ),
       ]),
   },
   {
@@ -76,30 +102,31 @@ const columns: DataTableColumns<PermissionView> = [
     key: 'resource',
     minWidth: 240,
     ellipsis: { tooltip: true },
-    render: (row) => row.resource ?? '—',
+    render: (row) => row.permission?.resource ?? '—',
   },
   {
     title: '动作',
     key: 'action',
     width: 110,
-    render: (row) => row.action ?? '—',
+    render: (row) => row.permission?.action ?? '—',
   },
   {
     title: '状态',
     key: 'status',
     width: 110,
-    render: (row) => h(StatusTag, { meta: enabledStatusMeta(row.status) }),
+    render: (row) =>
+      row.permission ? h(StatusTag, { meta: enabledStatusMeta(row.permission.status) }) : '—',
   },
   {
     title: '创建时间',
     key: 'createTime',
     width: 172,
-    render: (row) => formatDateTime(row.createTime),
+    render: (row) => (row.permission ? formatDateTime(row.permission.createTime) : '—'),
   },
   {
     title: '操作',
     key: 'actions',
-    width: 160,
+    width: 190,
     fixed: 'right',
     render: renderActions,
   },
@@ -108,7 +135,8 @@ const columns: DataTableColumns<PermissionView> = [
 async function load(): Promise<void> {
   loading.value = true
   try {
-    rows.value = await permissionApi.list()
+    rows.value = buildPermissionTree(await permissionApi.list())
+    expandedKeys.value = flattenKeys(rows.value)
   } catch (error) {
     message.error(handleApiError(error, router))
   } finally {
@@ -145,9 +173,10 @@ const editRules: FormRules = {
 
 const editTitle = computed(() => (editingId.value === null ? '新建权限点' : '编辑权限点'))
 
-function openCreate(): void {
+/** 新建权限点：可传入分组前缀，自动补全为 `前缀:` 便于分层维护 */
+function openCreate(prefix = ''): void {
   editingId.value = null
-  editForm.permCode = ''
+  editForm.permCode = prefix ? `${prefix}:` : ''
   editForm.resource = ''
   editForm.action = ''
   editForm.description = ''
@@ -220,9 +249,9 @@ onMounted(load)
 </script>
 
 <template>
-  <page-container title="权限点" description="维护细粒度权限标识，供角色绑定授权">
+  <page-container title="权限点" description="按权限标识分层维护权限点，供角色绑定授权">
     <template #extra>
-      <n-button type="primary" @click="openCreate">新建权限点</n-button>
+      <n-button type="primary" @click="openCreate()">新建权限点</n-button>
     </template>
 
     <filter-bar :show-default-actions="false">
@@ -238,9 +267,11 @@ onMounted(load)
       :columns="columns"
       :data="filteredRows"
       :loading="loading"
-      :row-key="(row: PermissionView) => row.id"
-      :scroll-x="1150"
+      :row-key="(row: PermissionTreeNode) => row.key"
+      :scroll-x="1180"
       :show-pagination="false"
+      :expanded-row-keys="expandedKeys"
+      @update:expanded-row-keys="(keys: Array<string | number>) => (expandedKeys = keys)"
     />
 
     <n-modal
@@ -261,7 +292,7 @@ onMounted(load)
           <n-input
             v-model:value="editForm.permCode"
             :disabled="editingId !== null"
-            placeholder="如 auth:user:list（创建后不可修改）"
+            placeholder="如 auth:user:list（按 : 分段，创建后不可修改）"
           />
         </n-form-item>
         <n-form-item label="资源" path="resource">

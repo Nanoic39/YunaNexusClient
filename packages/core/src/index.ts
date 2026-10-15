@@ -6,6 +6,7 @@
  */
 export * from './env'
 export * from './types'
+export * from './permission-tree'
 export * from './content'
 export * from './http'
 export * from './api'

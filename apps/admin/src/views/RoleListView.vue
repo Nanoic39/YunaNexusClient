@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { h, computed, onMounted, reactive, ref } from 'vue'
+import type { VNodeChild } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NButton,
-  NCheckbox,
-  NCheckboxGroup,
   NForm,
   NFormItem,
   NInput,
@@ -34,12 +33,23 @@ import {
   enabledStatusMeta,
   formatDateTime,
 } from '@yuna/ui'
-import { deptApi, menuApi, permissionApi, roleApi } from '@yuna/core'
+import {
+  buildPermissionTree,
+  collectPermissionIds,
+  countPermissions,
+  deptApi,
+  expandPermissionKeys,
+  menuApi,
+  permissionApi,
+  pickPermissionIds,
+  roleApi,
+} from '@yuna/core'
 import type {
   DataScope,
   DeptTreeNode,
   MenuTreeNode,
   PermissionView,
+  PermissionTreeNode,
   RoleSavePayload,
   RoleView,
 } from '@yuna/core'
@@ -261,15 +271,47 @@ const savingPerm = ref(false)
 const savingMenu = ref(false)
 const savingDept = ref(false)
 
-const permissions = ref<PermissionView[]>([])
+const permissionTree = ref<PermissionTreeNode[]>([])
 const menuTree = ref<MenuTreeNode[]>([])
 const deptTree = ref<DeptTreeNode[]>([])
-const checkedPermIds = ref<number[]>([])
+const checkedPermKeys = ref<Array<string | number>>([])
 const checkedMenuKeys = ref<Array<string | number>>([])
 const checkedDeptKeys = ref<Array<string | number>>([])
 
 const menuOptions = computed<TreeOption[]>(() => toTreeOptions(menuTree.value, (node) => node.menuName))
 const deptOptions = computed<TreeOption[]>(() => toTreeOptions(deptTree.value, (node) => node.deptName))
+
+/* 权限点：按 permCode 前缀分层，勾选分组将级联其下权限点 */
+interface PermOption extends TreeOption {
+  permission: PermissionView | null
+  count: number
+}
+
+const permissionOptions = computed<PermOption[]>(() => toPermOptions(permissionTree.value))
+const selectedPermCount = computed(() => pickPermissionIds(checkedPermKeys.value).length)
+const totalPermCount = computed(() => collectPermissionIds(permissionTree.value).length)
+
+function toPermOptions(nodes: PermissionTreeNode[]): PermOption[] {
+  return nodes.map((node) => ({
+    key: node.key,
+    label: node.permission ? node.permission.permCode : node.label,
+    permission: node.permission,
+    count: countPermissions(node),
+    children: node.children.length ? toPermOptions(node.children) : undefined,
+  }))
+}
+
+function renderPermLabel({ option }: { option: TreeOption }): VNodeChild {
+  const node = option as PermOption
+  return h('div', { class: 'perm-item' }, [
+    h('span', { class: 'perm-item__code' }, String(node.label)),
+    h(
+      'span',
+      { class: 'perm-item__desc' },
+      node.permission ? (node.permission.description ?? '—') : `${node.count} 项权限`,
+    ),
+  ])
+}
 
 interface TreeNodeLike {
   id: number
@@ -301,10 +343,10 @@ async function openBind(row: RoleView): Promise<void> {
       roleApi.listMenus(row.id),
       roleApi.listDepts(row.id),
     ])
-    permissions.value = permList
+    permissionTree.value = buildPermissionTree(permList)
     menuTree.value = menus
     deptTree.value = depts
-    checkedPermIds.value = [...permIds]
+    checkedPermKeys.value = expandPermissionKeys(permissionTree.value, permIds)
     checkedMenuKeys.value = [...menuIds]
     checkedDeptKeys.value = [...deptIds]
   } catch (error) {
@@ -319,7 +361,7 @@ async function savePermissions(): Promise<void> {
   if (!bindRole.value) return
   savingPerm.value = true
   try {
-    await roleApi.setPermissions(bindRole.value.id, checkedPermIds.value)
+    await roleApi.setPermissions(bindRole.value.id, pickPermissionIds(checkedPermKeys.value))
     message.success('权限点绑定已保存')
   } catch (error) {
     message.error(handleApiError(error, router))
@@ -442,18 +484,21 @@ onMounted(load)
       <n-tabs type="line" animated>
         <n-tab-pane name="permissions" tab="权限点">
           <n-spin :show="bindLoading">
-            <div class="bind-hint">已选 {{ checkedPermIds.length }} / {{ permissions.length }} 项</div>
+            <div class="bind-hint">
+              已选 {{ selectedPermCount }} / {{ totalPermCount }} 项，勾选分组将级联其下权限点
+            </div>
             <n-scrollbar style="max-height: 380px">
-              <n-checkbox-group v-model:value="checkedPermIds">
-                <div class="perm-grid">
-                  <n-checkbox v-for="item in permissions" :key="item.id" :value="item.id">
-                    <div class="perm-item">
-                      <span class="perm-item__code">{{ item.permCode }}</span>
-                      <span class="perm-item__desc">{{ item.description ?? '—' }}</span>
-                    </div>
-                  </n-checkbox>
-                </div>
-              </n-checkbox-group>
+              <n-tree
+                block-line
+                cascade
+                checkable
+                selectable
+                :data="permissionOptions"
+                :render-label="renderPermLabel"
+                :checked-keys="checkedPermKeys"
+                :default-expand-all="true"
+                @update:checked-keys="(keys: Array<string | number>) => (checkedPermKeys = keys)"
+              />
             </n-scrollbar>
           </n-spin>
           <div class="modal-footer">
@@ -524,13 +569,6 @@ onMounted(load)
   color: var(--yuna-gray-600);
 }
 
-.perm-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 16px;
-  padding-right: 8px;
-}
-
 .perm-item {
   display: flex;
   flex-direction: column;
@@ -545,11 +583,5 @@ onMounted(load)
 .perm-item__desc {
   font-size: 12px;
   color: var(--yuna-gray-500);
-}
-
-@media (max-width: 768px) {
-  .perm-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 </style>
