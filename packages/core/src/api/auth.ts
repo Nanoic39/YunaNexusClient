@@ -11,6 +11,7 @@ import type {
   LoginPayload,
   PageResult,
   RegisterPayload,
+  ResetPasswordPayload,
   TokenResult,
   UnlockAppealPayload,
 } from '../types'
@@ -86,4 +87,13 @@ export const authAdminApi = {
 
   /** 踢下线（撤销全部会话） */
   kickUser: (userId: number) => adminHttp.request<void>(`${BASE}/admin/users/${userId}/kick`, { method: 'POST' }),
+
+  /**
+   * 重置用户密码。
+   *
+   * 依赖后端提供 `POST /api/v1/auth/admin/users/{userId}/reset-password`；
+   * 接口缺失时按通用错误处理（生产环境不做 Mock 兜底）。
+   */
+  resetPassword: (userId: number, payload: ResetPasswordPayload) =>
+    adminHttp.request<void>(`${BASE}/admin/users/${userId}/reset-password`, { method: 'POST', body: payload }),
 }

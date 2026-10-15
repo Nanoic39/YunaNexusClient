@@ -88,6 +88,12 @@ export interface AdminUserQuery extends PageQuery {
   status?: number
 }
 
+/** 管理后台 · 重置用户密码请求体 */
+export interface ResetPasswordPayload {
+  /** 新密码（明文，HTTPS 传输） */
+  password: string
+}
+
 /** 管理后台 · 申诉视图 */
 export interface AppealView {
   id: number
