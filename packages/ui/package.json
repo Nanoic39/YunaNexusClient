@@ -1,0 +1,27 @@
+{
+  "name": "@yuna/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "YunaNexus 通用 UI 组件（基于 Naive UI 的模块化中控台组件）",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@yuna/core": "workspace:*",
+    "@yuna/theme": "workspace:*"
+  },
+  "peerDependencies": {
+    "naive-ui": "^2.40.1",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vue-tsc": "^2.2.0"
+  }
+}
