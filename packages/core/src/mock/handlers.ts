@@ -1,5 +1,6 @@
+import { pkceChallenge } from '../http/handoff'
 import { http as mswHttp, HttpResponse, delay } from 'msw'
-import type { AdminUserView, AuditLogView, Result, TokenResult } from '../types'
+import type { AdminUserView, AuditLogView, DeptTreeNode, DeptView, MenuTreeNode, MenuView, NoticeRecordView, NoticeSendPayload, NoticeTemplateSavePayload, NoticeTemplateView, Result, RoleView, TokenResult } from '../types'
 import type { ServiceHealth } from '../content/status'
 import { defaultContent } from '../content/defaults'
 import type {
@@ -14,10 +15,15 @@ import {
   mockAppeals,
   mockAuditLogs,
   mockCurrentUserRoles,
+  mockDepts,
   mockFiles,
   mockMenus,
   mockNotices,
+  mockNoticeTemplates,
   mockPermissions,
+  mockRoleDepts,
+  mockRoleMenus,
+  mockRolePermissions,
   mockRoles,
   mockUsers,
 } from './data'
@@ -58,11 +64,14 @@ function paged<T>(list: T[], query: URLSearchParams): { records: T[]; total: num
   return { records: list.slice(start, start + size), total: list.length, page, size }
 }
 
+/**
+ * 管理端守卫。与后端一致：只认用户 JWT（Bearer，按 `admin` 角色放行）。
+ */
 function requireAdmin(request: Request): Response | null {
-  const token = request.headers.get('X-Admin-Token')
-  if (!token) {
+  const bearer = request.headers.get('Authorization')
+  if (!bearer?.startsWith('Bearer ')) {
     return HttpResponse.json(
-      { code: 30501, msg: '管理员密钥无效', tips: null, data: null, traceId: trace(), timestamp: Date.now() },
+      { code: 30501, msg: '登录状态无效，请重新登录', tips: null, data: null, traceId: trace(), timestamp: Date.now() },
       { status: 401 },
     )
   }
@@ -70,6 +79,69 @@ function requireAdmin(request: Request): Response | null {
 }
 
 const nowIso = () => new Date().toISOString().slice(0, 19)
+
+/* --------------------------- 权限中心 · 树与主键工具 --------------------------- */
+
+/** 由扁平菜单列表按 parentId 组装树；父节点不在集合内者视为根（与后端一致） */
+function buildMenuTree(menus: MenuView[]): MenuTreeNode[] {
+  const sorted = [...menus].sort((a, b) => a.sort - b.sort || a.id - b.id)
+  const nodes = new Map<number, MenuTreeNode>()
+  for (const menu of sorted) {
+    nodes.set(menu.id, {
+      id: menu.id,
+      menuCode: menu.menuCode,
+      menuName: menu.menuName,
+      parentId: menu.parentId,
+      path: menu.path,
+      sort: menu.sort,
+      children: [],
+    })
+  }
+  const roots: MenuTreeNode[] = []
+  for (const node of nodes.values()) {
+    const parent = nodes.get(node.parentId)
+    if (parent) parent.children.push(node)
+    else roots.push(node)
+  }
+  return roots
+}
+
+/** 由扁平部门列表按 parentId 组装树 */
+function buildDeptTree(depts: DeptView[]): DeptTreeNode[] {
+  const sorted = [...depts].sort((a, b) => a.sort - b.sort || a.id - b.id)
+  const nodes = new Map<number, DeptTreeNode>()
+  for (const dept of sorted) {
+    nodes.set(dept.id, {
+      id: dept.id,
+      deptCode: dept.deptCode,
+      deptName: dept.deptName,
+      parentId: dept.parentId,
+      sort: dept.sort,
+      status: dept.status,
+      children: [],
+    })
+  }
+  const roots: DeptTreeNode[] = []
+  for (const node of nodes.values()) {
+    const parent = nodes.get(node.parentId)
+    if (parent) parent.children.push(node)
+    else roots.push(node)
+  }
+  return roots
+}
+
+const nextId = (items: { id: number }[]): number => items.reduce((max, item) => Math.max(max, item.id), 0) + 1
+
+/* --------------------------- 通知中心 · 工具 --------------------------- */
+
+/** 通道中文名（与后端 `channelLabel` 一致） */
+const CHANNEL_LABEL: Record<number, string> = { 1: '站内信', 2: '邮件', 3: '短信' }
+
+/** 渲染模板占位符 `${key}`；缺失参数保持原样 */
+function renderTemplate(text: string, params?: Record<string, string>): string {
+  if (!params) return text
+  return text.replace(/\$\{(\w+)\}/g, (raw, key: string) => params[key] ?? raw)
+}
 
 /* --------------------------- 门户内容 · 内存种子 --------------------------- */
 
@@ -150,6 +222,97 @@ export const handlers = [
       nickname: body.username,
     }
     return HttpResponse.json(ok(data, '登录成功'))
+  }),
+
+  mswHttp.post('/api/v1/auth/sso/authorize', async ({ request }) => {
+    const rejected = requireAdmin(request)
+    if (rejected) return rejected
+    const body = await request.json() as { state: string; codeChallenge: string; redirectUri: string; clientCode: string }
+    if (body.clientCode !== 'web' || !/^[A-Za-z0-9_-]{43}$/.test(body.codeChallenge)) return fail(400, '授权请求无效', 400)
+    // 两端 Mock 运行在不同 origin；仅在开发模式用自描述的公开 challenge 模拟授权码。
+    const code = btoa(JSON.stringify({ challenge: body.codeChallenge, redirectUri: body.redirectUri,
+      expiresAt: Date.now() + 60000, nonce: crypto.randomUUID() }))
+    const url = new URL(body.redirectUri)
+    url.searchParams.set('code', code)
+    url.searchParams.set('state', body.state)
+    return HttpResponse.json(ok({ redirectUrl: url.toString() }))
+  }),
+
+  mswHttp.post('/api/v1/auth/sso/token', async ({ request }) => {
+    const body = await request.json() as { code: string; codeVerifier: string; redirectUri: string; clientCode: string }
+    let record: { challenge: string; redirectUri: string; expiresAt: number; nonce: string }
+    try { record = JSON.parse(atob(body.code)) } catch { return fail(401, '授权码无效', 401) }
+    if (!record || !record.nonce || record.expiresAt < Date.now() || record.challenge !== pkceChallenge(body.codeVerifier)
+        || record.redirectUri !== body.redirectUri || body.clientCode !== 'web'
+        || sessionStorage.getItem('yuna.mock.sso.used.' + record.nonce)) return fail(401, '授权码无效', 401)
+    sessionStorage.setItem('yuna.mock.sso.used.' + record.nonce, '1')
+    return HttpResponse.json(ok({ accessToken: `mock.access.${crypto.randomUUID()}`, refreshToken: `mock.refresh.${crypto.randomUUID()}`,
+      expiresIn: 1800, externalId: 'k7Qm9xZ2vL4pR8wT5nB3dF6hJ1sA2cE4g' }))
+  }),
+
+  mswHttp.post('/api/v1/auth/register', async ({ request }) => {
+    await delay(LATENCY)
+    const body = (await request.json()) as {
+      username?: string
+      password?: string
+      email?: string
+      mobile?: string
+      mobileCountry?: string
+    }
+    // 手机号功能当前关闭：携带任一手机号字段一律拒绝（与后端一致）
+    if (body.mobile || body.mobileCountry) return fail(30404, '手机号功能暂未开放', 400)
+    const username = (body.username ?? '').trim()
+    if (!username || !body.password) return fail(30403, '注册失败，请稍后重试', 503)
+    if (mockUsers.some((u) => u.username === username)) return fail(30401, '账号已存在', 409)
+
+    const externalId = `mock-ext-${Math.random().toString(36).slice(2, 12)}`
+    mockUsers.unshift({
+      userId: Math.max(...mockUsers.map((u) => u.userId)) + 1,
+      externalId,
+      username,
+      email: body.email?.trim() || null,
+      mobileCountry: null,
+      mobile: null,
+      status: 1,
+      lockedUntil: null,
+      lockReason: null,
+      failCount: 0,
+      lastLoginTime: null,
+      lastLoginIp: null,
+      createTime: nowIso(),
+      updateTime: nowIso(),
+    })
+    return HttpResponse.json(ok(externalId, '注册成功'))
+  }),
+
+  mswHttp.post('/api/v1/auth/unlock-appeal', async ({ request }) => {
+    await delay(LATENCY)
+    const body = (await request.json()) as {
+      username?: string
+      password?: string
+      appealReason?: string
+      contact?: string
+    }
+    const username = (body.username ?? '').trim()
+    if (!username || !body.password) return fail(30001, '账号或密码错误', 401)
+    if (mockAppeals.some((a) => a.username === username && a.status === 0)) {
+      return fail(30301, '已有待处理的申诉', 409)
+    }
+    const user = mockUsers.find((u) => u.username === username)
+    mockAppeals.unshift({
+      id: Math.max(...mockAppeals.map((a) => a.id), 2000) + 1,
+      userId: user?.userId ?? null,
+      username,
+      appealReason: (body.appealReason ?? '').trim() || '（未填写申诉原因）',
+      contact: body.contact?.trim() || null,
+      status: 0,
+      auditor: null,
+      auditRemark: null,
+      auditTime: null,
+      createTime: nowIso(),
+      updateTime: nowIso(),
+    })
+    return HttpResponse.json(ok(null, '申诉已提交'))
   }),
 
   mswHttp.post('/api/v1/auth/logout', async () => {
@@ -279,15 +442,21 @@ export const handlers = [
     await delay(LATENCY)
     const auth = request.headers.get('Authorization')
     if (!auth?.startsWith('Bearer ')) return fail(30006, '未登录或登录已失效', 401)
+    const roleIds = mockCurrentUserRoles.map((role) => role.id)
+    const enabledRoleIds = mockRoles.filter((role) => roleIds.includes(role.id) && role.status === 1).map((r) => r.id)
+    const menuIds = enabledRoleIds.flatMap((id) => mockRoleMenus[id] ?? [])
+    const visibleMenus = mockMenus.filter((menu) => menuIds.includes(menu.id) && menu.status === 1)
     return HttpResponse.json(
       ok({
         userId: 10001,
         roles: mockCurrentUserRoles,
         permissions: mockPermissions.filter((item) => item.status === 1).map((item) => item.permCode),
-        menus: mockMenus,
+        menus: buildMenuTree(visibleMenus),
       }),
     )
   }),
+
+  /* ---------------------------- 权限中心 · 角色 ---------------------------- */
 
   mswHttp.get('/api/v1/permission/admin/roles', async ({ request }) => {
     await delay(LATENCY)
@@ -296,6 +465,126 @@ export const handlers = [
     return HttpResponse.json(ok(mockRoles))
   }),
 
+  mswHttp.get('/api/v1/permission/admin/roles/:roleId', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const role = mockRoles.find((item) => item.id === Number(params.roleId))
+    if (!role) return fail(40001, '角色不存在', 404)
+    return HttpResponse.json(ok(role))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/roles', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const body = (await request.json()) as {
+      roleCode: string
+      roleName: string
+      description?: string
+      dataScope?: number
+      status?: number
+    }
+    if (mockRoles.some((role) => role.roleCode === body.roleCode)) return fail(40002, '角色标识已存在', 409)
+    const role = {
+      id: nextId(mockRoles),
+      roleCode: body.roleCode,
+      roleName: body.roleName,
+      description: body.description ?? null,
+      dataScope: (body.dataScope ?? 4) as RoleView['dataScope'],
+      status: body.status ?? 1,
+      createTime: nowIso(),
+      updateTime: nowIso(),
+    }
+    mockRoles.push(role)
+    return HttpResponse.json(ok(role, '角色已创建'))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/roles/:roleId', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const role = mockRoles.find((item) => item.id === Number(params.roleId))
+    if (!role) return fail(40001, '角色不存在', 404)
+    const body = (await request.json()) as {
+      roleName: string
+      description?: string
+      dataScope?: number
+      status?: number
+    }
+    role.roleName = body.roleName
+    role.description = body.description ?? null
+    if (body.dataScope !== undefined) role.dataScope = body.dataScope as RoleView['dataScope']
+    if (body.status !== undefined) role.status = body.status
+    role.updateTime = nowIso()
+    return HttpResponse.json(ok(role, '角色已更新'))
+  }),
+
+  mswHttp.delete('/api/v1/permission/admin/roles/:roleId', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const index = mockRoles.findIndex((item) => item.id === Number(params.roleId))
+    if (index < 0) return fail(40001, '角色不存在', 404)
+    const [removed] = mockRoles.splice(index, 1)
+    delete mockRolePermissions[removed.id]
+    delete mockRoleMenus[removed.id]
+    delete mockRoleDepts[removed.id]
+    return HttpResponse.json(ok(null, '角色已删除'))
+  }),
+
+  /* --------------------------- 权限中心 · 绑定关系 --------------------------- */
+
+  mswHttp.get('/api/v1/permission/admin/roles/:roleId/permissions', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    return HttpResponse.json(ok(mockRolePermissions[Number(params.roleId)] ?? []))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/roles/:roleId/permissions', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const body = (await request.json()) as { permissionIds?: number[] }
+    mockRolePermissions[Number(params.roleId)] = body.permissionIds ?? []
+    return HttpResponse.json(ok(null, '权限绑定已更新'))
+  }),
+
+  mswHttp.get('/api/v1/permission/admin/roles/:roleId/menus', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    return HttpResponse.json(ok(mockRoleMenus[Number(params.roleId)] ?? []))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/roles/:roleId/menus', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const body = (await request.json()) as { menuIds?: number[] }
+    mockRoleMenus[Number(params.roleId)] = body.menuIds ?? []
+    return HttpResponse.json(ok(null, '菜单绑定已更新'))
+  }),
+
+  mswHttp.get('/api/v1/permission/admin/roles/:roleId/depts', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    return HttpResponse.json(ok(mockRoleDepts[Number(params.roleId)] ?? []))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/roles/:roleId/depts', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const body = (await request.json()) as { deptIds?: number[] }
+    mockRoleDepts[Number(params.roleId)] = body.deptIds ?? []
+    return HttpResponse.json(ok(null, '数据范围绑定已更新'))
+  }),
+
+  /* ---------------------------- 权限中心 · 权限点 ---------------------------- */
+
   mswHttp.get('/api/v1/permission/admin/permissions', async ({ request }) => {
     await delay(LATENCY)
     const guard = requireAdmin(request)
@@ -303,27 +592,437 @@ export const handlers = [
     return HttpResponse.json(ok(mockPermissions))
   }),
 
+  mswHttp.get('/api/v1/permission/admin/permissions/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const permission = mockPermissions.find((item) => item.id === Number(params.id))
+    if (!permission) return fail(40101, '权限不存在', 404)
+    return HttpResponse.json(ok(permission))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/permissions', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const body = (await request.json()) as {
+      permCode: string
+      resource: string
+      action: string
+      description?: string
+      status?: number
+    }
+    if (mockPermissions.some((item) => item.permCode === body.permCode)) {
+      return fail(40102, '权限标识已存在', 409)
+    }
+    const permission = {
+      id: nextId(mockPermissions),
+      permCode: body.permCode,
+      resource: body.resource,
+      action: body.action,
+      description: body.description ?? null,
+      status: body.status ?? 1,
+      createTime: nowIso(),
+      updateTime: nowIso(),
+    }
+    mockPermissions.push(permission)
+    return HttpResponse.json(ok(permission, '权限已创建'))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/permissions/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const permission = mockPermissions.find((item) => item.id === Number(params.id))
+    if (!permission) return fail(40101, '权限不存在', 404)
+    const body = (await request.json()) as { resource: string; action: string; description?: string; status?: number }
+    permission.resource = body.resource
+    permission.action = body.action
+    permission.description = body.description ?? null
+    if (body.status !== undefined) permission.status = body.status
+    permission.updateTime = nowIso()
+    return HttpResponse.json(ok(permission, '权限已更新'))
+  }),
+
+  mswHttp.delete('/api/v1/permission/admin/permissions/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const index = mockPermissions.findIndex((item) => item.id === Number(params.id))
+    if (index < 0) return fail(40101, '权限不存在', 404)
+    const [removed] = mockPermissions.splice(index, 1)
+    for (const roleId of Object.keys(mockRolePermissions)) {
+      mockRolePermissions[Number(roleId)] = mockRolePermissions[Number(roleId)].filter((id) => id !== removed.id)
+    }
+    return HttpResponse.json(ok(null, '权限已删除'))
+  }),
+
+  /* ---------------------------- 权限中心 · 菜单 ---------------------------- */
+
+  mswHttp.get('/api/v1/permission/admin/menus', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    return HttpResponse.json(ok([...mockMenus].sort((a, b) => a.sort - b.sort || a.id - b.id)))
+  }),
+
   mswHttp.get('/api/v1/permission/admin/menus/tree', async ({ request }) => {
     await delay(LATENCY)
     const guard = requireAdmin(request)
     if (guard) return guard
-    return HttpResponse.json(ok(mockMenus))
+    return HttpResponse.json(ok(buildMenuTree(mockMenus)))
   }),
 
-  /* ------------------------------ 通知中心 ------------------------------ */
+  mswHttp.get('/api/v1/permission/admin/menus/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const menu = mockMenus.find((item) => item.id === Number(params.id))
+    if (!menu) return fail(40701, '菜单不存在', 404)
+    return HttpResponse.json(ok(menu))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/menus', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const body = (await request.json()) as {
+      menuCode: string
+      menuName: string
+      parentId?: number
+      path?: string
+      sort?: number
+      status?: number
+    }
+    if (mockMenus.some((item) => item.menuCode === body.menuCode)) return fail(40702, '菜单编码已存在', 409)
+    const parentId = body.parentId ?? 0
+    if (parentId !== 0 && !mockMenus.some((item) => item.id === parentId)) return fail(40701, '菜单不存在', 404)
+    const menu: MenuView = {
+      id: nextId(mockMenus),
+      menuCode: body.menuCode,
+      menuName: body.menuName,
+      parentId,
+      path: body.path ?? null,
+      sort: body.sort ?? 0,
+      status: body.status ?? 1,
+      createTime: nowIso(),
+      updateTime: nowIso(),
+    }
+    mockMenus.push(menu)
+    return HttpResponse.json(ok(menu, '菜单已创建'))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/menus/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const menu = mockMenus.find((item) => item.id === Number(params.id))
+    if (!menu) return fail(40701, '菜单不存在', 404)
+    const body = (await request.json()) as { menuName: string; path?: string; sort?: number; status?: number }
+    menu.menuName = body.menuName
+    menu.path = body.path ?? null
+    if (body.sort !== undefined) menu.sort = body.sort
+    if (body.status !== undefined) menu.status = body.status
+    menu.updateTime = nowIso()
+    return HttpResponse.json(ok(menu, '菜单已更新'))
+  }),
+
+  mswHttp.delete('/api/v1/permission/admin/menus/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const id = Number(params.id)
+    const index = mockMenus.findIndex((item) => item.id === id)
+    if (index < 0) return fail(40701, '菜单不存在', 404)
+    if (mockMenus.some((item) => item.parentId === id)) return fail(40703, '存在子菜单，无法删除', 409)
+    mockMenus.splice(index, 1)
+    for (const roleId of Object.keys(mockRoleMenus)) {
+      mockRoleMenus[Number(roleId)] = mockRoleMenus[Number(roleId)].filter((menuId) => menuId !== id)
+    }
+    return HttpResponse.json(ok(null, '菜单已删除'))
+  }),
+
+  /* ---------------------------- 权限中心 · 部门 ---------------------------- */
+
+  mswHttp.get('/api/v1/permission/admin/depts', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    return HttpResponse.json(ok([...mockDepts].sort((a, b) => a.sort - b.sort || a.id - b.id)))
+  }),
+
+  mswHttp.get('/api/v1/permission/admin/depts/tree', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    return HttpResponse.json(ok(buildDeptTree(mockDepts)))
+  }),
+
+  mswHttp.get('/api/v1/permission/admin/depts/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const dept = mockDepts.find((item) => item.id === Number(params.id))
+    if (!dept) return fail(40401, '部门不存在', 404)
+    return HttpResponse.json(ok(dept))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/depts', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const body = (await request.json()) as {
+      deptCode: string
+      deptName: string
+      parentId?: number
+      sort?: number
+      status?: number
+    }
+    if (mockDepts.some((item) => item.deptCode === body.deptCode)) return fail(40402, '部门编码已存在', 409)
+    const parentId = body.parentId ?? 0
+    if (parentId !== 0 && !mockDepts.some((item) => item.id === parentId)) return fail(40401, '部门不存在', 404)
+    const dept: DeptView = {
+      id: nextId(mockDepts),
+      deptCode: body.deptCode,
+      deptName: body.deptName,
+      parentId,
+      sort: body.sort ?? 0,
+      status: body.status ?? 1,
+      createTime: nowIso(),
+      updateTime: nowIso(),
+    }
+    mockDepts.push(dept)
+    return HttpResponse.json(ok(dept, '部门已创建'))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/depts/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const dept = mockDepts.find((item) => item.id === Number(params.id))
+    if (!dept) return fail(40401, '部门不存在', 404)
+    const body = (await request.json()) as { deptName: string; sort?: number; status?: number }
+    dept.deptName = body.deptName
+    if (body.sort !== undefined) dept.sort = body.sort
+    if (body.status !== undefined) dept.status = body.status
+    dept.updateTime = nowIso()
+    return HttpResponse.json(ok(dept, '部门已更新'))
+  }),
+
+  mswHttp.delete('/api/v1/permission/admin/depts/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const id = Number(params.id)
+    const index = mockDepts.findIndex((item) => item.id === id)
+    if (index < 0) return fail(40401, '部门不存在', 404)
+    if (mockDepts.some((item) => item.parentId === id)) return fail(40403, '存在子部门，无法删除', 409)
+    mockDepts.splice(index, 1)
+    for (const roleId of Object.keys(mockRoleDepts)) {
+      mockRoleDepts[Number(roleId)] = mockRoleDepts[Number(roleId)].filter((deptId) => deptId !== id)
+    }
+    return HttpResponse.json(ok(null, '部门已删除'))
+  }),
+
+  /* ---------------------------- 权限中心 · 用户角色 ---------------------------- */
+
+  mswHttp.get('/api/v1/permission/admin/users/:userId/roles', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    if (Number(params.userId) === 10001) return HttpResponse.json(ok([1]))
+    return HttpResponse.json(ok([]))
+  }),
+
+  mswHttp.post('/api/v1/permission/admin/users/:userId/roles', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    return HttpResponse.json(ok(null, '用户角色已更新'))
+  }),
+
+  /* ------------------------------ 通知中心 · 站内信 ------------------------------ */
+
+  mswHttp.get('/api/v1/notice/inbox/:noticeId', ({ params }) => {
+    const record = mockNotices.find((item) => item.noticeId === Number(params.noticeId)
+      && item.channel === 1 && (item.status === 1 || item.status === 3))
+    return record ? HttpResponse.json(ok(record)) : fail(60103, '通知不存在', 404)
+  }),
 
   mswHttp.get('/api/v1/notice/inbox', async ({ request }) => {
     await delay(LATENCY)
     const query = new URL(request.url).searchParams
-    return HttpResponse.json(ok(paged(mockNotices, query)))
+    // 与后端一致：仅 channel=1 且状态为「已发送 / 已读」的记录
+    const visible = mockNotices.filter((n) => n.channel === 1 && (n.status === 1 || n.status === 3))
+    return HttpResponse.json(ok(paged(visible, query)))
   }),
 
   mswHttp.post('/api/v1/notice/read/:noticeId', async ({ params }) => {
     await delay(120)
     const notice = mockNotices.find((n) => n.noticeId === Number(params.noticeId))
-    if (!notice) return fail(60103, '通知记录不存在或不可操作')
+    if (!notice || notice.channel !== 1 || notice.status !== 1) return fail(60103, '通知记录不存在或不可操作')
     notice.status = 3
     return HttpResponse.json(ok(null))
+  }),
+
+  /* ------------------------------ 通知中心 · 模板管理 ------------------------------ */
+
+  mswHttp.get('/api/v1/notice/template/list', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const query = new URL(request.url).searchParams
+    const keyword = (query.get('keyword') ?? '').trim().toLowerCase()
+    let list = [...mockNoticeTemplates].sort((a, b) => b.id - a.id)
+    if (keyword) {
+      list = list.filter(
+        (t) =>
+          t.templateCode.toLowerCase().includes(keyword) ||
+          t.templateName.toLowerCase().includes(keyword),
+      )
+    }
+    return HttpResponse.json(ok(paged(list, query)))
+  }),
+
+  mswHttp.get('/api/v1/notice/template/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const template = mockNoticeTemplates.find((t) => t.id === Number(params.id))
+    if (!template) return fail(60101, '通知模板不存在', 404)
+    return HttpResponse.json(ok(template))
+  }),
+
+  mswHttp.post('/api/v1/notice/template', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const body = (await request.json()) as NoticeTemplateSavePayload
+    if (mockNoticeTemplates.some((t) => t.templateCode === body.templateCode)) {
+      return fail(60102, '模板编码已存在', 409)
+    }
+    const template: NoticeTemplateView = {
+      id: nextId(mockNoticeTemplates),
+      templateCode: body.templateCode,
+      templateName: body.templateName,
+      channel: body.channel,
+      channelLabel: CHANNEL_LABEL[body.channel] ?? null,
+      title: body.title,
+      content: body.content,
+      status: 1,
+      remark: body.remark ?? null,
+      createTime: nowIso(),
+      updateTime: nowIso(),
+    }
+    mockNoticeTemplates.push(template)
+    return HttpResponse.json(ok(template, '模板已创建'))
+  }),
+
+  mswHttp.put('/api/v1/notice/template/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const template = mockNoticeTemplates.find((t) => t.id === Number(params.id))
+    if (!template) return fail(60101, '通知模板不存在', 404)
+    const body = (await request.json()) as NoticeTemplateSavePayload
+    if (mockNoticeTemplates.some((t) => t.templateCode === body.templateCode && t.id !== template.id)) {
+      return fail(60102, '模板编码已存在', 409)
+    }
+    template.templateCode = body.templateCode
+    template.templateName = body.templateName
+    template.channel = body.channel
+    template.channelLabel = CHANNEL_LABEL[body.channel] ?? null
+    template.title = body.title
+    template.content = body.content
+    template.remark = body.remark ?? null
+    template.updateTime = nowIso()
+    return HttpResponse.json(ok(template, '模板已更新'))
+  }),
+
+  mswHttp.post('/api/v1/notice/template/:id/status', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const template = mockNoticeTemplates.find((t) => t.id === Number(params.id))
+    if (!template) return fail(60101, '通知模板不存在', 404)
+    const status = Number(new URL(request.url).searchParams.get('status') ?? 1)
+    template.status = status === 1 ? 1 : 0
+    template.updateTime = nowIso()
+    return HttpResponse.json(ok(null, template.status === 1 ? '模板已启用' : '模板已停用'))
+  }),
+
+  mswHttp.delete('/api/v1/notice/template/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const index = mockNoticeTemplates.findIndex((t) => t.id === Number(params.id))
+    if (index < 0) return fail(60101, '通知模板不存在', 404)
+    mockNoticeTemplates.splice(index, 1)
+    return HttpResponse.json(ok(null, '模板已删除'))
+  }),
+
+  /* ------------------------------ 通知中心 · 发送 / 记录 ------------------------------ */
+
+  mswHttp.post('/api/v1/notice/send', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const body = (await request.json()) as NoticeSendPayload
+    const template = mockNoticeTemplates.find((t) => t.templateCode === body.templateCode)
+    if (!template) return fail(60101, '通知模板不存在', 404)
+    const channel = body.channel ?? template.channel
+    const pending = (body.delayLevel ?? 0) > 0
+    let seqId = nextId(mockNotices)
+    let seqNotice = mockNotices.reduce((max, n) => Math.max(max, n.noticeId), 900000)
+    const created = body.receivers.map((receiver) => {
+      seqId += 1
+      seqNotice += 1
+      const record: NoticeRecordView = {
+        id: seqId,
+        noticeId: seqNotice,
+        templateCode: template.templateCode,
+        channel,
+        channelLabel: CHANNEL_LABEL[channel] ?? null,
+        receiver,
+        title: renderTemplate(template.title, body.params),
+        content: renderTemplate(template.content, body.params),
+        params: body.params ? JSON.stringify(body.params) : null,
+        status: pending ? 0 : 1,
+        retryCount: 0,
+        sendTime: pending ? null : nowIso(),
+        errorMsg: null,
+        createTime: nowIso(),
+      }
+      mockNotices.unshift(record)
+      return record
+    })
+    return HttpResponse.json(ok(created, `已提交 ${created.length} 条通知`))
+  }),
+
+  mswHttp.get('/api/v1/notice/record/list', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const query = new URL(request.url).searchParams
+    const templateCode = (query.get('templateCode') ?? '').trim()
+    const receiver = (query.get('receiver') ?? '').trim()
+    const status = query.get('status')
+    let list = [...mockNotices].sort(
+      (a, b) => Date.parse(b.createTime ?? '') - Date.parse(a.createTime ?? ''),
+    )
+    if (templateCode) list = list.filter((n) => (n.templateCode ?? '').includes(templateCode))
+    if (receiver) list = list.filter((n) => (n.receiver ?? '').includes(receiver))
+    if (status !== null && status !== '') list = list.filter((n) => String(n.status) === status)
+    return HttpResponse.json(ok(paged(list, query)))
+  }),
+
+  mswHttp.get('/api/v1/notice/record/:noticeId', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const record = mockNotices.find((n) => n.noticeId === Number(params.noticeId))
+    if (!record) return fail(60103, '通知记录不存在', 404)
+    return HttpResponse.json(ok(record))
   }),
 
   /* ------------------------------ 审计中心 ------------------------------ */

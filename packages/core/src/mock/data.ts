@@ -2,9 +2,11 @@ import type {
   AdminUserView,
   AppealView,
   AuditLogView,
+  DeptView,
   FileView,
-  MenuTreeNode,
+  MenuView,
   NoticeRecordView,
+  NoticeTemplateView,
   PermissionView,
   RoleBrief,
   RoleView,
@@ -239,55 +241,62 @@ export const mockCurrentUserRoles: RoleBrief[] = [
 ]
 
 export const mockPermissions: PermissionView[] = [
-  { id: 101, permCode: 'auth:user:list', permName: '用户列表', resource: '/api/v1/auth/admin/users', action: 'read', description: null, status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
-  { id: 102, permCode: 'auth:user:write', permName: '用户管理', resource: '/api/v1/auth/admin/users/**', action: 'write', description: null, status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
-  { id: 103, permCode: 'permission:role:manage', permName: '角色管理', resource: '/api/v1/permission/admin/roles/**', action: '*', description: null, status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
-  { id: 104, permCode: 'audit:log:read', permName: '审计日志查看', resource: '/api/v1/audit/logs', action: 'read', description: null, status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
-  { id: 105, permCode: 'file:upload', permName: '文件上传', resource: '/api/v1/file/upload', action: 'write', description: null, status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
+  { id: 101, permCode: 'auth:user:list', resource: '/api/v1/auth/admin/users', action: 'read', description: '查询用户列表', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
+  { id: 102, permCode: 'auth:user:write', resource: '/api/v1/auth/admin/users/**', action: 'write', description: '管理用户状态', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
+  { id: 103, permCode: 'permission:role:manage', resource: '/api/v1/permission/admin/roles/**', action: '*', description: '角色与绑定管理', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
+  { id: 104, permCode: 'audit:log:read', resource: '/api/v1/audit/logs', action: 'read', description: '审计日志查看', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
+  { id: 105, permCode: 'file:upload', resource: '/api/v1/file/upload', action: 'write', description: '文件上传', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
+  { id: 106, permCode: 'notice:portal:manage', resource: '/api/v1/notice/portal/admin/**', action: '*', description: '门户内容管理', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
 ]
 
-export const mockMenus: MenuTreeNode[] = [
-  {
-    id: 1,
-    menuCode: 'dashboard',
-    menuName: '概览',
-    parentId: 0,
-    path: '/dashboard',
-    sort: 1,
-    children: [],
-  },
-  {
-    id: 2,
-    menuCode: 'system',
-    menuName: '系统管理',
-    parentId: 0,
-    path: '/system',
-    sort: 2,
-    children: [
-      { id: 21, menuCode: 'system.user', menuName: '用户管理', parentId: 2, path: '/system/users', sort: 1, children: [] },
-      { id: 22, menuCode: 'system.role', menuName: '角色权限', parentId: 2, path: '/system/roles', sort: 2, children: [] },
-      { id: 23, menuCode: 'system.appeal', menuName: '申诉审核', parentId: 2, path: '/system/appeals', sort: 3, children: [] },
-    ],
-  },
-  {
-    id: 3,
-    menuCode: 'audit',
-    menuName: '审计日志',
-    parentId: 0,
-    path: '/audit',
-    sort: 3,
-    children: [],
-  },
-  {
-    id: 4,
-    menuCode: 'file',
-    menuName: '文件管理',
-    parentId: 0,
-    path: '/file',
-    sort: 4,
-    children: [],
-  },
+/** 菜单（扁平结构；管理端树由前端组装，接口 /menus/tree 由 handler 组装返回） */
+export const mockMenus: MenuView[] = [
+  { id: 1, menuCode: 'dashboard', menuName: '概览', parentId: 0, path: '/dashboard', sort: 1, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 2, menuCode: 'system', menuName: '系统管理', parentId: 0, path: '/system', sort: 2, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 21, menuCode: 'system.user', menuName: '用户管理', parentId: 2, path: '/system/users', sort: 1, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 22, menuCode: 'system.role', menuName: '角色权限', parentId: 2, path: '/system/roles', sort: 2, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 23, menuCode: 'system.appeal', menuName: '申诉审核', parentId: 2, path: '/system/appeals', sort: 3, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 24, menuCode: 'system.portal', menuName: '门户内容', parentId: 2, path: '/portal/content', sort: 4, status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 20) },
+  { id: 3, menuCode: 'audit', menuName: '审计日志', parentId: 0, path: '/audit', sort: 3, status: 1, createTime: dt(-60 * 24 * 80), updateTime: dt(-60 * 24 * 20) },
+  { id: 4, menuCode: 'file', menuName: '文件管理', parentId: 0, path: '/file', sort: 4, status: 0, createTime: dt(-60 * 24 * 40), updateTime: dt(-60 * 24 * 10) },
 ]
+
+/** 部门（扁平结构，闭包表在真实后端维护；前端按 parentId 组装树） */
+export const mockDepts: DeptView[] = [
+  { id: 1, deptCode: 'hq', deptName: 'YunaNexus 总部', parentId: 0, sort: 1, status: 1, createTime: dt(-60 * 24 * 120), updateTime: dt(-60 * 24 * 40) },
+  { id: 11, deptCode: 'hq.tech', deptName: '技术中心', parentId: 1, sort: 1, status: 1, createTime: dt(-60 * 24 * 110), updateTime: dt(-60 * 24 * 35) },
+  { id: 12, deptCode: 'hq.ops', deptName: '运维部', parentId: 1, sort: 2, status: 1, createTime: dt(-60 * 24 * 110), updateTime: dt(-60 * 24 * 35) },
+  { id: 111, deptCode: 'hq.tech.dev', deptName: '研发组', parentId: 11, sort: 1, status: 1, createTime: dt(-60 * 24 * 100), updateTime: dt(-60 * 24 * 30) },
+  { id: 112, deptCode: 'hq.tech.qa', deptName: '测试组', parentId: 11, sort: 2, status: 1, createTime: dt(-60 * 24 * 100), updateTime: dt(-60 * 24 * 30) },
+  { id: 121, deptCode: 'hq.ops.sre', deptName: 'SRE 组', parentId: 12, sort: 1, status: 0, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 20) },
+]
+
+/** 角色 → 权限绑定（覆盖语义，与后端一致） */
+export const mockRolePermissions: Record<number, number[]> = {
+  1: [101, 102, 103, 104, 105, 106],
+  2: [101, 104, 105],
+  3: [104],
+  4: [105],
+  5: [],
+}
+
+/** 角色 → 菜单绑定 */
+export const mockRoleMenus: Record<number, number[]> = {
+  1: [1, 2, 21, 22, 23, 24, 3, 4],
+  2: [1, 2, 21, 23, 3],
+  3: [1, 3],
+  4: [1],
+  5: [],
+}
+
+/** 角色 → 数据范围部门绑定（仅 dataScope=自定义 时生效） */
+export const mockRoleDepts: Record<number, number[]> = {
+  1: [1, 11, 12],
+  2: [11, 111, 112],
+  3: [1],
+  4: [],
+  5: [],
+}
 
 export const mockNotices: NoticeRecordView[] = [
   {
@@ -392,6 +401,74 @@ export const mockNotices: NoticeRecordView[] = [
     sendTime: dt(-60 * 5),
     errorMsg: null,
     createTime: dt(-60 * 5),
+  },
+]
+
+export const mockNoticeTemplates: NoticeTemplateView[] = [
+  {
+    id: 1,
+    templateCode: 'E2E_MEETING_REMIND',
+    templateName: '会议提醒',
+    channel: 1,
+    channelLabel: '站内信',
+    title: '${meeting}提醒',
+    content: '你好 ${name}，${meeting}将于 ${time} 开始，请准时参加。',
+    status: 1,
+    remark: '通用会议提醒模板',
+    createTime: dt(-60 * 24 * 30),
+    updateTime: dt(-60 * 24 * 5),
+  },
+  {
+    id: 2,
+    templateCode: 'SECURITY_ALERT',
+    templateName: '安全提醒',
+    channel: 1,
+    channelLabel: '站内信',
+    title: '安全提醒：检测到新设备登录',
+    content: '你好 ${name}，你的账号于 ${ip} 登录，如非本人操作请及时修改密码。',
+    status: 1,
+    remark: '异地 / 新设备登录风控触发',
+    createTime: dt(-60 * 24 * 40),
+    updateTime: dt(-60 * 24 * 10),
+  },
+  {
+    id: 3,
+    templateCode: 'SYSTEM_MAINTENANCE',
+    templateName: '系统维护通知',
+    channel: 1,
+    channelLabel: '站内信',
+    title: '系统维护通知',
+    content: '平台将于 ${window} 进行例行维护，期间部分服务不可用。',
+    status: 1,
+    remark: '计划内维护公告',
+    createTime: dt(-60 * 24 * 60),
+    updateTime: dt(-60 * 24 * 20),
+  },
+  {
+    id: 4,
+    templateCode: 'MONTHLY_SUMMARY',
+    templateName: '月度运营报告',
+    channel: 1,
+    channelLabel: '站内信',
+    title: '【月度运营报告】${month} 平台运行与安全审计总结',
+    content: '你好 ${name}，以下是 ${month} 的平台运行与安全审计总结，请查阅。',
+    status: 1,
+    remark: '每月 1 日定时发送',
+    createTime: dt(-60 * 24 * 90),
+    updateTime: dt(-60 * 24 * 30),
+  },
+  {
+    id: 5,
+    templateCode: 'APPEAL_RESULT',
+    templateName: '申诉结果通知',
+    channel: 2,
+    channelLabel: '邮件',
+    title: '你的账号解锁申诉已处理',
+    content: '你好 ${name}，你提交的解锁申诉已${result}，${remark}',
+    status: 0,
+    remark: '停用中：待接入邮件通道后启用',
+    createTime: dt(-60 * 24 * 15),
+    updateTime: dt(-60 * 24 * 3),
   },
 ]
 
