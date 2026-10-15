@@ -31,6 +31,7 @@ interface Props {
   subtitle?: string
   /** 头像文案，缺省取展示名首字 */
   avatar?: string
+  avatarSrc?: string
   items: AccountMenuEntry[]
 }
 
@@ -93,12 +94,26 @@ onBeforeUnmount(() => {
       @click="toggle"
       @contextmenu.prevent="toggle"
     >
-      <span class="acct__avatar" aria-hidden="true">{{ initial }}</span>
+      <span class="acct__avatar" aria-hidden="true"
+        ><img
+          v-if="avatarSrc"
+          :src="avatarSrc"
+          alt=""
+          style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit"
+        /><template v-else>{{ initial }}</template></span
+      >
       <span class="acct__id">
         <span class="acct__name">{{ name }}</span>
         <span v-if="subtitle" class="acct__sub">{{ subtitle }}</span>
       </span>
-      <svg class="acct__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg
+        class="acct__chevron"
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
         <path
           d="M6 9l6 6 6-6"
           stroke="currentColor"
@@ -113,7 +128,11 @@ onBeforeUnmount(() => {
       <div v-if="open" class="acct__panel" role="menu">
         <ul class="acct__list">
           <template v-for="(entry, index) in items" :key="entry.key">
-            <li v-if="'type' in entry" class="acct__divider" :style="{ animationDelay: `${index * 24}ms` }" />
+            <li
+              v-if="'type' in entry"
+              class="acct__divider"
+              :style="{ animationDelay: `${index * 24}ms` }"
+            />
             <li v-else class="acct__row" :style="{ animationDelay: `${index * 24}ms` }">
               <button
                 type="button"
@@ -166,7 +185,12 @@ onBeforeUnmount(() => {
   font-size: 13px;
   font-weight: 600;
   color: #ffffff;
-  background: linear-gradient(135deg, var(--yuna-blue-700), var(--yuna-blue-500) 62%, var(--yuna-blue-400));
+  background: linear-gradient(
+    135deg,
+    var(--yuna-blue-700),
+    var(--yuna-blue-500) 62%,
+    var(--yuna-blue-400)
+  );
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(29, 33, 41, 0.16);
 }
@@ -252,7 +276,9 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   border-radius: 9px;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .acct__item:hover {

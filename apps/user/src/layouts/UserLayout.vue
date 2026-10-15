@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
+import { computed, watch, onBeforeUnmount, type Component } from 'vue'
+import { currentAvatar, loadAvatar, clearAvatar } from '@/utils/avatar'
 import { useRoute, useRouter } from 'vue-router'
 import { GlobeOutline, LogOutOutline, PersonCircleOutline } from '@vicons/ionicons5'
 import {
@@ -10,9 +11,27 @@ import {
   truncateMiddle,
   useSiderCollapsed,
 } from '@yuna/ui'
-import { authApi, buildHandoffUrl, readEnv, session } from '@yuna/core'
+import { authApi, userApi, buildHandoffUrl, readEnv, session } from '@yuna/core'
 import { userMenuOptions } from '@/config/menu'
 
+let avatarGeneration = 0
+watch(
+  () => session.state.externalId,
+  async (id) => {
+    const generation = ++avatarGeneration
+    clearAvatar()
+    if (!id) return
+    try {
+      const profile = await userApi.getProfile()
+      if (generation === avatarGeneration) await loadAvatar(profile.avatar)
+    } catch {}
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => {
+  avatarGeneration++
+  clearAvatar()
+})
 const route = useRoute()
 const router = useRouter()
 
@@ -35,7 +54,9 @@ type AccountEntry =
   | { type: 'divider'; key: string }
 
 const accountItems = computed<AccountEntry[]>(() => {
-  const items: AccountEntry[] = [{ key: '/console/profile', label: '个人中心', icon: PersonCircleOutline }]
+  const items: AccountEntry[] = [
+    { key: '/console/profile', label: '个人中心', icon: PersonCircleOutline },
+  ]
   if (canEnterAdmin.value) {
     items.push({ key: 'enter-admin', label: '进入管理后台', icon: GlobeOutline })
   }
@@ -96,7 +117,12 @@ async function onAccountSelect(key: string): Promise<void> {
     <template #header-actions>
       <NotificationButton @open="onNoticeOpen" />
       <ThemeToggle />
-      <AccountMenu :name="accountName" :items="accountItems" @select="onAccountSelect" />
+      <AccountMenu
+        :avatar-src="currentAvatar"
+        :name="accountName"
+        :items="accountItems"
+        @select="onAccountSelect"
+      />
     </template>
 
     <router-view v-slot="{ Component, route: current }">

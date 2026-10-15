@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, nextTick } from 'vue'
+import AvatarEditor from '@/components/AvatarEditor.vue'
+import { currentAvatar, loadAvatar } from '@/utils/avatar'
 import { useRouter } from 'vue-router'
 import {
   NAlert,
@@ -22,10 +24,10 @@ import {
   authApi,
   normalizeTags,
   profilePatch,
-  safeAvatarUrl,
   session,
   toErrorMessage,
   userApi,
+  workspaceApi,
 } from '@yuna/core'
 import type { IdentityResult, UserBadge, UserProfileView, UserTag } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
@@ -51,7 +53,52 @@ const colorOptions = [
   { label: '紫色', value: '#8863bb' },
   { label: '橙色', value: '#bc732b' },
 ]
-const avatarUrl = computed(() => safeAvatarUrl(form.avatar.trim(), window.location.origin))
+const avatarUrl = currentAvatar
+const avatarEditor = ref<InstanceType<typeof AvatarEditor>>()
+const savingAvatar = ref(false)
+async function removeAvatar() {
+  savingAvatar.value = true
+  try {
+    const updated = await userApi.updateProfile({ avatar: '' })
+    profile.value = updated
+    form.avatar = ''
+    await loadAvatar('')
+    message.success('头像已移除')
+  } catch (error) {
+    message.error(handleApiError(error, router))
+  } finally {
+    savingAvatar.value = false
+  }
+}
+async function saveAvatar(file: File) {
+  savingAvatar.value = true
+  let uploaded: number | undefined
+  const account = session.state.externalId
+  try {
+    const result = await workspaceApi.avatar(file)
+    uploaded = result.fileId
+    if (account !== session.state.externalId) throw new Error('账号已切换，请重新操作')
+    const updated = await userApi.updateProfile({ avatar: `file:${result.fileId}` })
+    if (account !== session.state.externalId) return
+    profile.value = updated
+    form.avatar = updated.avatar ?? ''
+    await loadAvatar(updated.avatar)
+    savingAvatar.value = false
+    await nextTick()
+    avatarEditor.value?.close()
+    message.success('头像已更新')
+  } catch (error) {
+    message.error(handleApiError(error, router))
+    if (uploaded && account === session.state.externalId)
+      try {
+        await workspaceApi.delete(uploaded)
+      } catch {
+        /* 上传记录可在我的文件中清理 */
+      }
+  } finally {
+    savingAvatar.value = false
+  }
+}
 const displayName = computed(() => profile.value?.nickname || profile.value?.username || '我的账号')
 const dirty = computed(
   () =>
@@ -93,6 +140,7 @@ async function load(): Promise<void> {
   if (p.status === 'fulfilled') {
     profile.value = p.value
     resetForm()
+    void loadAvatar(p.value.avatar)
     session.setNickname(p.value.nickname)
   }
   if (t.status === 'fulfilled') {
@@ -225,18 +273,33 @@ onMounted(load)
     >
     <n-spin :show="loading">
       <div class="profile-sections">
-        <section-card title="个人资料" description="联系邮箱仅用于个人资料展示，不修改登录邮箱">
+        <section-card
+          class="profile-main"
+          title="个人资料"
+          description="联系邮箱仅用于个人资料展示，不修改登录邮箱"
+        >
           <n-alert v-if="errors.profile" type="error" title="资料加载失败">{{
             errors.profile
           }}</n-alert>
           <template v-else-if="profile">
             <div class="profile-summary">
-              <n-avatar :src="avatarUrl" :size="64" round>{{ displayName.slice(0, 1) }}</n-avatar>
+              <n-avatar v-if="avatarUrl" :src="avatarUrl" :size="64" round
+                ><template #fallback>{{ displayName.slice(0, 1) }}</template></n-avatar
+              ><n-avatar v-else :size="64" round>{{ displayName.slice(0, 1) }}</n-avatar>
               <div>
                 <h3>{{ displayName }}</h3>
                 <p>@{{ profile.username }}</p>
               </div>
             </div>
+            <AvatarEditor ref="avatarEditor" :saving="savingAvatar" @save="saveAvatar" />
+            <n-button
+              v-if="form.avatar"
+              text
+              size="small"
+              :disabled="savingAvatar || saving"
+              @click="removeAvatar"
+              >移除头像</n-button
+            >
             <n-form label-placement="top" :disabled="saving" @submit.prevent="saveProfile">
               <div class="profile-grid">
                 <n-form-item label="昵称"
@@ -253,13 +316,6 @@ onMounted(load)
                     aria-label="联系邮箱"
                     maxlength="128"
                     placeholder="name@example.com"
-                /></n-form-item>
-                <n-form-item label="头像地址" class="profile-full"
-                  ><n-input
-                    v-model:value="form.avatar"
-                    aria-label="头像地址"
-                    maxlength="512"
-                    placeholder="HTTPS 图片地址或本站图片路径；留空可清除"
                 /></n-form-item>
               </div>
               <div class="actions">
@@ -435,6 +491,53 @@ onMounted(load)
   .profile-grid,
   .tag-editor {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>
+
+<style scoped>
+.profile-sections {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr);
+  gap: 18px !important;
+  align-items: start;
+}
+.profile-main {
+  grid-row: span 2;
+}
+.profile-summary {
+  padding-bottom: 8px;
+}
+.profile-grid {
+  margin-top: 20px;
+}
+.profile-meta {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--yuna-gray-200);
+}
+@media (min-width: 1650px) {
+  .profile-sections {
+    grid-template-columns: minmax(480px, 1.4fr) minmax(280px, 1fr) minmax(280px, 1fr);
+  }
+  .profile-main {
+    grid-row: span 2;
+  }
+}
+@media (max-width: 1050px) {
+  .profile-sections {
+    grid-template-columns: 1fr;
+  }
+  .profile-main {
+    grid-row: auto;
+  }
+}
+</style>
+
+<style scoped>
+@media (min-width: 1650px) {
+  .profile-sections > :nth-child(3) {
+    grid-row: span 2;
   }
 }
 </style>

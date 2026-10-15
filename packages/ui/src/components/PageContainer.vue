@@ -14,7 +14,10 @@ defineProps<Props>()
 
 <template>
   <div class="yuna-page yuna-container">
-    <header v-if="title || description || $slots.extra || $slots.breadcrumb" class="yuna-page__head">
+    <header
+      v-if="title || description || $slots.extra || $slots.breadcrumb"
+      class="yuna-page__head"
+    >
       <div class="yuna-page__head-main">
         <slot name="breadcrumb" />
         <h1 v-if="title" class="yuna-page__title">{{ title }}</h1>
@@ -37,6 +40,9 @@ defineProps<Props>()
 
 <style scoped>
 .yuna-page {
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
