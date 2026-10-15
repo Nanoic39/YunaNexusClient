@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import { consumeHandoff, currentUserApi, readEnv, session } from '@yuna/core'
+import { consumeHandoff, loadCurrentUser, readEnv, session } from '@yuna/core'
 import '@yuna/theme/styles.css'
 import App from './App.vue'
 
@@ -16,13 +16,11 @@ async function bootstrap(): Promise<void> {
   }
   // 消费一次性授权码并校验 state/PKCE（不同域/端口部署），须在挂载前完成
   await consumeHandoff()
-  // 已登录时刷新角色 / 权限视图，保证管理角色放行判据与后端一致（失败静默降级）
+  // 已登录时刷新角色 / 权限视图，保证管理角色放行判据与后端一致。
+  // `loadCurrentUser` 仅在 401 时清理会话；瞬时故障保留既有会话，
+  // 避免把「角色尚未加载」误判为「无管理权限」并锁死在 403。
   if (session.isAuthenticated.value) {
-    try {
-      session.setCurrentUser(await currentUserApi.me())
-    } catch {
-      session.setCurrentUser({ userId: 0, roles: [], permissions: [], menus: [] })
-    }
+    await loadCurrentUser()
   }
   // 授权码清理和回跳完成后再创建 history，避免路由仍捕获旧的 callback 地址。
   const { router } = await import('./router')

@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { session } from '@yuna/core'
+import { loadCurrentUser, session } from '@yuna/core'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -124,9 +124,17 @@ export const router = createRouter({
  * 管理端登录态判据：已登录且持有根角色 `admin`（会话来自用户端统一登录 / 跨应用接驳）。
  * 已登录但缺少管理角色时进入 403，避免与用户端统一登录来回跳转。
  */
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   if (to.meta.public || session.canAccessAdmin.value) return true
-  if (session.isAuthenticated.value) return { name: 'forbidden' }
+  if (session.isAuthenticated.value) {
+    // 角色视图尚未成功加载（首次进入或瞬时故障）：补拉一次再判定，
+    // 避免把「尚未加载」误判为「无管理权限」。
+    if (!session.state.rolesLoaded) {
+      await loadCurrentUser()
+      if (session.canAccessAdmin.value) return true
+    }
+    return { name: 'forbidden' }
+  }
   return { name: 'login', query: { redirect: to.fullPath } }
 })
 

@@ -15,6 +15,12 @@ const env = readEnv()
 const { collapsed } = useSiderCollapsed()
 const activeKey = computed(() => route.path)
 
+/** 账户展示：优先昵称，其次角色名，避免与用户端展示不一致 */
+const accountName = computed(() => session.state.nickname || '管理员')
+const accountSubtitle = computed(
+  () => session.state.roles.map((role) => role.roleName).filter(Boolean).join('、') || '管理台用户',
+)
+
 /** 进入用户端的入口：仅在配置了用户端地址时提供 */
 const accountItems = env.userAppUrl
   ? [
@@ -57,7 +63,7 @@ async function onAccountSelect(key: string): Promise<void> {
   >
     <template #header-actions>
       <ThemeToggle />
-      <AccountMenu name="管理员" subtitle="超级管理员" :items="accountItems" @select="onAccountSelect" />
+      <AccountMenu :name="accountName" :subtitle="accountSubtitle" :items="accountItems" @select="onAccountSelect" />
     </template>
 
     <router-view v-slot="{ Component, route: current }">

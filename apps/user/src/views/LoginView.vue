@@ -9,7 +9,7 @@ import {
   buildHandoffUrl,
   authorizeAdminRedirect,
   safeLocalRedirect,
-  currentUserApi,
+  loadCurrentUser,
   readEnv,
   session,
   toErrorMessage,
@@ -48,15 +48,6 @@ async function loadCaptcha(): Promise<void> {
   }
 }
 
-/** 回填当前用户的角色 / 权限 / 菜单；失败不阻塞登录（按未持有管理角色处理） */
-async function loadCurrentUser(): Promise<void> {
-  try {
-    session.setCurrentUser(await currentUserApi.me())
-  } catch {
-    session.setCurrentUser({ userId: 0, roles: [], permissions: [], menus: [] })
-  }
-}
-
 /** 登录后跳转目标；绝对地址（管理端）需走跨应用会话接驳 */
 function resolveRedirect(): string {
   const value = route.query.redirect
@@ -69,8 +60,10 @@ function isCrossApp(target: string): boolean {
 
 /** 跨应用跳转：申请一次性授权码，使管理端免二次登录；无管理权限则退回控制台 */
 async function goCrossApp(target: string): Promise<void> {
+  // 角色视图尚未加载时先补拉，避免把「尚未加载」误判为「无管理权限」
+  if (!session.state.rolesLoaded) await loadCurrentUser()
   if (!session.canEnterAdmin.value) {
-    message.error('当前账号无管理后台访问权限')
+    message.error(session.state.rolesLoaded ? '当前账号无管理后台访问权限' : '权限信息加载失败，请稍后重试')
     void router.replace('/console/dashboard')
     return
   }

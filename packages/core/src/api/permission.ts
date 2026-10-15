@@ -1,4 +1,6 @@
 import { adminHttp, userHttp } from '../http/client'
+import { ApiError } from '../http/errors'
+import { session } from '../http/session'
 import type {
   CurrentUserView,
   DeptSavePayload,
@@ -22,6 +24,31 @@ const BASE = '/api/v1/permission/admin'
 export const currentUserApi = {
   /** 当前用户的身份 / 角色 / 权限 / 菜单（`GET /api/v1/permission/me`） */
   me: () => userHttp.request<CurrentUserView>('/api/v1/permission/me'),
+}
+
+/**
+ * 拉取并回填当前用户的角色 / 权限 / 菜单视图。
+ *
+ * 会话有效性由该接口判定，故对失败做区分处理，避免瞬时故障被误判为「无权限」：
+ * - `401`：令牌已失效，清理会话并返回 `false`（调用方应引导重新登录）；
+ * - 其他错误（网络 / 5xx）：按可重试处理，短暂退避后重试，仍失败则保留既有会话（`rolesLoaded` 维持原值）。
+ *
+ * @returns 是否成功回填（`true` 表示角色视图已更新）
+ */
+export async function loadCurrentUser(retries = 2): Promise<boolean> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      session.setCurrentUser(await currentUserApi.me())
+      return true
+    } catch (error) {
+      if (error instanceof ApiError && error.isUnauthorized) {
+        session.clearAll()
+        return false
+      }
+      if (attempt >= retries) return false
+      await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)))
+    }
+  }
 }
 
 /** 权限中心 · 角色管理 */

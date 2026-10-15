@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
-import { currentUserApi, readEnv, session, siteContent } from '@yuna/core'
+import { loadCurrentUser, readEnv, session, siteContent } from '@yuna/core'
 import '@yuna/theme/styles.css'
 import App from './App.vue'
 import { router } from './router'
@@ -17,13 +17,9 @@ async function bootstrap(): Promise<void> {
   }
   // 门户内容以接口为准：先以缓存 / 默认值渲染，接口返回后自动更新，避免首屏空白
   void siteContent.loadPublic()
-  // 已登录时回填角色 / 权限 / 菜单，供「进入管理后台」入口等按需展示
-  if (session.isAuthenticated.value) {
-    void currentUserApi
-      .me()
-      .then((view) => session.setCurrentUser(view))
-      .catch(() => undefined)
-  }
+  // 已登录时回填角色 / 权限 / 菜单，供「进入管理后台」入口等按需展示；
+  // 401 时清理会话，瞬时故障保留既有会话。
+  if (session.isAuthenticated.value) void loadCurrentUser()
   createApp(App).use(router).mount('#app')
 }
 

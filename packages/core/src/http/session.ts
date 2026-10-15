@@ -29,6 +29,12 @@ export interface SessionState {
   roles: RoleBrief[]
   /** 当前用户权限码并集（`GET /permission/me` 回填） */
   permissions: string[]
+  /**
+   * 是否已从后端成功回填角色视图。
+   * 用于区分「确无管理角色」与「角色尚未加载 / 加载失败」，
+   * 避免瞬时故障被误判为无权限并锁死在 403。
+   */
+  rolesLoaded: boolean
 }
 
 const STORAGE_KEY = 'yuna.session'
@@ -42,6 +48,7 @@ const EMPTY: SessionState = {
   clientCode: null,
   roles: [],
   permissions: [],
+  rolesLoaded: false,
 }
 
 function load(): SessionState {
@@ -70,6 +77,7 @@ function setTokens(result: TokenResult, clientCode?: string): void {
   if (state.externalId !== result.externalId) {
     state.roles = []
     state.permissions = []
+    state.rolesLoaded = false
     state.nickname = null
   }
   state.accessToken = result.accessToken
@@ -99,6 +107,7 @@ function setNickname(nickname: string | null): void {
 function setCurrentUser(view: CurrentUserView): void {
   state.roles = view.roles ?? []
   state.permissions = view.permissions ?? []
+  state.rolesLoaded = true
   persist()
 }
 
@@ -122,6 +131,7 @@ function clearUser(): void {
   state.clientCode = null
   state.roles = []
   state.permissions = []
+  state.rolesLoaded = false
   persist()
 }
 
