@@ -2,6 +2,7 @@ import { readEnv, type AppEnv } from '../env'
 import { SUCCESS_CODE, type Result } from '../types'
 import { cacheCsrf, readCsrfHeader } from './csrf'
 import { ApiError, NetworkError } from './errors'
+import { repairMojibakeDeep } from './mojibake'
 import { refreshSession } from './refresh'
 import { session } from './session'
 
@@ -63,7 +64,8 @@ function buildQuery(query?: Record<string, QueryValue> | object): string {
 
 async function parseResult<T>(response: Response): Promise<Result<T>> {
   try {
-    return (await response.json()) as Result<T>
+    // 容错：后端字符集处理不当时可能返回「UTF-8 被按 cp1252 误解码」的乱码，此处只读还原
+    return repairMojibakeDeep((await response.json()) as Result<T>)
   } catch (cause) {
     throw new NetworkError(`响应解析失败（HTTP ${response.status}）`, cause)
   }
@@ -204,7 +206,7 @@ export class HttpClient {
       const result = (await response.json()) as Partial<Result<unknown>>
       return new ApiError({
         code: result.code ?? response.status,
-        message: result.msg || `请求失败（HTTP ${response.status}）`,
+        message: repairMojibakeDeep(result.msg) || `请求失败（HTTP ${response.status}）`,
         httpStatus: response.status,
         tips: result.tips ?? null,
         traceId: result.traceId ?? null,
