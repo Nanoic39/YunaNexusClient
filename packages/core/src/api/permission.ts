@@ -1,10 +1,15 @@
 import { adminHttp, userHttp } from '../http/client'
 import type {
   CurrentUserView,
+  DeptSavePayload,
   DeptTreeNode,
+  DeptView,
   FieldRuleView,
   GrantView,
+  MenuSavePayload,
   MenuTreeNode,
+  MenuView,
+  PermissionSavePayload,
   PermissionView,
   PolicyView,
   RoleSavePayload,
@@ -39,12 +44,23 @@ export const roleApi = {
   /** 设置角色菜单（覆盖式） */
   setMenus: (roleId: number, menuIds: number[]) =>
     adminHttp.request<void>(`${BASE}/roles/${roleId}/menus`, { method: 'POST', body: { menuIds } }),
+
+  /** 角色数据范围部门 ID 列表（dataScope=自定义 时生效） */
+  listDepts: (roleId: number) => adminHttp.request<number[]>(`${BASE}/roles/${roleId}/depts`),
+  /** 设置角色数据范围部门（覆盖式） */
+  setDepts: (roleId: number, deptIds: number[]) =>
+    adminHttp.request<void>(`${BASE}/roles/${roleId}/depts`, { method: 'POST', body: { deptIds } }),
 }
 
 /** 权限中心 · 权限管理 */
 export const permissionApi = {
   list: () => adminHttp.request<PermissionView[]>(`${BASE}/permissions`),
   get: (id: number) => adminHttp.request<PermissionView>(`${BASE}/permissions/${id}`),
+  create: (payload: PermissionSavePayload) =>
+    adminHttp.request<PermissionView>(`${BASE}/permissions`, { method: 'POST', body: payload }),
+  update: (id: number, payload: PermissionSavePayload) =>
+    adminHttp.request<PermissionView>(`${BASE}/permissions/${id}`, { method: 'POST', body: payload }),
+  remove: (id: number) => adminHttp.request<void>(`${BASE}/permissions/${id}`, { method: 'DELETE' }),
 }
 
 /** 权限中心 · 用户角色绑定 */
@@ -56,14 +72,26 @@ export const userRoleApi = {
 
 /** 权限中心 · 菜单管理 */
 export const menuApi = {
-  list: () => adminHttp.request<MenuTreeNode[]>(`${BASE}/menus`),
+  list: () => adminHttp.request<MenuView[]>(`${BASE}/menus`),
   tree: () => adminHttp.request<MenuTreeNode[]>(`${BASE}/menus/tree`),
+  get: (id: number) => adminHttp.request<MenuView>(`${BASE}/menus/${id}`),
+  create: (payload: MenuSavePayload) =>
+    adminHttp.request<MenuView>(`${BASE}/menus`, { method: 'POST', body: payload }),
+  update: (id: number, payload: MenuSavePayload) =>
+    adminHttp.request<MenuView>(`${BASE}/menus/${id}`, { method: 'POST', body: payload }),
+  remove: (id: number) => adminHttp.request<void>(`${BASE}/menus/${id}`, { method: 'DELETE' }),
 }
 
 /** 权限中心 · 部门管理 */
 export const deptApi = {
-  list: () => adminHttp.request<DeptTreeNode[]>(`${BASE}/depts`),
+  list: () => adminHttp.request<DeptView[]>(`${BASE}/depts`),
   tree: () => adminHttp.request<DeptTreeNode[]>(`${BASE}/depts/tree`),
+  get: (id: number) => adminHttp.request<DeptView>(`${BASE}/depts/${id}`),
+  create: (payload: DeptSavePayload) =>
+    adminHttp.request<DeptView>(`${BASE}/depts`, { method: 'POST', body: payload }),
+  update: (id: number, payload: DeptSavePayload) =>
+    adminHttp.request<DeptView>(`${BASE}/depts/${id}`, { method: 'POST', body: payload }),
+  remove: (id: number) => adminHttp.request<void>(`${BASE}/depts/${id}`, { method: 'DELETE' }),
 }
 
 /** 权限中心 · ABAC 策略 */

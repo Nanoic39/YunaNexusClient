@@ -47,7 +47,6 @@ export interface RoleSavePayload {
 export interface PermissionView {
   id: number
   permCode: string
-  permName: string
   /** 资源标识，如 /api/v1/file/upload */
   resource: string | null
   /** 动作，如 read / write / * */
@@ -56,6 +55,40 @@ export interface PermissionView {
   status: number
   createTime: string | null
   updateTime: string | null
+}
+
+/** 权限保存请求体 */
+export interface PermissionSavePayload {
+  permCode: string
+  resource: string
+  action: string
+  description?: string
+  status?: number
+}
+
+/** 菜单记录（perm_menu，扁平结构；树由前端组装） */
+export interface MenuView {
+  id: number
+  menuCode: string
+  menuName: string
+  parentId: number
+  path: string | null
+  sort: number
+  /** 1-启用 0-禁用 */
+  status: number
+  createTime: string | null
+  updateTime: string | null
+}
+
+/** 菜单保存请求体 */
+export interface MenuSavePayload {
+  menuCode: string
+  menuName: string
+  /** 父菜单 ID（0=根；更新时忽略） */
+  parentId?: number
+  path?: string
+  sort?: number
+  status?: number
 }
 
 /** 菜单树节点 */
@@ -67,6 +100,29 @@ export interface MenuTreeNode {
   path: string | null
   sort: number
   children: MenuTreeNode[]
+}
+
+/** 部门记录（perm_dept，扁平结构；树由前端组装） */
+export interface DeptView {
+  id: number
+  deptCode: string
+  deptName: string
+  parentId: number
+  sort: number
+  /** 1-启用 0-禁用 */
+  status: number
+  createTime: string | null
+  updateTime: string | null
+}
+
+/** 部门保存请求体 */
+export interface DeptSavePayload {
+  deptCode: string
+  deptName: string
+  /** 父部门 ID（0=根；更新时忽略） */
+  parentId?: number
+  sort?: number
+  status?: number
 }
 
 /** 部门树节点 */
