@@ -23,7 +23,10 @@ watch(
     if (!id) return
     try {
       const profile = await userApi.getProfile()
-      if (generation === avatarGeneration) await loadAvatar(profile.avatar)
+      if (generation !== avatarGeneration) return
+      await loadAvatar(profile.avatar)
+      // 全局回填昵称：无需进入个人中心，顶栏即默认展示昵称而非账号标识
+      session.setNickname(profile.nickname)
     } catch {}
   },
   { immediate: true },
