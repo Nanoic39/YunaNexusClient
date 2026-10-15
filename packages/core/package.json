@@ -1,0 +1,35 @@
+{
+  "name": "@yuna/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "YunaNexus 前端核心：HTTP 客户端、接口契约类型、鉴权会话、MSW Mock",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./http": "./src/http/index.ts",
+    "./api": "./src/api/index.ts",
+    "./types": "./src/types/index.ts",
+    "./mock": "./src/mock/index.ts"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "msw": "^2.7.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vue-tsc": "^2.2.0"
+  },
+  "msw": {
+    "workerDirectory": [
+      "..\\..\\apps\\admin\\public",
+      "..\\..\\apps\\user\\public"
+    ]
+  }
+}
