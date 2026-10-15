@@ -27,7 +27,7 @@ jobs:
       - name: Scan publication candidates
         run: python3 scripts/scan-publication.py
       - name: Test and build production
-        run: pnpm typecheck && pnpm build
+        run: pnpm test && pnpm typecheck && pnpm build
       - name: Package release
         run: python3 scripts/package-release.py frontend
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
