@@ -1,26 +1,42 @@
-# Nuxt dev/build outputs
-.output
-.data
-.nuxt
-.nitro
-.cache
-dist
+# 依赖
+node_modules/
+.pnpm-store/
+.pnpm-cache/
 
-# Node dependencies
-node_modules
+# 构建产物
+dist/
+dist-ssr/
+*.local
+.vite/
+.turbo/
 
-# Logs
-logs
-*.log
-
-# Misc
-.DS_Store
-.fleet
-.idea
-
-# Local env files
+# 环境变量（本地覆盖不入库；仅 .env.example 入库）
 .env
 .env.*
 !.env.example
 
-说明文档
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# 日志
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Public production settings only; never put secrets in VITE_* variables.
+!**/.env.production
+output/
+*.pem
+*.key
+*.pfx
+*.p12
+
+release/

@@ -1,42 +1,28 @@
 {
-  "name": "yuna-nexus-client",
-  "type": "module",
+  "name": "yunanexus-client",
+  "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+  "description": "YunaNexus 前端 · 用户端与管理端（Vite + Vue 3 + Naive UI）",
+  "packageManager": "pnpm@8.15.4",
+  "engines": {
+    "node": ">=18"
   },
-  "dependencies": {
-    "@heroicons/vue": "^2.2.0",
-    "@nuxt/content": "3.9.0",
-    "@nuxt/eslint": "1.12.1",
-    "@nuxt/fonts": "0.12.1",
-    "@nuxt/icon": "2.1.1",
-    "@nuxt/image": "2.0.0",
-    "@pinia/nuxt": "^0.11.3",
-    "@vicons/ionicons5": "^0.13.0",
-    "better-sqlite3": "^12.5.0",
-    "clsx": "^2.1.1",
-    "dayjs": "^1.11.19",
-    "naive-ui": "^2.43.2",
-    "nuxt": "^4.2.2",
-    "pinia": "^3.0.4",
-    "pnpm": "^10.26.0",
-    "tailwind-merge": "^3.4.0",
-    "vite": "^7.3.0",
-    "vue": "^3.5.25",
-    "vue-router": "^4.6.4"
+  "scripts": {
+    "dev:admin": "pnpm --filter @yuna/admin dev",
+    "dev:user": "pnpm --filter @yuna/user dev",
+    "build": "pnpm --filter @yuna/admin build && pnpm --filter @yuna/user build",
+    "build:admin": "pnpm --filter @yuna/admin build",
+    "build:user": "pnpm --filter @yuna/user build",
+    "preview:admin": "pnpm --filter @yuna/admin preview",
+    "preview:user": "pnpm --filter @yuna/user preview",
+    "typecheck": "pnpm -r typecheck",
+    "msw:init": "pnpm --filter @yuna/core exec msw init ../../apps/admin/public --save && pnpm --filter @yuna/core exec msw init ../../apps/user/public --save",
+    "format": "prettier --write \"**/*.{ts,vue,css,json}\"",
+    "format:check": "prettier --check \"**/*.{ts,vue,css,json}\""
   },
   "devDependencies": {
-    "@css-render/vue3-ssr": "^0.15.14",
-    "@iconify-json/heroicons": "^1.2.3",
-    "@nuxtjs/color-mode": "^4.0.0",
-    "@nuxtjs/tailwindcss": "^6.14.0",
-    "@types/node": "^25.0.3",
-    "unplugin-vue-components": "^30.0.0",
-    "vue-tsc": "^3.2.2"
+    "@types/node": "^22.10.5",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3"
   }
 }
