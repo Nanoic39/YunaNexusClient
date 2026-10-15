@@ -70,8 +70,8 @@ const form = reactive<{
 
 const channelOptions = [
   { label: '站内信', value: 1 },
-  { label: '邮件', value: 2 },
-  { label: '短信', value: 3 },
+  { label: '邮件（需配置发送通道）', value: 2 },
+  { label: '短信（暂未接入）', value: 3, disabled: true },
 ]
 
 /** RocketMQ 延迟等级 1~18，0 表示立即发送 */
