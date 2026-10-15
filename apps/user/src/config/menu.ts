@@ -2,7 +2,15 @@ import { h } from 'vue'
 import type { Component } from 'vue'
 import { NIcon } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
-import { InformationCircleOutline, PersonCircleOutline, SpeedometerOutline } from '@vicons/ionicons5'
+import {
+  InformationCircleOutline,
+  PersonCircleOutline,
+  SpeedometerOutline,
+  FolderOpenOutline,
+  ShareSocialOutline,
+  AppsOutline,
+  KeyOutline,
+} from '@vicons/ionicons5'
 
 /**
  * 用户端控制台导航菜单。
@@ -27,6 +35,10 @@ export const userMenuOptions: MenuOption[] = [
     label: '个人中心',
     icon: renderIcon(PersonCircleOutline),
   },
+  { key: '/console/files', label: '我的文件', icon: renderIcon(FolderOpenOutline) },
+  { key: '/console/shares', label: '我的分享', icon: renderIcon(ShareSocialOutline) },
+  { key: '/console/applications', label: '已授权应用', icon: renderIcon(AppsOutline) },
+  { key: '/console/api-keys', label: '个人 API Key', icon: renderIcon(KeyOutline) },
   {
     key: '/console/about',
     label: '关于',

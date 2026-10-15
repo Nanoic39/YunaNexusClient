@@ -14,6 +14,12 @@ import { session, siteContent } from '@yuna/core'
  */
 const routes: RouteRecordRaw[] = [
   {
+    path: '/share',
+    name: 'shared-file',
+    component: () => import('@/views/SharedFileView.vue'),
+    meta: { public: true, title: '文件分享' },
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/views/LoginView.vue'),
@@ -54,6 +60,30 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/UserLayout.vue'),
     redirect: '/console/dashboard',
     children: [
+      {
+        path: 'files',
+        name: 'files',
+        component: () => import('@/views/FilesView.vue'),
+        meta: { title: '我的文件' },
+      },
+      {
+        path: 'shares',
+        name: 'shares',
+        component: () => import('@/views/SharesView.vue'),
+        meta: { title: '我的分享' },
+      },
+      {
+        path: 'applications',
+        name: 'applications',
+        component: () => import('@/views/SecurityView.vue'),
+        meta: { title: '已授权应用' },
+      },
+      {
+        path: 'api-keys',
+        name: 'api-keys',
+        component: () => import('@/views/SecurityView.vue'),
+        meta: { title: '个人 API Key' },
+      },
       {
         path: 'dashboard',
         name: 'dashboard',
