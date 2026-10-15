@@ -3,8 +3,17 @@ import type { Component } from 'vue'
 import { NIcon } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
 import {
+  AlbumsOutline,
+  AlertCircleOutline,
+  BusinessOutline,
   DocumentTextOutline,
+  FileTrayFullOutline,
   GlobeOutline,
+  KeyOutline,
+  LockClosedOutline,
+  MenuOutline,
+  NotificationsOutline,
+  PaperPlaneOutline,
   PeopleOutline,
   ShieldCheckmarkOutline,
   SpeedometerOutline,
@@ -36,6 +45,38 @@ export const adminMenuOptions: MenuOption[] = [
         label: '用户管理',
         icon: renderIcon(PeopleOutline),
       },
+      {
+        key: '/appeals',
+        label: '申诉审核',
+        icon: renderIcon(AlertCircleOutline),
+      },
+    ],
+  },
+  {
+    key: 'permission',
+    label: '权限管理',
+    icon: renderIcon(LockClosedOutline),
+    children: [
+      {
+        key: '/roles',
+        label: '角色管理',
+        icon: renderIcon(KeyOutline),
+      },
+      {
+        key: '/permissions',
+        label: '权限点',
+        icon: renderIcon(LockClosedOutline),
+      },
+      {
+        key: '/menus',
+        label: '菜单管理',
+        icon: renderIcon(MenuOutline),
+      },
+      {
+        key: '/depts',
+        label: '部门管理',
+        icon: renderIcon(BusinessOutline),
+      },
     ],
   },
   {
@@ -47,6 +88,28 @@ export const adminMenuOptions: MenuOption[] = [
         key: '/content',
         label: '门户内容',
         icon: renderIcon(DocumentTextOutline),
+      },
+    ],
+  },
+  {
+    key: 'notice',
+    label: '通知管理',
+    icon: renderIcon(NotificationsOutline),
+    children: [
+      {
+        key: '/notice/templates',
+        label: '通知模板',
+        icon: renderIcon(AlbumsOutline),
+      },
+      {
+        key: '/notice/send',
+        label: '发送通知',
+        icon: renderIcon(PaperPlaneOutline),
+      },
+      {
+        key: '/notice/records',
+        label: '发送记录',
+        icon: renderIcon(FileTrayFullOutline),
       },
     ],
   },
