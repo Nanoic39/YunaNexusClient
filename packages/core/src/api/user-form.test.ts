@@ -41,6 +41,11 @@ describe('own profile input boundaries', () => {
       expect(() => profilePatch(current, { ...draft, ...update }, origin)).toThrow()
     }
   })
+  it('accepts managed avatar references without treating them as external URLs', () => {
+    expect(profilePatch(current, { ...draft, avatar: 'file:12345' }, origin)).toMatchObject({
+      avatar: 'file:12345',
+    })
+  })
   it('allows clearing all tags and normalizes ordinary names', () => {
     expect(normalizeTags([])).toEqual([])
     expect(normalizeTags([{ tagCode: ' a ', tagName: ' Developer ', color: null }])).toEqual([

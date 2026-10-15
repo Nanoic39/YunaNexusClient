@@ -34,7 +34,10 @@ export function profilePatch(
     email: draft.email.trim(),
   }
   if (next.nickname.length > 64) throw new Error('昵称最多 64 个字符')
-  if (next.avatar.length > 512 || (next.avatar && !safeAvatarUrl(next.avatar, origin)))
+  if (
+    next.avatar.length > 512 ||
+    (next.avatar && !/^file:[1-9][0-9]*$/.test(next.avatar) && !safeAvatarUrl(next.avatar, origin))
+  )
     throw new Error('头像请使用 HTTPS 地址或本站图片路径，最多 512 个字符')
   if (next.email.length > 128 || (next.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next.email)))
     throw new Error('请输入有效的联系邮箱，最多 128 个字符')

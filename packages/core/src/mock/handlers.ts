@@ -1,3 +1,4 @@
+import {workspaceHandlers} from './workspace'
 import { pkceChallenge } from '../http/handoff'
 import { http as mswHttp, HttpResponse, delay } from 'msw'
 import type { AdminUserView, AuditLogView, DeptTreeNode, DeptView, MenuTreeNode, MenuView, NoticeRecordView, NoticeSendPayload, NoticeTemplateSavePayload, NoticeTemplateView, Result, RoleView, TokenResult, UserProfileUpdatePayload, UserTag, UserTagSavePayload } from '../types'
@@ -216,6 +217,7 @@ function toPortalPageContent(page: PortalPageView): PortalPageContent {
 }
 
 export const handlers = [
+  ...workspaceHandlers,
   /* ------------------------------ 认证中心 · 终端用户 ------------------------------ */
 
   mswHttp.get('/api/v1/auth/captcha', async ({ request }) => {

@@ -7,3 +7,5 @@ export * from './portal'
 export * from './user'
 
 export * from './user-form'
+
+export * from './workspace'

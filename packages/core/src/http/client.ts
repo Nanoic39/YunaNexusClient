@@ -105,7 +105,11 @@ export class HttpClient {
       const authMode = config.authMode ?? this.config.authMode
       if (error instanceof ApiError && error.isUnauthorized) {
         if (authMode !== 'none' && session.state.accessToken !== initialToken) {
-          if (session.state.accessToken && initialIdentity && session.state.externalId === initialIdentity) {
+          if (
+            session.state.accessToken &&
+            initialIdentity &&
+            session.state.externalId === initialIdentity
+          ) {
             return this.execute<T>(path, config)
           }
           throw error // 旧请求不能清除或代替另一个账号的新会话。
@@ -114,7 +118,10 @@ export class HttpClient {
         if (authMode !== 'none' && session.state.accessToken && (await refreshSession())) {
           return this.execute<T>(path, config)
         }
-        if ((authMode === 'bearer' || authMode === 'admin') && session.state.accessToken === initialToken) {
+        if (
+          (authMode === 'bearer' || authMode === 'admin') &&
+          session.state.accessToken === initialToken
+        ) {
           session.clearUser()
           this.config.onUnauthorized?.()
         }
@@ -156,11 +163,7 @@ export class HttpClient {
         method,
         headers: finalHeaders,
         body:
-          body === undefined
-            ? undefined
-            : body instanceof FormData
-              ? body
-              : JSON.stringify(body),
+          body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
         signal,
         credentials: 'include',
       })
@@ -170,6 +173,11 @@ export class HttpClient {
 
     if (responseType === 'blob') {
       if (!response.ok) throw await this.toApiError(response)
+      if (
+        response.headers.get('content-type')?.includes('application/json') &&
+        !response.headers.get('content-disposition')?.includes('attachment')
+      )
+        throw await this.toApiError(response)
       return (await response.blob()) as T
     }
 
