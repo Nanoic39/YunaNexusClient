@@ -10,6 +10,9 @@ import type {
   PermissionView,
   RoleBrief,
   RoleView,
+  UserBadge,
+  UserProfileView,
+  UserTag,
 } from '../types'
 
 /**
@@ -239,6 +242,55 @@ export const mockRoles: RoleView[] = [
 export const mockCurrentUserRoles: RoleBrief[] = [
   { id: 1, roleCode: 'admin', roleName: '超级管理员' },
 ]
+
+/** 用户中心 · 演示账号（userId=10001 / alice）的资料（GET/PUT /api/v1/user/profile） */
+export const mockUserProfiles: Record<number, UserProfileView> = {
+  10001: {
+    userId: 10001,
+    shardIndex: 9,
+    externalId: 'k7Qm9xZ2vL4pR8wT5nB3dF6hJ1sA2cE4g',
+    username: 'alice',
+    nickname: 'Alice',
+    avatar: null,
+    email: 'alice@example.com',
+    // 手机号功能当前默认关闭：演示账号未绑定手机号
+    mobileCountry: null,
+    mobile: null,
+    status: 1,
+    createTime: dt(-60 * 24 * 30),
+    updateTime: dt(-30),
+  },
+}
+
+/** 用户中心 · 演示账号标签（GET/PUT /api/v1/user/tags，覆盖式） */
+export const mockUserTags: Record<number, UserTag[]> = {
+  10001: [
+    { tagCode: 'frontend', tagName: '前端', color: '#4F46E5' },
+    { tagCode: 'vue', tagName: 'Vue', color: '#10B981' },
+  ],
+}
+
+/** 用户中心 · 演示账号徽章（GET /api/v1/user/badges，只读） */
+export const mockUserBadges: Record<number, UserBadge[]> = {
+  10001: [
+    {
+      badgeCode: 'EARLY_BIRD',
+      badgeName: '早起鸟',
+      badgeLevel: 1,
+      description: '连续 7 天登录',
+      icon: null,
+      grantedTime: dt(-60 * 24 * 10),
+    },
+    {
+      badgeCode: 'SECURITY_GUARD',
+      badgeName: '安全卫士',
+      badgeLevel: 2,
+      description: '开启全部安全设置并完成首次改密',
+      icon: null,
+      grantedTime: dt(-60 * 24 * 3),
+    },
+  ],
+}
 
 export const mockPermissions: PermissionView[] = [
   { id: 101, permCode: 'auth:user:list', resource: '/api/v1/auth/admin/users', action: 'read', description: '查询用户列表', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },

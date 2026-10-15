@@ -1,6 +1,6 @@
 import { pkceChallenge } from '../http/handoff'
 import { http as mswHttp, HttpResponse, delay } from 'msw'
-import type { AdminUserView, AuditLogView, DeptTreeNode, DeptView, MenuTreeNode, MenuView, NoticeRecordView, NoticeSendPayload, NoticeTemplateSavePayload, NoticeTemplateView, Result, RoleView, TokenResult } from '../types'
+import type { AdminUserView, AuditLogView, DeptTreeNode, DeptView, MenuTreeNode, MenuView, NoticeRecordView, NoticeSendPayload, NoticeTemplateSavePayload, NoticeTemplateView, Result, RoleView, TokenResult, UserProfileUpdatePayload, UserTag, UserTagSavePayload } from '../types'
 import type { ServiceHealth } from '../content/status'
 import { defaultContent } from '../content/defaults'
 import type {
@@ -25,7 +25,10 @@ import {
   mockRoleMenus,
   mockRolePermissions,
   mockRoles,
+  mockUserBadges,
+  mockUserProfiles,
   mockUsers,
+  mockUserTags,
 } from './data'
 
 /**
@@ -75,6 +78,18 @@ function requireAdmin(request: Request): Response | null {
       { status: 401 },
     )
   }
+  return null
+}
+
+/** Mock 中固定的当前用户 ID（真实环境由网关注入 `X-User-Id`） */
+const MOCK_CURRENT_USER_ID = 10001
+
+/**
+ * 终端用户守卫：与后端一致，缺少有效用户身份返回 `code=401`。
+ */
+function requireUser(request: Request): Response | null {
+  const bearer = request.headers.get('Authorization')
+  if (!bearer?.startsWith('Bearer ')) return fail(401, '缺少有效用户身份', 401)
   return null
 }
 
@@ -839,6 +854,68 @@ export const handlers = [
     const guard = requireAdmin(request)
     if (guard) return guard
     return HttpResponse.json(ok(null, '用户角色已更新'))
+  }),
+
+  /* ------------------------------ 用户中心 · 自助资料 ------------------------------ */
+
+  mswHttp.get('/api/v1/user/profile', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireUser(request)
+    if (guard) return guard
+    const profile = mockUserProfiles[MOCK_CURRENT_USER_ID]
+    if (!profile) return fail(20001, '用户不存在', 404)
+    return HttpResponse.json(ok(profile))
+  }),
+
+  mswHttp.put('/api/v1/user/profile', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireUser(request)
+    if (guard) return guard
+    const profile = mockUserProfiles[MOCK_CURRENT_USER_ID]
+    if (!profile) return fail(20001, '用户不存在', 404)
+    const body = (await request.json()) as UserProfileUpdatePayload
+    // 手机号功能当前关闭：携带任一手机号字段一律拒绝（与后端一致）
+    if (body.mobile != null || body.mobileCountry != null) return fail(30404, '手机号功能暂未开放', 400)
+    // 与后端一致：仅更新非 null 字段
+    if (body.nickname != null) profile.nickname = body.nickname
+    if (body.avatar != null) profile.avatar = body.avatar
+    if (body.email != null) profile.email = body.email
+    profile.updateTime = nowIso()
+    return HttpResponse.json(ok(profile, '资料已更新'))
+  }),
+
+  mswHttp.get('/api/v1/user/tags', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireUser(request)
+    if (guard) return guard
+    return HttpResponse.json(ok(mockUserTags[MOCK_CURRENT_USER_ID] ?? []))
+  }),
+
+  mswHttp.put('/api/v1/user/tags', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireUser(request)
+    if (guard) return guard
+    const body = (await request.json()) as UserTagSavePayload
+    if (!Array.isArray(body.tags) || body.tags.length > 20) return fail(400, '最多保存 20 个标签', 400)
+    if (body.tags.some(tag => !tag?.tagCode?.trim() || !tag?.tagName?.trim() || tag.tagCode.length > 32 || tag.tagName.length > 32 || (tag.color?.length ?? 0) > 16)) return fail(400, '标签格式不正确', 400)
+    // 覆盖式：同一 tagCode 保留第一项，最多 20 个（与后端一致）
+    const dedup = new Map<string, UserTag>()
+    for (const tag of body.tags ?? []) {
+      if (tag?.tagCode && !dedup.has(tag.tagCode)) dedup.set(tag.tagCode, tag)
+    }
+    const tags = [...dedup.values()]
+    mockUserTags[MOCK_CURRENT_USER_ID] = tags
+    return HttpResponse.json(ok(tags, '标签已保存'))
+  }),
+
+  mswHttp.get('/api/v1/user/badges', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireUser(request)
+    if (guard) return guard
+    const list = [...(mockUserBadges[MOCK_CURRENT_USER_ID] ?? [])].sort(
+      (a, b) => Date.parse(b.grantedTime ?? '') - Date.parse(a.grantedTime ?? ''),
+    )
+    return HttpResponse.json(ok(list))
   }),
 
   /* ------------------------------ 通知中心 · 站内信 ------------------------------ */

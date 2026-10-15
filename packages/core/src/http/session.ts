@@ -89,6 +89,12 @@ function setIdentity(externalId: string, clientCode: string, nickname?: string):
   persist()
 }
 
+/** 同步本人资料中的显示昵称，允许清空。 */
+function setNickname(nickname: string | null): void {
+  state.nickname = nickname || null
+  persist()
+}
+
 /** 写入当前用户权限视图（`GET /permission/me` 回填） */
 function setCurrentUser(view: CurrentUserView): void {
   state.roles = view.roles ?? []
@@ -136,6 +142,7 @@ export const session = {
   setTokens,
   setIdentity,
   setCurrentUser,
+  setNickname,
   hasRole,
   hasPermission,
   clearUser,
