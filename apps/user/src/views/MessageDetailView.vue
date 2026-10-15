@@ -35,12 +35,11 @@ async function markRead(): Promise<void> {
   }
 }
 
-/** 用户端仅有收件箱接口：取较大页后在本地按 noticeId 匹配目标通知 */
+/** 按 ID 加载本人通知，避免较旧通知因分页而显示不存在。 */
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const { records } = await noticeApi.inbox({ size: 100 })
-    notice.value = records.find((item) => item.noticeId === noticeId.value) ?? null
+    notice.value = await noticeApi.detail(noticeId.value)
     await markRead()
   } catch (error) {
     message.error(handleApiError(error, router))

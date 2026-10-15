@@ -41,6 +41,20 @@ export function noticeStatusMeta(status: number | null | undefined): StatusMeta 
   }
 }
 
+/** 通知通道：1-站内信 2-邮件 3-短信 */
+export function noticeChannelText(channel: number | null | undefined): string {
+  switch (channel) {
+    case 1:
+      return '站内信'
+    case 2:
+      return '邮件'
+    case 3:
+      return '短信'
+    default:
+      return '—'
+  }
+}
+
 /** 通用启用状态：1-启用 0-禁用 */
 export function enabledStatusMeta(status: number | null | undefined): StatusMeta {
   return status === 1 ? { tone: 'success', text: '启用' } : { tone: 'default', text: '停用' }
