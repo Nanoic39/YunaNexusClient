@@ -1,0 +1,107 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
+import { session, siteContent } from '@yuna/core'
+
+/**
+ * 用户端路由。
+ *
+ * 分为两部分：
+ * - 公开门户（`/`、`/about` 与自定义内容页）：无需登录，由 `PortalLayout` 承载；
+ * - 控制台（`/console/*`）：需登录，由 `UserLayout` 承载。
+ *
+ * 门户内容由 `siteContent` 数据驱动，自定义页面通过末尾的兜底路由按路径解析，
+ * 因此管理端新增页面无需改动此处的路由表。
+ */
+const routes: RouteRecordRaw[] = [
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { public: true, title: '登录' },
+  },
+  {
+    path: '/',
+    component: () => import('@/layouts/PortalLayout.vue'),
+    children: [
+      {
+        path: '',
+        name: 'home',
+        component: () => import('@/views/ContentPageView.vue'),
+        meta: { public: true, title: '首页' },
+      },
+      {
+        path: 'about',
+        name: 'about',
+        component: () => import('@/views/ContentPageView.vue'),
+        meta: { public: true, title: '关于' },
+      },
+    ],
+  },
+  {
+    path: '/console',
+    component: () => import('@/layouts/UserLayout.vue'),
+    redirect: '/console/dashboard',
+    children: [
+      {
+        path: 'dashboard',
+        name: 'dashboard',
+        component: () => import('@/views/DashboardView.vue'),
+        meta: { title: '概览' },
+      },
+      {
+        path: 'messages',
+        name: 'messages',
+        component: () => import('@/views/MessagesView.vue'),
+        meta: { title: '站内信' },
+      },
+      {
+        path: 'messages/:noticeId',
+        name: 'message-detail',
+        component: () => import('@/views/MessageDetailView.vue'),
+        meta: { title: '通知详情' },
+      },
+      {
+        path: 'profile',
+        name: 'profile',
+        component: () => import('@/views/ProfileView.vue'),
+        meta: { title: '个人中心' },
+      },
+      {
+        path: 'about',
+        name: 'console-about',
+        component: () => import('@/views/ConsoleAboutView.vue'),
+        meta: { title: '关于' },
+      },
+    ],
+  },
+  {
+    // 门户兜底：匹配管理端新增的自定义内容页；未命中时由内容页展示 404
+    path: '/:pathMatch(.*)*',
+    component: () => import('@/layouts/PortalLayout.vue'),
+    children: [
+      {
+        path: '',
+        name: 'portal-content',
+        component: () => import('@/views/ContentPageView.vue'),
+        meta: { public: true },
+      },
+    ],
+  },
+]
+
+export const router = createRouter({
+  history: createWebHistory(),
+  routes,
+  scrollBehavior: () => ({ top: 0 }),
+})
+
+/** 门户公开访问；控制台以「是否持有访问令牌」作为登录态判据 */
+router.beforeEach((to) => {
+  if (to.meta.public || session.isAuthenticated.value) return true
+  return { name: 'login', query: { redirect: to.fullPath } }
+})
+
+router.afterEach((to) => {
+  const title = (to.meta.title as string | undefined) ?? siteContent.findPage(to.path)?.title
+  document.title = title ? `${title} · YunaNexus` : 'YunaNexus'
+})
