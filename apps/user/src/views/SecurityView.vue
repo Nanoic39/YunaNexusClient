@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, reactive } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onMounted, onBeforeUnmount, ref, watch, reactive } from 'vue'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import {
   NButton,
   NAlert,
@@ -18,7 +18,7 @@ import {
   useDialog,
 } from 'naive-ui'
 import { PageContainer, SectionCard, formatDateTime } from '@yuna/ui'
-import { workspaceApi, copyText } from '@yuna/core'
+import { workspaceApi, copyText, session } from '@yuna/core'
 import type { ApplicationGrant, PersonalApiKey } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
 const route = useRoute(),
@@ -41,8 +41,11 @@ const scopeNames: Record<string, string> = {
   'files:read': '查看与下载本人文件',
   'files:write': '上传与删除本人文件',
 }
+const now = ref(Date.now())
+let clock: ReturnType<typeof setInterval> | undefined,
+  alive = true
 const status = (key: PersonalApiKey) =>
-  key.revoked ? '已撤销' : new Date(key.expiresAt).getTime() <= Date.now() ? '已过期' : '有效'
+  key.revoked ? '已撤销' : new Date(key.expiresAt).getTime() <= now.value ? '已过期' : '有效'
 const activeCount = computed(() =>
   isKeys.value
     ? keys.value.filter((k) => status(k) === '有效').length
@@ -68,6 +71,12 @@ async function load() {
   }
 }
 function newKey() {
+  if (creating.value) return
+  if (secret.value && !saved.value) {
+    modal.value = true
+    message.warning('请先保存当前密钥，避免丢失后无法找回')
+    return
+  }
   form.name = ''
   form.scopes = ['profile:read']
   form.days = 30
@@ -76,13 +85,16 @@ function newKey() {
   modal.value = true
 }
 async function create() {
+  if (creating.value) return
   if (!form.name.trim() || !form.scopes.length) {
     message.warning('请填写名称并至少选择一项权限')
     return
   }
   creating.value = true
+  const account = session.state.externalId
   try {
     const result = await workspaceApi.createKey(form.name, form.scopes, form.days)
+    if (!alive || account !== session.state.externalId) return
     secret.value = result.token
     await load()
   } catch (e) {
@@ -162,7 +174,68 @@ watch(isKeys, () => {
   secret.value = ''
   void load()
 })
-onMounted(load)
+function needsProtection() {
+  return creating.value || Boolean(secret.value && !saved.value)
+}
+function protectUnload(event: BeforeUnloadEvent) {
+  if (needsProtection()) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+onBeforeRouteLeave(() => {
+  if (creating.value) {
+    message.warning('密钥正在创建，请稍候')
+    return false
+  }
+  if (!needsProtection()) return true
+  return new Promise<boolean>((resolve) => {
+    dialog.warning({
+      title: '完整密钥尚未保存',
+      content: '离开后无法再次查看完整密钥。请先保存，或明确放弃本次展示。',
+      positiveText: '留下保存',
+      negativeText: '放弃并离开',
+      onPositiveClick: () => {
+        resolve(false)
+      },
+      onNegativeClick: () => {
+        resolve(true)
+      },
+      onClose: () => {
+        resolve(false)
+      },
+      onEsc: () => {
+        resolve(false)
+      },
+      onMaskClick: () => {
+        resolve(false)
+      },
+    })
+  })
+})
+watch(
+  () => session.state.externalId,
+  () => {
+    secret.value = ''
+    saved.value = false
+    modal.value = false
+    generation++
+  },
+)
+onMounted(() => {
+  void load()
+  clock = setInterval(() => {
+    now.value = Date.now()
+  }, 30000)
+  window.addEventListener('beforeunload', protectUnload)
+})
+onBeforeUnmount(() => {
+  alive = false
+  generation++
+  secret.value = ''
+  if (clock) clearInterval(clock)
+  window.removeEventListener('beforeunload', protectUnload)
+})
 </script>
 <template>
   <page-container

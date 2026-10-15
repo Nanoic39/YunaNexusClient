@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, reactive, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NButton,
@@ -19,8 +19,8 @@ import {
   useDialog,
 } from 'naive-ui'
 import { PageContainer, SectionCard, formatDateTime } from '@yuna/ui'
-import { workspaceApi, formatBytes, saveBlob, shareUrl, copyText } from '@yuna/core'
-import type { FileView } from '@yuna/core'
+import { workspaceApi, formatBytes, saveBlob, shareUrl, copyText, UploadQueue } from '@yuna/core'
+import type { FileView, UploadEntry } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
 const router = useRouter(),
   message = useMessage(),
@@ -35,12 +35,26 @@ const rows = ref<FileView[]>([]),
   picker = ref<HTMLInputElement>(),
   selected = ref<number[]>([]),
   busy = ref(false)
-const queue = ref<{ name: string; state: string }[]>([]),
-  uploading = ref(false),
-  stop = ref(false)
-const complete = computed(
-  () => queue.value.filter((q) => q.state === '完成' || q.state === '失败').length,
+const queue = shallowRef<UploadEntry[]>([]),
+  uploading = ref(false)
+let alive = true,
+  listGeneration = 0,
+  listController: AbortController | undefined
+const uploader = new UploadQueue(
+  (file, signal) => workspaceApi.upload(file, signal),
+  (entries, running) => {
+    queue.value = entries
+    uploading.value = running
+  },
+  (error) => message.error(handleApiError(error, router)),
 )
+const complete = computed(
+  () => queue.value.filter((q) => !['等待', '上传中'].includes(q.state)).length,
+)
+const retryCount = computed(
+  () => queue.value.filter((q) => q.retryable && ['失败', '已取消'].includes(q.state)).length,
+)
+const uncertain = computed(() => queue.value.some((q) => q.state === '待确认'))
 const sharing = ref<FileView>(),
   shareOpen = ref(false),
   shareBusy = ref(false),
@@ -54,21 +68,29 @@ const allSelected = computed(
   () => rows.value.length > 0 && rows.value.every((r) => selected.value.includes(r.fileId)),
 )
 async function load() {
+  const version = ++listGeneration
+  listController?.abort()
+  const controller = new AbortController()
+  listController = controller
   loading.value = true
   error.value = ''
   try {
-    const result = await workspaceApi.files(page.value, applied.value)
+    const result = await workspaceApi.files(page.value, applied.value, controller.signal)
+    if (!alive || version !== listGeneration) return
+    const lastPage = Math.max(1, Math.ceil(result.total / 20))
+    if (page.value > lastPage) {
+      page.value = lastPage
+      await load()
+      return
+    }
     rows.value = result.records
     total.value = result.total
     selected.value = []
-    if (!rows.value.length && page.value > 1) {
-      page.value--
-      await load()
-    }
   } catch (e) {
-    error.value = handleApiError(e, router)
+    if (alive && version === listGeneration && !controller.signal.aborted)
+      error.value = handleApiError(e, router)
   } finally {
-    loading.value = false
+    if (alive && version === listGeneration) loading.value = false
   }
 }
 function find() {
@@ -88,36 +110,17 @@ async function filesChanged(event: Event) {
   await upload(files)
 }
 async function upload(files: File[]) {
-  if (uploading.value || !files.length) return
-  if (files.length > 20) {
-    message.warning('每批最多上传 20 个文件')
-    return
+  if (!files.length || uploading.value) return
+  try {
+    await uploader.start(files)
+    if (alive) await load()
+  } catch (error) {
+    message.error(String(error))
   }
-  queue.value = files.map((f) => ({ name: f.name, state: '等待' }))
-  uploading.value = true
-  stop.value = false
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i]!
-    if (stop.value) {
-      queue.value[i]!.state = '已取消'
-      continue
-    }
-    if (!f.size || f.size > 20 * 1024 * 1024) {
-      queue.value[i]!.state = '失败'
-      message.error(`${f.name}：请选择 1B~20MB 的文件`)
-      continue
-    }
-    queue.value[i]!.state = '上传中'
-    try {
-      await workspaceApi.upload(f)
-      queue.value[i]!.state = '完成'
-    } catch (e) {
-      queue.value[i]!.state = '失败'
-      message.error(`${f.name}：${handleApiError(e, router)}`)
-    }
-  }
-  uploading.value = false
-  await load()
+}
+async function retryUploads() {
+  await uploader.retry()
+  if (alive) await load()
 }
 function dropped(event: DragEvent) {
   void upload(Array.from(event.dataTransfer?.files ?? []))
@@ -166,7 +169,7 @@ function share(file: FileView) {
   shareOpen.value = true
 }
 async function createShare() {
-  if (!sharing.value) return
+  if (!sharing.value || shareBusy.value) return
   if (shareForm.code && !/^[A-Za-z0-9]{4,32}$/.test(shareForm.code)) {
     message.warning('提取码须为 4~32 位字母或数字')
     return
@@ -217,7 +220,10 @@ async function inspect(file: FileView) {
 }
 onMounted(load)
 onBeforeUnmount(() => {
-  stop.value = true
+  alive = false
+  listGeneration++
+  listController?.abort()
+  uploader.dispose()
   clearPreview()
 })
 </script>
@@ -355,12 +361,19 @@ onBeforeUnmount(() => {
           />
           <ul class="upload-queue">
             <li v-for="(q, i) in queue" :key="i">
-              <span :title="q.name">{{ q.name }}</span
-              ><small :class="{ failed: q.state === '失败' }">{{ q.state }}</small>
+              <span :title="q.file.name">{{ q.file.name }}</span
+              ><small :class="{ failed: q.state === '失败' }" :title="q.error">{{ q.state }}</small>
             </li>
           </ul>
-          <n-button v-if="uploading" size="small" @click="stop = true">停止后续上传</n-button
-          ><n-button v-else size="small" @click="queue = []">清空队列</n-button></section-card
+          <n-button v-if="uploading" size="small" @click="uploader.cancel()">中止上传</n-button
+          ><template v-else
+            ><n-button v-if="retryCount" size="small" @click="retryUploads"
+              >重试 / 继续 {{ retryCount }} 项</n-button
+            ><n-button size="small" @click="queue = []">清空队列</n-button></template
+          >
+          <p v-if="uncertain" class="muted">
+            网络中断或中止请求后，文件可能已保存。请先刷新列表确认；待确认项不会自动重传。
+          </p></section-card
         >
         <section-card title="分享须知"
           ><p class="muted">
@@ -380,12 +393,14 @@ onBeforeUnmount(() => {
       style="width: 480px; max-width: calc(100vw - 32px)"
       :mask-closable="!shareBusy"
       :closable="!shareBusy"
+      :close-on-esc="!shareBusy"
     >
       <p class="share-file-name">{{ sharing?.fileName }}</p>
       <template v-if="!shareResult"
         ><n-form-item label="有效期"
           ><n-select
             v-model:value="shareForm.days"
+            :disabled="shareBusy"
             :options="[
               { label: '1 天', value: 1 },
               { label: '7 天', value: 7 },
@@ -394,6 +409,7 @@ onBeforeUnmount(() => {
         ><n-form-item label="提取码（可选）"
           ><n-input
             v-model:value="shareForm.code"
+            :disabled="shareBusy"
             maxlength="32"
             placeholder="4~32 位字母或数字；留空无需提取码" /></n-form-item
         ><n-button block type="primary" :loading="shareBusy" @click="createShare"

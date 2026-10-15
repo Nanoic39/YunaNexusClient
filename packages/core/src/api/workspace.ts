@@ -28,18 +28,18 @@ export interface PersonalApiKey {
   revoked: boolean
 }
 const FILE = '/api/v1/file/me'
-function upload(path: string, file: File) {
+function upload(path: string, file: File, signal?: AbortSignal) {
   const body = new FormData()
   body.append('file', file)
-  return userHttp.request<FileView>(path, { method: 'POST', body })
+  return userHttp.request<FileView>(path, { method: 'POST', body, signal })
 }
 export const workspaceApi = {
-  files: (page = 1, search = '') =>
-    userHttp.request<PageResult<FileView>>(FILE, { query: { page, size: 20, search } }),
-  upload: (file: File) => upload(`${FILE}/upload`, file),
+  files: (page = 1, search = '', signal?: AbortSignal) =>
+    userHttp.request<PageResult<FileView>>(FILE, { query: { page, size: 20, search }, signal }),
+  upload: (file: File, signal?: AbortSignal) => upload(`${FILE}/upload`, file, signal),
   avatar: (file: File) => upload(`${FILE}/avatar`, file),
-  download: (id: number) =>
-    userHttp.request<Blob>(`${FILE}/${id}/download`, { responseType: 'blob' }),
+  download: (id: number, signal?: AbortSignal) =>
+    userHttp.request<Blob>(`${FILE}/${id}/download`, { responseType: 'blob', signal }),
   delete: (id: number) => userHttp.request<void>(`${FILE}/${id}/delete`, { method: 'POST' }),
   shares: () => userHttp.request<FileShare[]>(`${FILE}/shares`),
   share: (fileId: number, days: number, code: string) =>

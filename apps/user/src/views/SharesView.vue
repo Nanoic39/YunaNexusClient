@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NInput, NTag, NAlert, NEmpty, NSpin, useDialog, useMessage } from 'naive-ui'
 import { PageContainer, SectionCard, formatDateTime } from '@yuna/ui'
@@ -17,8 +17,10 @@ const router = useRouter(),
 const filtered = computed(() =>
   rows.value.filter((r) => r.fileName.toLowerCase().includes(query.value.toLowerCase())),
 )
+const now = ref(Date.now())
+let clock: ReturnType<typeof setInterval> | undefined
 function state(s: FileShare) {
-  return s.revoked ? '已撤销' : new Date(s.expiresAt).getTime() <= Date.now() ? '已过期' : '分享中'
+  return s.revoked ? '已撤销' : new Date(s.expiresAt).getTime() <= now.value ? '已过期' : '分享中'
 }
 async function load() {
   loading.value = true
@@ -59,7 +61,15 @@ function revoke(s: FileShare) {
     },
   })
 }
-onMounted(load)
+onMounted(() => {
+  void load()
+  clock = setInterval(() => {
+    now.value = Date.now()
+  }, 30000)
+})
+onBeforeUnmount(() => {
+  if (clock) clearInterval(clock)
+})
 </script>
 <template>
   <page-container title="我的分享" description="查看文件分享的有效期与访问保护，随时撤销链接"

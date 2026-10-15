@@ -168,6 +168,7 @@ export class HttpClient {
         credentials: 'include',
       })
     } catch (cause) {
+      if (signal?.aborted) throw cause
       throw new NetworkError('网络请求失败，请检查网络或服务状态', cause)
     }
 
