@@ -152,7 +152,7 @@ const previewTitle = computed(() => renderPreview(selectedTemplate.value?.title)
 const previewContent = computed(() => renderPreview(selectedTemplate.value?.content))
 
 const RECEIVER_HINT: Record<number, string> = {
-  1: '站内信接收方为用户名 / 用户 ID',
+  1: '站内信接收方为用户 ID（见用户管理）',
   2: '邮件接收方为邮箱地址',
   3: '短信接收方为手机号',
 }
@@ -171,6 +171,14 @@ async function submit(): Promise<void> {
     }
   }
   if (!form.templateCode) return
+  if (effectiveChannel.value === 3) {
+    message.warning('短信通道暂未接入，请选择站内信或已配置的邮件通道')
+    return
+  }
+  if (effectiveChannel.value === 1 && form.receivers.some(value => !/^[1-9][0-9]*$/.test(value.trim()))) {
+    message.warning('站内信接收方须填写用户 ID，可在用户管理中查看')
+    return
+  }
   const payload: NoticeSendPayload = {
     templateCode: form.templateCode,
     channel: form.channel ?? undefined,
