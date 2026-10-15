@@ -14,7 +14,7 @@ async function bootstrap(): Promise<void> {
     const { startMock } = await import('@yuna/core/mock')
     await startMock()
   }
-  // 消费用户端接驳的会话片段（不同域/端口部署，登录态随导航传递），须在挂载前完成
+  // 消费一次性授权码并校验 state/PKCE（不同域/端口部署），须在挂载前完成
   await consumeHandoff()
   // 已登录时刷新角色 / 权限视图，保证管理角色放行判据与后端一致（失败静默降级）
   if (session.isAuthenticated.value) {

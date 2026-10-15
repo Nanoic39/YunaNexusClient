@@ -62,7 +62,7 @@ YunaNexusClient/
 ### packages/core —— 核心层
 - `env.ts`：从 Vite 环境变量读取运行配置（`readEnv()`）。
 - `types/`：与后端契约一一对应的类型（`Result`/`PageResult` + 各领域类型）。
-- `http/`：`HttpClient`（URL 拼接、鉴权注入、CSRF、`Result` 解包、错误归一、**401 续期重试**）、`session`（会话持久化 + 跨应用接驳载荷）、`refresh`（`refreshSession()` 以 `refreshToken` 换新令牌，single-flight 合并并发）、`handoff`（`buildHandoffUrl` / `consumeHandoff`，URL 片段接驳登录态）、`errors`（`ApiError`/`NetworkError`）。
+- `http/`：`HttpClient`（URL 拼接、鉴权注入、CSRF、`Result` 解包、错误归一、**401 续期重试**）、`session`（会话持久化与账号切换清理）、`refresh`（`refreshSession()` 以 `refreshToken` 换新令牌，single-flight 合并并发）、`handoff`（`buildHandoffUrl` / `consumeHandoff`，一次性授权码 + state + PKCE S256 跨端登录）、`errors`（`ApiError`/`NetworkError`）。
 - `api/`：按后端服务分模块的接口集合（`authApi`/`authAdminApi`/`noticeApi`/`noticeAdminApi`/`fileApi`/`currentUserApi`/`permissionApi`/`auditApi`）。其中 `noticeApi`（站内信，`userHttp`）与 `noticeAdminApi`（模板 / 发送 / 记录，`adminHttp`）覆盖通知中心两端接口。
 - `mock/`：MSW handlers 与内存数据，作为联调默认数据源。
 - `content/`：**门户内容系统（接口驱动）**。`types`（页面/区块/元素/条目契约）、`defaults`（内置首页 / 关于页，作为首屏兜底）、`store`（响应式状态 + 接口拉取 / 防抖增量同步 + localStorage 离线缓存 + 导出/导入）。
@@ -108,7 +108,7 @@ YunaNexusClient/
 - 会话状态持久化于 `localStorage` 键 `yuna.session`；全站共用一套终端用户会话（`accessToken`），不存在独立的管理端登录。
 - 登录态判据：用户端 `session.isAuthenticated`（有 `accessToken`）；管理端 `session.canAccessAdmin`（已持有用户会话且角色含根角色 `admin`）。
 - **角色 / 权限视图**：登录成功后与已登录启动时调用 `GET /api/v1/permission/me`（`currentUserApi.me()`，Bearer，网关注入 `X-User-Id`），把 `roles` / `permissions` / `menus` 回填 `session`，并提供 `session.canEnterAdmin`（持有根角色 `admin`，用户端据此显示后台入口）、`hasRole` / `hasPermission` 判据；拉取失败静默降级（按未持有管理角色处理），不阻塞登录。
-- **一处登录、两端通行（纯 SSO）**：管理端不设独立密钥，直接复用用户 JWT；后端对 `/api/v1/permission/admin/**` 按根角色 `admin` 放行。开发环境管理端未登录时跳转用户端登录页，生产环境两端合并为 SSO。
+- **一处登录、两端通行（纯 SSO）**：管理端不设独立密钥，通过授权码换取独立会话；后端对 `/api/v1/permission/admin/**` 按根角色 `admin` 放行。开发环境管理端未登录时跳转用户端登录页，生产环境使用真实固定回调；管理密钥仅用于服务器运维应急。
 - 401 / 业务码 `30001`、`30501` 视为鉴权失效（`ApiError.isUnauthorized`）。
 
 ## 7. 用户端：门户 + 控制台分离

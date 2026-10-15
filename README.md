@@ -94,14 +94,16 @@ pnpm dev:user
 
 两个应用的 `.env.production` 仅包含可公开的站点设置：生产模式、关闭 Mock、启用 CSRF、
 同源 API 与真实用户端入口。**所有 `VITE_*` 都会进入浏览器，不允许放入管理员密钥或其他秘密。**
-生产构建强制禁用 Mock，即使误填开发模式也不会启用。管理员密钥仅由操作者登录时输入，
-只保存在当前浏览器会话，不再写入持久化 localStorage。
+生产构建强制禁用 Mock，即使误填开发模式也不会启用。管理台经用户门户统一登录，
+服务端校验有效会话及启用的 `admin` 角色；运维密钥不进入前端。
+跨端通过一次性授权码、state 和 PKCE S256 换取独立会话，URL 不携带访问或刷新令牌。
 
-每次推送 master，Actions 先进行敏感文件检查、类型检查和 production 构建，
+每次推送 master，Actions 先进行敏感文件检查、单元测试、类型检查和 production 构建，
 再发布带 SHA-256 校验和的版本包。服务器检查发布包并切换用户端与管理端版本；
 PR 不发布。服务器凭据不进入 GitHub，运行文件和发布缓存均位于独立数据盘。
 
 ```bash
+pnpm test
 pnpm typecheck
 pnpm build
 python3 scripts/package-release.py frontend
