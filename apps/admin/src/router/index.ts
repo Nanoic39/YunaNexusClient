@@ -21,10 +21,22 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '概览' },
       },
       {
+        path: 'analytics',
+        name: 'analytics',
+        component: () => import('@/views/AnalyticsView.vue'),
+        meta: { title: '数据分析' },
+      },
+      {
         path: 'users',
         name: 'users',
         component: () => import('@/views/UserListView.vue'),
         meta: { title: '用户管理' },
+      },
+      {
+        path: 'badges',
+        name: 'badges',
+        component: () => import('@/views/BadgeListView.vue'),
+        meta: { title: '徽章管理' },
       },
       {
         path: 'roles',
@@ -55,6 +67,12 @@ const routes: RouteRecordRaw[] = [
         name: 'appeals',
         component: () => import('@/views/AppealListView.vue'),
         meta: { title: '申诉审核' },
+      },
+      {
+        path: 'oauth-apps',
+        name: 'oauth-apps',
+        component: () => import('@/views/OAuthAppListView.vue'),
+        meta: { title: '应用管理' },
       },
       {
         path: 'content',

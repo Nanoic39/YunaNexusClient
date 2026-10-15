@@ -7,16 +7,19 @@ import {
   AlertCircleOutline,
   BusinessOutline,
   DocumentTextOutline,
+  ExtensionPuzzleOutline,
   FileTrayFullOutline,
   GlobeOutline,
   KeyOutline,
   LockClosedOutline,
+  MedalOutline,
   MenuOutline,
   NotificationsOutline,
   PaperPlaneOutline,
   PeopleOutline,
   ShieldCheckmarkOutline,
   SpeedometerOutline,
+  StatsChartOutline,
 } from '@vicons/ionicons5'
 
 /**
@@ -36,6 +39,11 @@ export const adminMenuOptions: MenuOption[] = [
     icon: renderIcon(SpeedometerOutline),
   },
   {
+    key: '/analytics',
+    label: '数据分析',
+    icon: renderIcon(StatsChartOutline),
+  },
+  {
     key: 'system',
     label: '系统管理',
     icon: renderIcon(ShieldCheckmarkOutline),
@@ -46,9 +54,19 @@ export const adminMenuOptions: MenuOption[] = [
         icon: renderIcon(PeopleOutline),
       },
       {
+        key: '/badges',
+        label: '徽章管理',
+        icon: renderIcon(MedalOutline),
+      },
+      {
         key: '/appeals',
         label: '申诉审核',
         icon: renderIcon(AlertCircleOutline),
+      },
+      {
+        key: '/oauth-apps',
+        label: '应用管理',
+        icon: renderIcon(ExtensionPuzzleOutline),
       },
     ],
   },
