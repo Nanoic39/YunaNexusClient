@@ -1,0 +1,405 @@
+/**
+ * YunaNexus 全局基础样式
+ *
+ * 只做三件事：
+ * 1. 暴露设计 Token 为 CSS 变量，供少量自定义组件复用（Naive 组件走 themeOverrides）。
+ * 2. 消除浏览器默认的焦点描边，统一为「边框变色」，对齐大厂控制台的克制观感。
+ * 3. 提供最小化的排版 / 滚动条基线，不引入任何装饰性样式。
+ */
+
+:root {
+  /* 品牌与色板 */
+  --yuna-blue-50: #f2f9fd;
+  --yuna-blue-100: #e2f2fa;
+  --yuna-blue-200: #c4e6f5;
+  --yuna-blue-300: #a0d8ef;
+  --yuna-blue-400: #79c6e8;
+  --yuna-blue-500: #4faedd;
+  --yuna-blue-600: #2e8fc4;
+  --yuna-blue-700: #226f9b;
+  --yuna-blue-800: #1b5878;
+  --yuna-blue-900: #143f56;
+
+  --yuna-gray-50: #f7f8fa;
+  --yuna-gray-100: #f2f3f5;
+  --yuna-gray-200: #e5e6eb;
+  --yuna-gray-300: #d7dae0;
+  --yuna-gray-400: #c9cdd4;
+  --yuna-gray-500: #a9aeb8;
+  --yuna-gray-600: #86909c;
+  --yuna-gray-700: #4e5969;
+  --yuna-gray-800: #272e3b;
+  --yuna-gray-900: #1d2129;
+
+  --yuna-brand: #a0d8ef;
+  --yuna-mint: #80ffc0;
+  --yuna-bg: #f5f6f8;
+  /* 卡片 / 面板 / 侧栏 / 顶栏等「浮层表面」底色，暗色下整体反转 */
+  --yuna-surface: #ffffff;
+  /* 磨砂浮层（下拉菜单 / 通知面板 / 侧边预览卡 / 顶栏）统一样式令牌。
+     质感来自「半透表面 + 背景模糊」：面色保持较低透明度让底层内容透出，
+     再由 backdrop-filter 的 blur 真正做磨砂，而非单纯调低不透明度。
+     blur 半径不宜过大：过强会把背景糊成一片纯色，反而显得像实心面板。
+     注意：带 backdrop-filter 的元素会成为「backdrop root」，其内部后代元素的
+     backdrop-filter 只能采样到该元素自身 —— 故顶栏的模糊必须放在 ::before 伪元素上，
+     否则嵌在顶栏里的通知面板 / 账号菜单将完全看不到模糊。 */
+  --yuna-glass: rgba(255, 255, 255, 0.26);
+  --yuna-glass-blur: 8px;
+  --yuna-glass-border: rgba(120, 132, 156, 0.22);
+  --yuna-glass-shadow: 0 16px 40px rgba(29, 33, 41, 0.16), 0 2px 8px rgba(29, 33, 41, 0.08);
+
+  --yuna-success: #1fa971;
+  --yuna-warning: #e8a33d;
+  --yuna-danger: #e5484d;
+  --yuna-primary: var(--yuna-blue-600);
+
+  /* 圆角 / 阴影 */
+  --yuna-radius-sm: 4px;
+  --yuna-radius-md: 6px;
+  --yuna-radius-lg: 8px;
+  --yuna-shadow-xs: 0 1px 2px rgba(29, 33, 41, 0.04);
+  --yuna-shadow-sm: 0 1px 4px rgba(29, 33, 41, 0.06), 0 1px 2px rgba(29, 33, 41, 0.04);
+  --yuna-shadow-md: 0 4px 12px rgba(29, 33, 41, 0.08);
+
+  /* 卡片表面：现代 SaaS 观感 —— 去描边、以弱阴影把卡片托在画布之上。
+     暗色下阴影几乎不可见，改由极淡描边勾边，保证卡片边界仍然成立。 */
+  --yuna-radius-card: 10px;
+  --yuna-card-bg: var(--yuna-surface);
+  --yuna-card-border: 1px solid transparent;
+  --yuna-card-shadow: 0 1px 2px rgba(29, 33, 41, 0.04), 0 6px 20px rgba(29, 33, 41, 0.06);
+
+  /* 内容区画布：顶部极浅提亮、向下快速归到底色，让卡片与画布之间产生层次 */
+  --yuna-canvas: linear-gradient(180deg, #fafbfd 0%, #f5f6f8 300px);
+
+  /* 骨架尺寸 */
+  --yuna-sider-width: 216px;
+  --yuna-sider-collapsed-width: 64px;
+  --yuna-header-height: 56px;
+  --yuna-page-max-width: 1440px;
+
+  --yuna-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --yuna-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+    monospace;
+}
+
+/*
+ * 暗色（夜间）主题：由 `themeMode` 在 `<html>` 上切换 `dark` class。
+ * 与 `darkThemeOverrides`（Naive 组件）保持同一套色值 —— CSS 变量负责自定义组件，
+ * themeOverrides 负责 Naive 组件，两者协同完成整体反转。
+ */
+html.dark {
+  color-scheme: dark;
+
+  --yuna-bg: #14171d;
+  --yuna-surface: #1b1f27;
+  --yuna-glass: rgba(24, 28, 35, 0.3);
+  --yuna-glass-blur: 8px;
+  --yuna-glass-border: rgba(255, 255, 255, 0.12);
+  --yuna-glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
+
+  /* 中性灰整体反转：浅色表面 → 深色表面，深色文字 → 浅色文字 */
+  --yuna-gray-50: #1f242e;
+  --yuna-gray-100: #262b36;
+  --yuna-gray-200: #2b313d;
+  --yuna-gray-300: #333a47;
+  --yuna-gray-400: #454d5c;
+  --yuna-gray-500: #5c6575;
+  --yuna-gray-600: #8b93a5;
+  --yuna-gray-700: #aab2c0;
+  --yuna-gray-800: #ccd2dd;
+  --yuna-gray-900: #e8eaf0;
+
+  /* 品牌蓝的极浅底（选中态 / 高亮底）需转为深色系 */
+  --yuna-blue-50: #172a3a;
+  --yuna-blue-100: #1c3446;
+
+  --yuna-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --yuna-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.44), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --yuna-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+
+  --yuna-card-border: 1px solid rgba(255, 255, 255, 0.06);
+  --yuna-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
+  --yuna-canvas: linear-gradient(180deg, #171b22 0%, #14171d 300px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* 画布底色跟随主题：避免日夜切换 / 过滚动时露出浏览器默认底（白或黑）而闪屏 */
+html {
+  background-color: var(--yuna-bg);
+}
+
+body {
+  color: var(--yuna-gray-900);
+  font-family: var(--yuna-font-family);
+  font-size: 14px;
+  line-height: 1.5715;
+  background-color: var(--yuna-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--yuna-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--yuna-blue-500);
+}
+
+/* 无描边焦点：移除默认 outline，交由组件的边框态表达聚焦 */
+:focus,
+:focus-visible {
+  outline: none;
+}
+
+/* 键盘可达性：仅对纯链接类元素保留极弱的可见提示，不影响表单控件 */
+a:focus-visible,
+[role='button']:focus-visible {
+  outline: none;
+  border-radius: var(--yuna-radius-sm);
+  box-shadow: 0 0 0 2px var(--yuna-blue-100);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin: 0;
+}
+
+/* 滚动条：细、低对比、悬停才加深 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--yuna-gray-300);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--yuna-gray-400);
+}
+
+/* 通用工具类：技术字段（ID / traceId / 时间戳） */
+.yuna-mono {
+  font-family: var(--yuna-font-mono);
+  font-size: 13px;
+}
+
+/* 页面级内容容器，控制最大宽度并居中 */
+.yuna-container {
+  width: 100%;
+  max-width: var(--yuna-page-max-width);
+  margin: 0 auto;
+}
+
+/* ------------------------------- 布局工具类 ------------------------------- */
+
+/* 指标卡自适应网格 */
+.yuna-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* 表格「主标题 + 副信息」单元格 */
+.yuna-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.yuna-cell__sub {
+  font-size: 12px;
+  color: var(--yuna-gray-600);
+}
+
+/* 行内操作按钮组 / 标签组 */
+.yuna-cell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* 键值信息网格（概览 / 详情页的账号信息等） */
+.yuna-cell-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px 24px;
+}
+
+/* 认证页品牌区要点列表 */
+.yuna-points {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  color: var(--yuna-gray-700);
+  list-style: none;
+}
+
+.yuna-points li {
+  position: relative;
+  padding-left: 18px;
+}
+
+.yuna-points li::before {
+  position: absolute;
+  top: 7px;
+  left: 2px;
+  width: 5px;
+  height: 5px;
+  content: '';
+  background: var(--yuna-blue-400);
+  border-radius: 50%;
+}
+
+/* 独立回退页（404 / 异常兜底） */
+.yuna-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--yuna-surface);
+}
+
+/* ---------------------------- 主题切换过渡动画 ---------------------------- */
+
+/*
+ * 首选方案：View Transitions API —— 新主题自触发点（顶栏开关按钮）圆形揭示展开，
+ * 旧主题静止于下层，形成「圆环扩散」的高级观感。它不依赖逐元素过渡，
+ * 只需在切换前等待 Vue 完成 Naive 主题重渲染与一次真实渲染，即可与 CSS 变量切换严格同步。
+ * 圆心与半径由 `ThemeToggle` 写入 --yuna-tt-x / --yuna-tt-y / --yuna-tt-r。
+ * 注意：这里显式关掉根组（group / image-pair）的默认交叉淡入，避免叠加出多余的过渡。
+ */
+::view-transition-group(root),
+::view-transition-image-pair(root) {
+  animation: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+  animation: yuna-theme-reveal 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes yuna-theme-reveal {
+  from {
+    clip-path: circle(0% at var(--yuna-tt-x, 50%) var(--yuna-tt-y, 50%));
+  }
+
+  to {
+    clip-path: circle(var(--yuna-tt-r, 150vmax) at var(--yuna-tt-x, 50%) var(--yuna-tt-y, 50%));
+  }
+}
+
+/*
+ * View Transitions 的「新帧」在更新回调结束后立即截取。若页面元素自带 transition
+ * （按钮 / 导航项 / 菜单项的 color、background-color 过渡），新帧会捕捉到过渡的
+ * 起始态（仍是旧色），于是这部分文本在整个圆形揭示过程中一直显示旧色、直到动画
+ * 结束才跳变 —— 这正是「部分文本切换有延迟」的来源。故在截帧前就给 <html> 挂上
+ * theme-switching 关掉全部过渡，并保持到揭示动画结束（`transition.finished`）才移除。
+ */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+}
+
+/*
+ * 兜底方案：不支持 View Transitions 时，切换瞬间给 <html> 挂上 `theme-anim`，
+ * 让全部元素平滑过渡颜色相关属性。仅在切换的数百毫秒内生效。
+ */
+html.theme-anim,
+html.theme-anim *,
+html.theme-anim *::before,
+html.theme-anim *::after {
+  transition:
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    fill 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    stroke 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-delay: 0s !important;
+}
+
+/* ---------------------------- 路由页面切换过渡 ---------------------------- */
+
+/* 与 `AppShell` / `PortalShell` 内容区的 <Transition name="yuna-page"> 配套 */
+.yuna-page-enter-active {
+  transition: opacity 0.3s ease, transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.yuna-page-leave-active {
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.yuna-page-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.yuna-page-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-anim,
+  html.theme-anim *,
+  html.theme-anim *::before,
+  html.theme-anim *::after {
+    transition: none !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+
+  .yuna-page-enter-active,
+  .yuna-page-leave-active {
+    transition: none;
+  }
+
+  .yuna-page-enter-from,
+  .yuna-page-leave-to {
+    transform: none;
+  }
+}

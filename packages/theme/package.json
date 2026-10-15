@@ -1,0 +1,25 @@
+{
+  "name": "@yuna/theme",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "YunaNexus 设计系统：设计 Token 与 Naive UI 主题覆盖",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles/global.css",
+    "./tokens": "./src/tokens.ts"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "peerDependencies": {
+    "naive-ui": "^2.40.1",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vue-tsc": "^2.2.0"
+  }
+}
