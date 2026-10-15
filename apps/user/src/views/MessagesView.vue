@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NPagination, NSpin, NTabPane, NTabs, useDialog, useMessage } from 'naive-ui'
 import { PageContainer, PageEmpty, SectionCard, StatusTag, formatRelative, noticeStatusMeta } from '@yuna/ui'
@@ -13,11 +13,12 @@ const dialog = useDialog()
 
 const loading = ref(true)
 const notices = ref<NoticeRecordView[]>([])
+const total = ref(0)
 const filter = ref('all')
 const readingId = ref<number | null>(null)
 const markingAll = ref(false)
 
-/** 后端 inbox 暂不支持按状态过滤，故一次性取回后在本地分页与筛选 */
+/** 使用服务端分页；后端暂不支持按状态过滤，仅筛选当前页 */
 const PAGE_SIZE = 10
 const page = ref(1)
 
@@ -27,10 +28,7 @@ const filtered = computed(() => {
   return notices.value
 })
 
-const paged = computed(() => {
-  const start = (page.value - 1) * PAGE_SIZE
-  return filtered.value.slice(start, start + PAGE_SIZE)
-})
+const paged = filtered
 
 const unreadCount = computed(() => notices.value.filter((item) => item.status === 1).length)
 
@@ -38,15 +36,17 @@ const emptyDescription = computed(() =>
   filter.value === 'all' ? '暂无站内信' : '没有符合条件的站内信',
 )
 
-watch(filter, () => {
-  page.value = 1
-})
+function onPageChange(next: number): void {
+  page.value = next
+  void load()
+}
 
 async function load(): Promise<void> {
   loading.value = true
   try {
-    notices.value = (await noticeApi.inbox({ page: 1, size: 100 })).records
-    page.value = 1
+    const result = await noticeApi.inbox({ page: page.value, size: PAGE_SIZE })
+    notices.value = result.records
+    total.value = result.total
   } catch (error) {
     message.error(handleApiError(error, router))
   } finally {
@@ -68,16 +68,16 @@ async function markRead(notice: NoticeRecordView): Promise<void> {
   }
 }
 
-/** 一键全部已读：后端暂无批量接口，逐条幂等调用 */
+/** 一键本页已读：后端暂无批量接口，逐条幂等调用 */
 function confirmMarkAllRead(): void {
   if (!unreadCount.value) {
     message.info('没有未读的站内信')
     return
   }
   dialog.warning({
-    title: '全部标记已读',
-    content: `确认将 ${unreadCount.value} 条未读站内信全部标记为已读？`,
-    positiveText: '全部已读',
+    title: '本页标记已读',
+    content: `确认将 ${unreadCount.value} 条本页未读站内信标记为已读？`,
+    positiveText: '本页已读',
     negativeText: '取消',
     onPositiveClick: markAllRead,
   })
@@ -109,7 +109,7 @@ onMounted(load)
 </script>
 
 <template>
-  <page-container title="站内信" description="系统通知与安全提醒">
+  <page-container title="站内信" description="系统通知与安全提醒；状态筛选和批量已读仅作用于当前页">
     <template #extra>
       <n-button
         secondary
@@ -118,16 +118,16 @@ onMounted(load)
         :loading="markingAll"
         @click="confirmMarkAllRead"
       >
-        全部已读
+        本页已读
       </n-button>
       <n-button quaternary :loading="loading" @click="load">刷新</n-button>
     </template>
 
     <template #tabs>
       <n-tabs v-model:value="filter" type="line" size="small" style="max-width: 320px">
-        <n-tab-pane name="all" tab="全部" />
-        <n-tab-pane name="unread" :tab="`未读${unreadCount ? ` (${unreadCount})` : ''}`" />
-        <n-tab-pane name="read" tab="已读" />
+        <n-tab-pane name="all" tab="本页全部" />
+        <n-tab-pane name="unread" :tab="`本页未读${unreadCount ? ` (${unreadCount})` : ''}`" />
+        <n-tab-pane name="read" tab="本页已读" />
       </n-tabs>
     </template>
 
@@ -170,11 +170,12 @@ onMounted(load)
         </ul>
       </n-spin>
 
-      <div v-if="filtered.length > PAGE_SIZE" class="msg-pager">
+      <div v-if="total > PAGE_SIZE" class="msg-pager">
         <n-pagination
-          v-model:page="page"
+          :page="page"
+          @update:page="onPageChange"
           :page-size="PAGE_SIZE"
-          :item-count="filtered.length"
+          :item-count="total"
           :page-slot="7"
         />
       </div>

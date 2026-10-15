@@ -53,8 +53,8 @@
 
 | 项 | 状态 | 说明 |
 | --- | --- | --- |
-| 用户端站内信 | ✅ 完成 | `MessagesView.vue`：`inbox` 按 `PageResult` 消费，列表本地分页（后端 inbox 暂不支持按状态过滤）、未读计数、一键「全部已读」（无批量接口，逐条幂等调用 `read/{noticeId}`）；`MessageDetailView.vue` 改用 `GET /api/v1/notice/inbox/{noticeId}` 按 ID 取单条，不再受收件箱分页影响 |
-| 管理端通知模板 | ✅ 完成 | `/notice/templates`（`NoticeTemplateListView.vue`）：分页 + 关键字搜索 + 新建 / 编辑（编码创建后不可改）+ 启用 / 停用 + 删除；标题 / 正文支持 `${占位符}` |
+| 用户端站内信 | ✅ 完成 | `MessagesView.vue`：`inbox` 按 `PageResult` 消费，按服务端分页读取完整收件箱（后端暂不支持按状态过滤）、本页未读计数、一键「本页已读」（无批量接口，逐条幂等调用 `read/{noticeId}`）；`MessageDetailView.vue` 改用 `GET /api/v1/notice/inbox/{noticeId}` 按 ID 取单条，不再受收件箱分页影响 |
+| 管理端通知模板 | ✅ 完成 | `/notice/templates`（`NoticeTemplateListView.vue`）：分页 + 当前页关键字筛选 + 新建 / 编辑（编码创建后不可改）+ 启用 / 停用 + 删除；标题 / 正文支持 `${占位符}` |
 | 管理端发送通知 | ✅ 完成 | `/notice/send`（`NoticeSendView.vue`）：选模板 → 通道（可覆盖模板配置）→ 多接收方 → 延迟等级（RocketMQ 1~18，0 立即）→ 占位符参数 → 实时内容预览 |
 | 管理端发送记录 | ✅ 完成 | `/notice/records`（`NoticeRecordListView.vue`）：按模板编码 / 接收方 / 状态检索、分页、详情弹窗（`record/{noticeId}`） |
 | 数据层与 Mock | ✅ 完成 | `api/notice.ts`（收件箱 / 详情 / 已读、模板 CRUD、发送、记录）、`types/notice.ts`、`status.ts` 增 `noticeChannelText`；MSW handlers 与模板种子对齐契约（`60101`~`60103`） |

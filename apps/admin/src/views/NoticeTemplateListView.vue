@@ -35,6 +35,10 @@ const total = ref(0)
 const page = ref(1)
 const size = ref(20)
 const keyword = ref('')
+const filteredRows = computed(() => {
+  const text = keyword.value.trim().toLowerCase()
+  return rows.value.filter(row => !text || row.templateName.toLowerCase().includes(text) || row.templateCode.toLowerCase().includes(text))
+})
 
 const channelOptions = [
   { label: '站内信', value: 1 },
@@ -111,7 +115,6 @@ async function load(): Promise<void> {
     const result = await noticeAdminApi.listTemplates({
       page: page.value,
       size: size.value,
-      keyword: keyword.value.trim() || undefined,
     })
     rows.value = result.records
     total.value = result.total
@@ -123,7 +126,6 @@ async function load(): Promise<void> {
 }
 
 function search(): void {
-  page.value = 1
   void load()
 }
 
@@ -284,7 +286,7 @@ onMounted(load)
     <filter-bar :loading="loading" @search="search" @reset="reset">
       <n-input
         v-model:value="keyword"
-        placeholder="模板名称 / 编码"
+        placeholder="筛选当前页：名称 / 编码"
         clearable
         style="width: 240px"
         @keyup.enter="search"
@@ -293,7 +295,7 @@ onMounted(load)
 
     <data-table
       :columns="columns"
-      :data="rows"
+      :data="filteredRows"
       :loading="loading"
       :total="total"
       :page="page"
