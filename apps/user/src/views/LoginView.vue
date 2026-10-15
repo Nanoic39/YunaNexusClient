@@ -42,7 +42,7 @@ async function loadCaptcha(): Promise<void> {
     captchaId.value = result.captchaId
     captchaCode.value = result.code
     captchaImage.value = result.imageDataUrl?.startsWith('data:image/png;base64,') ? result.imageDataUrl : null
-    form.captcha = '' 
+    form.captcha = ''
   } catch (error) {
     message.error(toErrorMessage(error))
   }
@@ -67,7 +67,7 @@ function isCrossApp(target: string): boolean {
   return /^https?:\/\//i.test(target)
 }
 
-/** 跨应用跳转：携带会话片段，使管理端免二次登录；无管理权限则退回控制台 */
+/** 跨应用跳转：申请一次性授权码，使管理端免二次登录；无管理权限则退回控制台 */
 async function goCrossApp(target: string): Promise<void> {
   if (!session.canEnterAdmin.value) {
     message.error('当前账号无管理后台访问权限')
@@ -79,6 +79,11 @@ async function goCrossApp(target: string): Promise<void> {
       ? await authorizeAdminRedirect(target, route.query.sso_state, route.query.sso_challenge)
       : buildHandoffUrl(target)
   } catch (error) {
+    if (error instanceof ApiError && error.isUnauthorized) {
+      session.clearUser()
+      message.warning('统一登录已过期，请重新登录')
+      return
+    }
     message.error(toErrorMessage(error))
     void router.replace('/console/dashboard')
   }

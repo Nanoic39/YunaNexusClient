@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { GlobeOutline, LogOutOutline } from '@vicons/ionicons5'
 import { AccountMenu, AppShell, ThemeToggle, useSiderCollapsed } from '@yuna/ui'
-import { readEnv, session } from '@yuna/core'
+import { authApi, readEnv, session } from '@yuna/core'
 import { adminMenuOptions } from '@/config/menu'
 
 const route = useRoute()
@@ -28,10 +28,15 @@ function onMenuSelect(key: string): void {
   if (key !== route.path) void router.push(key)
 }
 
-function onAccountSelect(key: string): void {
+async function onAccountSelect(key: string): Promise<void> {
   if (key === 'logout') {
+    try {
+      await authApi.logout()
+    } catch {
+      /* 服务端暂不可用时仍清理本地会话 */
+    }
     session.clearAll()
-    void router.replace({ name: 'login' })
+    void router.replace({ name: 'login', query: { loggedout: '1' } })
     return
   }
   if (key === 'enter-user') {

@@ -64,7 +64,7 @@ function onNoticeOpen(noticeId?: number): void {
 
 async function onAccountSelect(key: string): Promise<void> {
   if (key === 'enter-admin') {
-    // 跨应用跳转：目标为独立部署的管理端（不同域/端口），携带会话片段以免二次登录
+    // 跨应用跳转：目标为独立部署的管理端（不同域/端口），由管理端发起授权码登录
     window.location.href = buildHandoffUrl(env.adminAppUrl)
     return
   }

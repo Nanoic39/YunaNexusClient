@@ -10,7 +10,7 @@ import type { CurrentUserView, RoleBrief, TokenResult } from '../types'
  * 状态持久化到 localStorage，刷新页面不丢登录态。
  *
  * 用户端与管理端为不同域/端口部署时 localStorage 不共享，跨应用登录态通过
- * `exportHandoff` / `applyHandoff` 以 URL 片段形式接驳（见 `./handoff`）。
+ * 一次性授权码 + state + PKCE 换取独立会话（见 `./handoff`）。
  */
 
 /** 管理角色的根角色标识：持有该角色即视为具备管理后台访问资格 */

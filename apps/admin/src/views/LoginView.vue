@@ -16,7 +16,7 @@ function targetAfterLogin(): string {
 }
 
 /**
- * 统一登录地址：用户端登录页，登录成功后会带会话片段跳回管理端。
+ * 统一登录地址：用户端登录页，登录成功后携带一次性授权码跳回管理端。
  * 管理台与用户端共用同一账号体系（SSO），不提供独立登录表单。
  */
 const ssoUrl = computed(() => readEnv().userAppUrl)
@@ -36,7 +36,7 @@ onMounted(() => {
     return
   }
   // 统一登录：直接跳用户端登录页
-  if (!ssoError.value) goSso()
+  if (!ssoError.value && route.query.loggedout !== '1') goSso()
 })
 </script>
 
