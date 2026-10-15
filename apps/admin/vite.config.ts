@@ -1,8 +1,14 @@
 import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 
-export default defineConfig({
+export default defineConfig(({ command, mode }) => {
+  if (command === 'build') {
+    const env = loadEnv(mode, process.cwd(), 'VITE_')
+    const secret = Object.keys(env).find((key) => /(?:TOKEN|SECRET|PASSWORD|_KEY)$/.test(key) && env[key]?.trim())
+    if (secret) throw new Error(`Production build rejects secret variable: ${secret}`)
+  }
+  return {
   plugins: [vue()],
   resolve: {
     alias: {
@@ -25,4 +31,5 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 1200,
   },
+  }
 })
