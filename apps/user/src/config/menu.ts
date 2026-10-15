@@ -9,6 +9,7 @@ import {
   FolderOpenOutline,
   ShareSocialOutline,
   AppsOutline,
+  ExtensionPuzzleOutline,
   KeyOutline,
 } from '@vicons/ionicons5'
 
@@ -39,6 +40,7 @@ export const userMenuOptions: MenuOption[] = [
   { key: '/console/shares', label: '我的分享', icon: renderIcon(ShareSocialOutline) },
   { key: '/console/applications', label: '已授权应用', icon: renderIcon(AppsOutline) },
   { key: '/console/api-keys', label: '个人 API Key', icon: renderIcon(KeyOutline) },
+  { key: '/console/oauth-apps', label: '应用接入', icon: renderIcon(ExtensionPuzzleOutline) },
   {
     key: '/console/about',
     label: '关于',

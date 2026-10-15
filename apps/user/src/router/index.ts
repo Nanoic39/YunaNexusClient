@@ -85,6 +85,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '个人 API Key' },
       },
       {
+        path: 'oauth-apps',
+        name: 'oauth-apps',
+        component: () => import('@/views/OAuthAppsView.vue'),
+        meta: { title: '应用接入' },
+      },
+      {
         path: 'dashboard',
         name: 'dashboard',
         component: () => import('@/views/DashboardView.vue'),
