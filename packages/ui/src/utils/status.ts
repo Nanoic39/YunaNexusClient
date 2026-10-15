@@ -65,6 +65,22 @@ export function auditStatusMeta(status: number | null | undefined): StatusMeta {
   return status === 1 ? { tone: 'success', text: '成功' } : { tone: 'danger', text: '失败' }
 }
 
+/** 接入应用审核状态：0-待审核 1-已通过 2-已驳回 3-已停用 */
+export function oauthAppStatusMeta(status: number | null | undefined): StatusMeta {
+  switch (status) {
+    case 0:
+      return { tone: 'warning', text: '待审核' }
+    case 1:
+      return { tone: 'success', text: '已通过' }
+    case 2:
+      return { tone: 'danger', text: '已驳回' }
+    case 3:
+      return { tone: 'default', text: '已停用' }
+    default:
+      return { tone: 'default', text: '未知' }
+  }
+}
+
 /** 数据范围文案 */
 export function dataScopeText(scope: number | null | undefined): string {
   switch (scope) {

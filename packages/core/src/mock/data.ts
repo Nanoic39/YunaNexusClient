@@ -2,15 +2,22 @@ import type {
   AdminUserView,
   AppealView,
   AuditLogView,
+  BadgeDefinitionView,
+  BadgeGrantRecord,
   DeptView,
   FileView,
+  FunnelResult,
   MenuView,
   NoticeRecordView,
   NoticeTemplateView,
+  OAuthApplicationView,
   PermissionView,
+  RetentionResult,
   RoleBrief,
   RoleView,
+  SegmentResult,
   UserBadge,
+  UserProfileResult,
   UserProfileView,
   UserTag,
 } from '../types'
@@ -32,6 +39,23 @@ function dt(offsetMinutes: number): string {
 }
 
 export const mockUsers: AdminUserView[] = [
+  {
+    // 平台内置根账号：随系统初始化创建，默认绑定超级管理员角色（详见 mockUserRoles）
+    userId: 10000,
+    externalId: 'n4N0i1C3n9o0I0c3X7m5P2q8R4s6T1u0',
+    username: 'nanoic',
+    email: 'nanoic@example.com',
+    mobileCountry: '86',
+    mobile: '13800000000',
+    status: 1,
+    lockedUntil: null,
+    lockReason: null,
+    failCount: 0,
+    lastLoginTime: dt(-20),
+    lastLoginIp: '10.12.3.1',
+    createTime: dt(-60 * 24 * 120),
+    updateTime: dt(-20),
+  },
   {
     userId: 10001,
     externalId: 'k7Qm9xZ2vL4pR8wT5nB3dF6hJ1sA2cE4g',
@@ -185,12 +209,23 @@ export const mockAppeals: AppealView[] = [
   },
 ]
 
+/** 新注册用户默认绑定的角色 ID（对应下方 `user` 普通用户） */
+export const DEFAULT_USER_ROLE_ID = 4
+
+/**
+ * 默认角色（随系统初始化写入，可由管理员在「角色管理」派生/调整）。
+ *
+ * - `admin` 为根角色：持有即具备管理后台访问资格（`ADMIN_ROLE_CODE`），内置根账号
+ *   `nanoic` 默认绑定，拥有全部权限与菜单（完全的系统控制）；
+ * - `user` 为新注册用户的默认角色；
+ * - `guest` 默认停用，仅作保留。
+ */
 export const mockRoles: RoleView[] = [
   {
     id: 1,
     roleCode: 'admin',
     roleName: '超级管理员',
-    description: '平台最高权限，可管理全部资源',
+    description: '根角色，平台最高权限，可完全控制系统；内置账号 nanoic 默认绑定',
     dataScope: 1,
     status: 1,
     createTime: dt(-60 * 24 * 90),
@@ -200,7 +235,7 @@ export const mockRoles: RoleView[] = [
     id: 2,
     roleCode: 'ops',
     roleName: '运维工程师',
-    description: '负责服务运维与审计排查',
+    description: '负责用户/徽章/申诉运维与通知下发，数据范围为本部门及以下',
     dataScope: 3,
     status: 1,
     createTime: dt(-60 * 24 * 80),
@@ -210,7 +245,7 @@ export const mockRoles: RoleView[] = [
     id: 3,
     roleCode: 'auditor',
     roleName: '审计员',
-    description: '仅可查看审计日志与报表',
+    description: '只读角色，可查看审计日志与数据分析，不可修改业务数据',
     dataScope: 2,
     status: 1,
     createTime: dt(-60 * 24 * 70),
@@ -220,7 +255,7 @@ export const mockRoles: RoleView[] = [
     id: 4,
     roleCode: 'user',
     roleName: '普通用户',
-    description: '默认角色，仅可访问本人数据',
+    description: '新注册用户默认角色，仅可访问本人数据',
     dataScope: 4,
     status: 1,
     createTime: dt(-60 * 24 * 60),
@@ -230,8 +265,8 @@ export const mockRoles: RoleView[] = [
     id: 5,
     roleCode: 'guest',
     roleName: '访客',
-    description: '只读演示账号',
-    dataScope: 5,
+    description: '保留角色，默认停用，仅用于只读演示',
+    dataScope: 4,
     status: 0,
     createTime: dt(-60 * 24 * 30),
     updateTime: dt(-60 * 24 * 20),
@@ -292,25 +327,54 @@ export const mockUserBadges: Record<number, UserBadge[]> = {
   ],
 }
 
+/**
+ * 默认权限点（按本系统实际模块与接口资源整理，可由管理员在「权限点」维护）。
+ *
+ * `permCode` 以 `:` 分段，管理端据此组装为权限树（`buildPermissionTree`）。
+ */
 export const mockPermissions: PermissionView[] = [
   { id: 101, permCode: 'auth:user:list', resource: '/api/v1/auth/admin/users', action: 'read', description: '查询用户列表', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
-  { id: 102, permCode: 'auth:user:write', resource: '/api/v1/auth/admin/users/**', action: 'write', description: '管理用户状态', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
-  { id: 103, permCode: 'permission:role:manage', resource: '/api/v1/permission/admin/roles/**', action: '*', description: '角色与绑定管理', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
+  { id: 102, permCode: 'auth:user:write', resource: '/api/v1/auth/admin/users/**', action: 'write', description: '管理用户状态与资料', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
+  { id: 103, permCode: 'permission:role:manage', resource: '/api/v1/permission/admin/roles/**', action: '*', description: '角色与授权绑定管理', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
   { id: 104, permCode: 'audit:log:read', resource: '/api/v1/audit/logs', action: 'read', description: '审计日志查看', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
   { id: 105, permCode: 'file:upload', resource: '/api/v1/file/upload', action: 'write', description: '文件上传', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
   { id: 106, permCode: 'notice:portal:manage', resource: '/api/v1/notice/portal/admin/**', action: '*', description: '门户内容管理', status: 1, createTime: dt(-60 * 24 * 60), updateTime: dt(-60 * 24 * 60) },
+  { id: 107, permCode: 'auth:appeal:audit', resource: '/api/v1/auth/admin/appeals/**', action: '*', description: '账号解锁申诉审核', status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 50) },
+  { id: 108, permCode: 'auth:oauth-app:audit', resource: '/api/v1/auth/admin/oauth-apps/**', action: '*', description: '接入应用审核与管理', status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 50) },
+  { id: 109, permCode: 'permission:menu:manage', resource: '/api/v1/permission/admin/menus/**', action: '*', description: '菜单管理', status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 50) },
+  { id: 110, permCode: 'permission:dept:manage', resource: '/api/v1/permission/admin/depts/**', action: '*', description: '部门管理', status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 50) },
+  { id: 111, permCode: 'badge:manage', resource: '/api/v1/user/admin/badges/**', action: '*', description: '徽章定义与发放管理', status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 50) },
+  { id: 112, permCode: 'notice:template:manage', resource: '/api/v1/notice/admin/templates/**', action: '*', description: '通知模板管理', status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 50) },
+  { id: 113, permCode: 'notice:send', resource: '/api/v1/notice/admin/send', action: 'write', description: '发送通知', status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 50) },
+  { id: 114, permCode: 'notice:record:read', resource: '/api/v1/notice/admin/records', action: 'read', description: '通知发送记录查看', status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 50) },
+  { id: 115, permCode: 'analytics:read', resource: '/api/v1/analytics/**', action: 'read', description: '数据分析查看', status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 50) },
 ]
 
-/** 菜单（扁平结构；管理端树由前端组装，接口 /menus/tree 由 handler 组装返回） */
+/**
+ * 默认菜单（扁平结构；管理端树由前端组装，接口 `/menus/tree` 由 handler 组装返回）。
+ *
+ * `path` 与 `apps/admin/src/config/menu.ts` 的实际路由保持一致，保证「菜单管理」
+ * 与角色菜单绑定回显的是本系统真实入口。
+ */
 export const mockMenus: MenuView[] = [
-  { id: 1, menuCode: 'dashboard', menuName: '概览', parentId: 0, path: '/dashboard', sort: 1, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
-  { id: 2, menuCode: 'system', menuName: '系统管理', parentId: 0, path: '/system', sort: 2, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
-  { id: 21, menuCode: 'system.user', menuName: '用户管理', parentId: 2, path: '/system/users', sort: 1, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
-  { id: 22, menuCode: 'system.role', menuName: '角色权限', parentId: 2, path: '/system/roles', sort: 2, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
-  { id: 23, menuCode: 'system.appeal', menuName: '申诉审核', parentId: 2, path: '/system/appeals', sort: 3, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
-  { id: 24, menuCode: 'system.portal', menuName: '门户内容', parentId: 2, path: '/portal/content', sort: 4, status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 20) },
-  { id: 3, menuCode: 'audit', menuName: '审计日志', parentId: 0, path: '/audit', sort: 3, status: 1, createTime: dt(-60 * 24 * 80), updateTime: dt(-60 * 24 * 20) },
-  { id: 4, menuCode: 'file', menuName: '文件管理', parentId: 0, path: '/file', sort: 4, status: 0, createTime: dt(-60 * 24 * 40), updateTime: dt(-60 * 24 * 10) },
+  { id: 1, menuCode: 'overview', menuName: '概览', parentId: 0, path: '/overview', sort: 1, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 2, menuCode: 'analytics', menuName: '数据分析', parentId: 0, path: '/analytics', sort: 2, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 3, menuCode: 'system', menuName: '系统管理', parentId: 0, path: null, sort: 3, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 31, menuCode: 'system.users', menuName: '用户管理', parentId: 3, path: '/users', sort: 1, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 32, menuCode: 'system.badges', menuName: '徽章管理', parentId: 3, path: '/badges', sort: 2, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 33, menuCode: 'system.appeals', menuName: '申诉审核', parentId: 3, path: '/appeals', sort: 3, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 34, menuCode: 'system.oauth-apps', menuName: '应用管理', parentId: 3, path: '/oauth-apps', sort: 4, status: 1, createTime: dt(-60 * 24 * 50), updateTime: dt(-60 * 24 * 20) },
+  { id: 4, menuCode: 'permission', menuName: '权限管理', parentId: 0, path: null, sort: 4, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 41, menuCode: 'permission.roles', menuName: '角色管理', parentId: 4, path: '/roles', sort: 1, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 42, menuCode: 'permission.permissions', menuName: '权限点', parentId: 4, path: '/permissions', sort: 2, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 43, menuCode: 'permission.menus', menuName: '菜单管理', parentId: 4, path: '/menus', sort: 3, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 44, menuCode: 'permission.depts', menuName: '部门管理', parentId: 4, path: '/depts', sort: 4, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 30) },
+  { id: 5, menuCode: 'portal', menuName: '门户管理', parentId: 0, path: null, sort: 5, status: 1, createTime: dt(-60 * 24 * 80), updateTime: dt(-60 * 24 * 20) },
+  { id: 51, menuCode: 'portal.content', menuName: '门户内容', parentId: 5, path: '/content', sort: 1, status: 1, createTime: dt(-60 * 24 * 80), updateTime: dt(-60 * 24 * 20) },
+  { id: 6, menuCode: 'notice', menuName: '通知管理', parentId: 0, path: null, sort: 6, status: 1, createTime: dt(-60 * 24 * 80), updateTime: dt(-60 * 24 * 20) },
+  { id: 61, menuCode: 'notice.templates', menuName: '通知模板', parentId: 6, path: '/notice/templates', sort: 1, status: 1, createTime: dt(-60 * 24 * 80), updateTime: dt(-60 * 24 * 20) },
+  { id: 62, menuCode: 'notice.send', menuName: '发送通知', parentId: 6, path: '/notice/send', sort: 2, status: 1, createTime: dt(-60 * 24 * 80), updateTime: dt(-60 * 24 * 20) },
+  { id: 63, menuCode: 'notice.records', menuName: '发送记录', parentId: 6, path: '/notice/records', sort: 3, status: 1, createTime: dt(-60 * 24 * 80), updateTime: dt(-60 * 24 * 20) },
 ]
 
 /** 部门（扁平结构，闭包表在真实后端维护；前端按 parentId 组装树） */
@@ -323,20 +387,20 @@ export const mockDepts: DeptView[] = [
   { id: 121, deptCode: 'hq.ops.sre', deptName: 'SRE 组', parentId: 12, sort: 1, status: 0, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 20) },
 ]
 
-/** 角色 → 权限绑定（覆盖语义，与后端一致） */
+/** 角色 → 权限绑定（覆盖语义，与后端一致；根角色拥有全部权限） */
 export const mockRolePermissions: Record<number, number[]> = {
-  1: [101, 102, 103, 104, 105, 106],
-  2: [101, 104, 105],
-  3: [104],
+  1: [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115],
+  2: [101, 102, 105, 107, 111, 112, 113, 114],
+  3: [104, 115],
   4: [105],
   5: [],
 }
 
-/** 角色 → 菜单绑定 */
+/** 角色 → 菜单绑定（根角色拥有全部菜单） */
 export const mockRoleMenus: Record<number, number[]> = {
-  1: [1, 2, 21, 22, 23, 24, 3, 4],
-  2: [1, 2, 21, 23, 3],
-  3: [1, 3],
+  1: [1, 2, 3, 31, 32, 33, 34, 4, 41, 42, 43, 44, 5, 51, 6, 61, 62, 63],
+  2: [1, 3, 31, 32, 33, 61, 62, 63],
+  3: [1, 2],
   4: [1],
   5: [],
 }
@@ -348,6 +412,18 @@ export const mockRoleDepts: Record<number, number[]> = {
   3: [1],
   4: [],
   5: [],
+}
+
+/** 用户 → 角色绑定（覆盖语义；供通知受众「按角色 / 按权限」解析演示） */
+export const mockUserRoles: Record<number, number[]> = {
+  // 内置根账号 nanoic：默认绑定超级管理员（根角色），拥有完全的系统控制
+  10000: [1],
+  10001: [1],
+  10002: [2],
+  10003: [3],
+  10004: [2, 3],
+  10005: [4],
+  10006: [4],
 }
 
 export const mockNotices: NoticeRecordView[] = [
@@ -560,3 +636,298 @@ export const mockAuditLogs: AuditLogView[] = Array.from({ length: 26 }, (_, i) =
     createTime: dt(-8 * i),
   }
 })
+
+/* ------------------------------ 行为分析（契约 §8.2） ------------------------------ */
+
+/** 漏斗分析：注册 → 登录 → 上传 → 分享 */
+export const mockFunnel: FunnelResult = {
+  steps: [
+    { step: 'register', users: 1200 },
+    { step: 'login', users: 986 },
+    { step: 'file.upload', users: 642 },
+    { step: 'file.share', users: 318 },
+  ],
+}
+
+/** 留存分析：按注册周划分同期群 */
+export const mockRetention: RetentionResult = {
+  periods: ['D0', 'D1', 'D3', 'D7', 'D14', 'D30'],
+  rows: [
+    { cohort: '2026-09-01', rates: [1, 0.62, 0.44, 0.31, 0.22, 0.14] },
+    { cohort: '2026-09-08', rates: [1, 0.58, 0.41, 0.29, 0.2, null] },
+    { cohort: '2026-09-15', rates: [1, 0.64, 0.47, 0.33, null, null] },
+    { cohort: '2026-09-22', rates: [1, 0.6, 0.43, null, null, null] },
+  ],
+}
+
+/** 用户分群：近 7 日高活跃用户 */
+export const mockSegment: SegmentResult = {
+  userIds: [10001, 10002, 10004],
+  total: 3,
+}
+
+/** 单用户画像（按用户 ID 命中；未命中时由 handler 兜底为空画像） */
+export const mockAnalyticsProfiles: Record<number, UserProfileResult> = {
+  10001: {
+    userId: 10001,
+    tags: ['管理员', '高频登录'],
+    eventCounts: { login: 128, 'file.upload': 42, 'role.update': 9 },
+    valueTier: '高价值',
+  },
+  10002: {
+    userId: 10002,
+    tags: ['运营', '活跃'],
+    eventCounts: { login: 76, 'notice.send': 21 },
+    valueTier: '高价值',
+  },
+  10003: {
+    userId: 10003,
+    tags: ['审计'],
+    eventCounts: { login: 33, 'log.query': 58 },
+    valueTier: '一般',
+  },
+  10004: {
+    userId: 10004,
+    tags: ['活跃', '文件协作'],
+    eventCounts: { login: 91, 'file.upload': 15, 'file.share': 27 },
+    valueTier: '高价值',
+  },
+  10005: {
+    userId: 10005,
+    tags: ['沉默'],
+    eventCounts: { login: 4 },
+    valueTier: '沉默',
+  },
+  10006: {
+    userId: 10006,
+    tags: [],
+    eventCounts: { login: 1 },
+    valueTier: '沉默',
+  },
+}
+
+/* ------------------------------ 徽章中心 · 管理后台 ------------------------------ */
+
+/** 徽章定义（管理端列表，含手动发放与条件发放两类） */
+export const mockBadgeDefinitions: BadgeDefinitionView[] = [
+  {
+    id: 1,
+    badgeCode: 'EARLY_BIRD',
+    badgeName: '早起鸟',
+    badgeLevel: 1,
+    description: '连续 7 天登录',
+    icon: null,
+    grantType: 'condition',
+    condition: 'login.streak >= 7',
+    status: 1,
+    grantedCount: 128,
+    createTime: dt(-60 * 24 * 90),
+    updateTime: dt(-60 * 24 * 20),
+  },
+  {
+    id: 2,
+    badgeCode: 'SECURITY_GUARD',
+    badgeName: '安全卫士',
+    badgeLevel: 2,
+    description: '开启全部安全设置并完成首次改密',
+    icon: null,
+    grantType: 'condition',
+    condition: 'security.all && password.changed',
+    status: 1,
+    grantedCount: 64,
+    createTime: dt(-60 * 24 * 85),
+    updateTime: dt(-60 * 24 * 15),
+  },
+  {
+    id: 3,
+    badgeCode: 'CONTRIBUTOR',
+    badgeName: '内容贡献者',
+    badgeLevel: 3,
+    description: '由管理员手动授予的内容贡献者',
+    icon: null,
+    grantType: 'manual',
+    condition: null,
+    status: 1,
+    grantedCount: 12,
+    createTime: dt(-60 * 24 * 60),
+    updateTime: dt(-60 * 24 * 5),
+  },
+  {
+    id: 4,
+    badgeCode: 'VETERAN',
+    badgeName: '资深用户',
+    badgeLevel: 2,
+    description: '注册满 365 天',
+    icon: null,
+    grantType: 'condition',
+    condition: 'register.days >= 365',
+    status: 0,
+    grantedCount: 3,
+    createTime: dt(-60 * 24 * 40),
+    updateTime: dt(-60 * 24 * 8),
+  },
+  {
+    id: 5,
+    badgeCode: 'AMBASSADOR',
+    badgeName: '推广大使',
+    badgeLevel: 4,
+    description: '由管理员手动授予的品牌推广大使',
+    icon: null,
+    grantType: 'manual',
+    condition: null,
+    status: 1,
+    grantedCount: 1,
+    createTime: dt(-60 * 24 * 30),
+    updateTime: dt(-60 * 24 * 2),
+  },
+]
+
+/** 徽章发放记录（管理端；手动发放会追加，条件发放由后端记录） */
+export const mockBadgeGrantRecords: BadgeGrantRecord[] = [
+  {
+    id: 1,
+    badgeId: 1,
+    badgeCode: 'EARLY_BIRD',
+    badgeName: '早起鸟',
+    userId: 10001,
+    username: 'alice',
+    grantType: 'condition',
+    grantedTime: dt(-60 * 24 * 10),
+  },
+  {
+    id: 2,
+    badgeId: 2,
+    badgeCode: 'SECURITY_GUARD',
+    badgeName: '安全卫士',
+    userId: 10001,
+    username: 'alice',
+    grantType: 'condition',
+    grantedTime: dt(-60 * 24 * 3),
+  },
+  {
+    id: 3,
+    badgeId: 3,
+    badgeCode: 'CONTRIBUTOR',
+    badgeName: '内容贡献者',
+    userId: 10002,
+    username: 'bob',
+    grantType: 'manual',
+    grantedTime: dt(-60 * 24 * 12),
+  },
+  {
+    id: 4,
+    badgeId: 3,
+    badgeCode: 'CONTRIBUTOR',
+    badgeName: '内容贡献者',
+    userId: 10004,
+    username: 'david',
+    grantType: 'manual',
+    grantedTime: dt(-60 * 24 * 6),
+  },
+  {
+    id: 5,
+    badgeId: 5,
+    badgeCode: 'AMBASSADOR',
+    badgeName: '推广大使',
+    userId: 10001,
+    username: 'alice',
+    grantType: 'manual',
+    grantedTime: dt(-60 * 24 * 2),
+  },
+]
+
+/* ------------------------------ OAuth 接入应用 ------------------------------ */
+
+/** 第三方自定义接入应用（用户端申请 / 管理端审核与管理） */
+export const mockOAuthApplications: OAuthApplicationView[] = [
+  {
+    id: 1,
+    clientId: 'ynk_app_8f2a4c61d9',
+    clientSecret: null,
+    appName: '数据看板助手',
+    description: '把个人资料与文件体积统计同步到自建看板',
+    logo: null,
+    websiteUrl: 'https://dashboard.example.com',
+    redirectUris: ['https://dashboard.example.com/oauth/callback'],
+    scopes: ['profile:read', 'files:read'],
+    ownerUserId: 10001,
+    ownerName: 'alice',
+    status: 1,
+    auditRemark: null,
+    auditTime: dt(-60 * 24 * 18),
+    createTime: dt(-60 * 24 * 20),
+    updateTime: dt(-60 * 24 * 18),
+  },
+  {
+    id: 2,
+    clientId: null,
+    clientSecret: null,
+    appName: '团队协作机器人',
+    description: '在群聊中推送本人待办与通知摘要',
+    logo: null,
+    websiteUrl: 'https://bot.example.com',
+    redirectUris: ['https://bot.example.com/oauth/callback'],
+    scopes: ['profile:read', 'notice:read'],
+    ownerUserId: 10002,
+    ownerName: 'bob',
+    status: 0,
+    auditRemark: null,
+    auditTime: null,
+    createTime: dt(-60 * 24 * 2),
+    updateTime: dt(-60 * 24 * 2),
+  },
+  {
+    id: 3,
+    clientId: null,
+    clientSecret: null,
+    appName: '内部报表导出',
+    description: '定时导出本人文件清单为 CSV',
+    logo: null,
+    websiteUrl: 'http://report.local',
+    redirectUris: ['http://report.local/callback'],
+    scopes: ['files:read'],
+    ownerUserId: 10001,
+    ownerName: 'alice',
+    status: 2,
+    auditRemark: '回调地址需使用 https，且域名需与备案信息一致',
+    auditTime: dt(-60 * 24 * 11),
+    createTime: dt(-60 * 24 * 12),
+    updateTime: dt(-60 * 24 * 11),
+  },
+  {
+    id: 4,
+    clientId: 'ynk_app_1b7e0d34a5',
+    clientSecret: null,
+    appName: '自动化脚本',
+    description: '基于个人 API 能力批量整理文件',
+    logo: null,
+    websiteUrl: null,
+    redirectUris: ['https://scripts.example.com/oauth/callback'],
+    scopes: ['files:read', 'files:write'],
+    ownerUserId: 10003,
+    ownerName: 'carol',
+    status: 0,
+    auditRemark: null,
+    auditTime: null,
+    createTime: dt(-60 * 24),
+    updateTime: dt(-60 * 24),
+  },
+  {
+    id: 5,
+    clientId: 'ynk_app_52c9fe70b1',
+    clientSecret: null,
+    appName: '移动端伴侣',
+    description: '移动端小程序的统一登录入口',
+    logo: null,
+    websiteUrl: 'https://m.example.com',
+    redirectUris: ['https://m.example.com/sso/callback'],
+    scopes: ['profile:read'],
+    ownerUserId: 10004,
+    ownerName: 'david',
+    status: 3,
+    auditRemark: '运营调整，暂停接入',
+    auditTime: dt(-60 * 24 * 5),
+    createTime: dt(-60 * 24 * 30),
+    updateTime: dt(-60 * 24 * 5),
+  },
+]

@@ -1,7 +1,7 @@
 import {workspaceHandlers} from './workspace'
 import { pkceChallenge } from '../http/handoff'
 import { http as mswHttp, HttpResponse, delay } from 'msw'
-import type { AdminUserView, AuditLogView, DeptTreeNode, DeptView, MenuTreeNode, MenuView, NoticeRecordView, NoticeSendPayload, NoticeTemplateSavePayload, NoticeTemplateView, Result, RoleView, TokenResult, UserProfileUpdatePayload, UserTag, UserTagSavePayload } from '../types'
+import type { AdminUserView, AuditLogView, BadgeDefinitionView, BadgeGrantPayload, BadgeGrantRecord, BadgeSavePayload, DeptTreeNode, DeptView, MenuTreeNode, MenuView, NoticeRecordView, NoticeSendPayload, NoticeTemplateSavePayload, NoticeTemplateView, OAuthAppAuditPayload, OAuthApplicationView, OAuthAppSavePayload, Result, RoleView, TokenResult, UserProfileUpdatePayload, UserTag, UserTagSavePayload } from '../types'
 import type { ServiceHealth } from '../content/status'
 import { defaultContent } from '../content/defaults'
 import type {
@@ -13,21 +13,30 @@ import type {
   PortalSiteView,
 } from '../types/portal'
 import {
+  DEFAULT_USER_ROLE_ID,
+  mockAnalyticsProfiles,
   mockAppeals,
   mockAuditLogs,
+  mockBadgeDefinitions,
+  mockBadgeGrantRecords,
   mockCurrentUserRoles,
   mockDepts,
   mockFiles,
+  mockFunnel,
   mockMenus,
   mockNotices,
   mockNoticeTemplates,
+  mockOAuthApplications,
   mockPermissions,
+  mockRetention,
   mockRoleDepts,
   mockRoleMenus,
   mockRolePermissions,
   mockRoles,
+  mockSegment,
   mockUserBadges,
   mockUserProfiles,
+  mockUserRoles,
   mockUsers,
   mockUserTags,
 } from './data'
@@ -283,8 +292,9 @@ export const handlers = [
     if (mockUsers.some((u) => u.username === username)) return fail(30401, '账号已存在', 409)
 
     const externalId = `mock-ext-${Math.random().toString(36).slice(2, 12)}`
+    const userId = Math.max(...mockUsers.map((u) => u.userId)) + 1
     mockUsers.unshift({
-      userId: Math.max(...mockUsers.map((u) => u.userId)) + 1,
+      userId,
       externalId,
       username,
       email: body.email?.trim() || null,
@@ -299,6 +309,8 @@ export const handlers = [
       createTime: nowIso(),
       updateTime: nowIso(),
     })
+    // 新注册用户默认绑定「普通用户」角色
+    mockUserRoles[userId] = [DEFAULT_USER_ROLE_ID]
     return HttpResponse.json(ok(externalId, '注册成功'))
   }),
 
@@ -461,13 +473,19 @@ export const handlers = [
     if (!auth?.startsWith('Bearer ')) return fail(30006, '未登录或登录已失效', 401)
     const roleIds = mockCurrentUserRoles.map((role) => role.id)
     const enabledRoleIds = mockRoles.filter((role) => roleIds.includes(role.id) && role.status === 1).map((r) => r.id)
+    // 权限为各启用角色的权限并集（与后端一致：去重升序）
+    const permissionIds = new Set(enabledRoleIds.flatMap((id) => mockRolePermissions[id] ?? []))
+    const permissions = mockPermissions
+      .filter((item) => item.status === 1 && permissionIds.has(item.id))
+      .map((item) => item.permCode)
+      .sort()
     const menuIds = enabledRoleIds.flatMap((id) => mockRoleMenus[id] ?? [])
     const visibleMenus = mockMenus.filter((menu) => menuIds.includes(menu.id) && menu.status === 1)
     return HttpResponse.json(
       ok({
-        userId: 10001,
+        userId: MOCK_CURRENT_USER_ID,
         roles: mockCurrentUserRoles,
-        permissions: mockPermissions.filter((item) => item.status === 1).map((item) => item.permCode),
+        permissions,
         menus: buildMenuTree(visibleMenus),
       }),
     )
@@ -847,14 +865,15 @@ export const handlers = [
     await delay(LATENCY)
     const guard = requireAdmin(request)
     if (guard) return guard
-    if (Number(params.userId) === 10001) return HttpResponse.json(ok([1]))
-    return HttpResponse.json(ok([]))
+    return HttpResponse.json(ok(mockUserRoles[Number(params.userId)] ?? []))
   }),
 
-  mswHttp.post('/api/v1/permission/admin/users/:userId/roles', async ({ request }) => {
+  mswHttp.post('/api/v1/permission/admin/users/:userId/roles', async ({ request, params }) => {
     await delay(LATENCY)
     const guard = requireAdmin(request)
     if (guard) return guard
+    const body = (await request.json()) as { roleIds?: number[] }
+    mockUserRoles[Number(params.userId)] = body.roleIds ?? []
     return HttpResponse.json(ok(null, '用户角色已更新'))
   }),
 
@@ -918,6 +937,280 @@ export const handlers = [
       (a, b) => Date.parse(b.grantedTime ?? '') - Date.parse(a.grantedTime ?? ''),
     )
     return HttpResponse.json(ok(list))
+  }),
+
+  /* ------------------------------ 徽章中心 · 管理后台 ------------------------------ */
+
+  mswHttp.get('/api/v1/user/admin/badges', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const list = [...mockBadgeDefinitions].sort(
+      (a, b) => a.badgeLevel - b.badgeLevel || a.id - b.id,
+    )
+    return HttpResponse.json(ok(list))
+  }),
+
+  mswHttp.get('/api/v1/user/admin/badges/records', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const badgeId = new URL(request.url).searchParams.get('badgeId')
+    const list = [...mockBadgeGrantRecords]
+      .filter((record) => (badgeId ? record.badgeId === Number(badgeId) : true))
+      .sort((a, b) => Date.parse(b.grantedTime ?? '') - Date.parse(a.grantedTime ?? ''))
+    return HttpResponse.json(ok(list))
+  }),
+
+  mswHttp.post('/api/v1/user/admin/badges', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const body = (await request.json()) as BadgeSavePayload
+    if (mockBadgeDefinitions.some((badge) => badge.badgeCode === body.badgeCode)) {
+      return fail(40301, '徽章编码已存在', 409)
+    }
+    const badge: BadgeDefinitionView = {
+      id: nextId(mockBadgeDefinitions),
+      badgeCode: body.badgeCode,
+      badgeName: body.badgeName,
+      badgeLevel: body.badgeLevel,
+      description: body.description ?? null,
+      icon: body.icon ?? null,
+      grantType: body.grantType,
+      condition: body.grantType === 'condition' ? (body.condition ?? null) : null,
+      status: body.status,
+      grantedCount: 0,
+      createTime: nowIso(),
+      updateTime: nowIso(),
+    }
+    mockBadgeDefinitions.push(badge)
+    return HttpResponse.json(ok(badge, '徽章已创建'))
+  }),
+
+  mswHttp.post('/api/v1/user/admin/badges/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const badge = mockBadgeDefinitions.find((item) => item.id === Number(params.id))
+    if (!badge) return fail(40302, '徽章不存在', 404)
+    const body = (await request.json()) as BadgeSavePayload
+    if (mockBadgeDefinitions.some((item) => item.badgeCode === body.badgeCode && item.id !== badge.id)) {
+      return fail(40301, '徽章编码已存在', 409)
+    }
+    badge.badgeCode = body.badgeCode
+    badge.badgeName = body.badgeName
+    badge.badgeLevel = body.badgeLevel
+    badge.description = body.description ?? null
+    badge.icon = body.icon ?? null
+    badge.grantType = body.grantType
+    badge.condition = body.grantType === 'condition' ? (body.condition ?? null) : null
+    badge.status = body.status
+    badge.updateTime = nowIso()
+    return HttpResponse.json(ok(badge, '徽章已更新'))
+  }),
+
+  mswHttp.post('/api/v1/user/admin/badges/:id/grant', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const badge = mockBadgeDefinitions.find((item) => item.id === Number(params.id))
+    if (!badge) return fail(40302, '徽章不存在', 404)
+    const body = (await request.json()) as BadgeGrantPayload
+    let seq = nextId(mockBadgeGrantRecords)
+    let granted = 0
+    for (const userId of body.userIds ?? []) {
+      // 幂等：同一徽章不重复发放给同一用户
+      if (mockBadgeGrantRecords.some((record) => record.badgeId === badge.id && record.userId === userId)) {
+        continue
+      }
+      seq += 1
+      granted += 1
+      const record: BadgeGrantRecord = {
+        id: seq,
+        badgeId: badge.id,
+        badgeCode: badge.badgeCode,
+        badgeName: badge.badgeName,
+        userId,
+        username: mockUsers.find((user) => user.userId === userId)?.username ?? `用户 ${userId}`,
+        grantType: 'manual',
+        grantedTime: nowIso(),
+      }
+      mockBadgeGrantRecords.unshift(record)
+    }
+    badge.grantedCount += granted
+    badge.updateTime = nowIso()
+    return HttpResponse.json(ok(null, granted > 0 ? `已发放给 ${granted} 位用户` : '所选用户均已持有该徽章'))
+  }),
+
+  mswHttp.delete('/api/v1/user/admin/badges/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const index = mockBadgeDefinitions.findIndex((item) => item.id === Number(params.id))
+    if (index < 0) return fail(40302, '徽章不存在', 404)
+    mockBadgeDefinitions.splice(index, 1)
+    return HttpResponse.json(ok(null, '徽章已删除'))
+  }),
+
+  /* ------------------------------ OAuth 接入应用 · 用户端 ------------------------------ */
+
+  mswHttp.get('/api/v1/auth/account/oauth-apps', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireUser(request)
+    if (guard) return guard
+    const list = [...mockOAuthApplications]
+      .filter((app) => app.ownerUserId === MOCK_CURRENT_USER_ID)
+      .sort((a, b) => Date.parse(b.createTime ?? '') - Date.parse(a.createTime ?? ''))
+      .map((app) => ({ ...app, clientSecret: null }))
+    return HttpResponse.json(ok(list))
+  }),
+
+  mswHttp.post('/api/v1/auth/account/oauth-apps', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireUser(request)
+    if (guard) return guard
+    const body = (await request.json()) as OAuthAppSavePayload
+    if (
+      mockOAuthApplications.some(
+        (app) => app.ownerUserId === MOCK_CURRENT_USER_ID && app.appName === body.appName,
+      )
+    ) {
+      return fail(40701, '应用名称已存在', 409)
+    }
+    const app: OAuthApplicationView = {
+      id: nextId(mockOAuthApplications),
+      clientId: null,
+      clientSecret: `ynk_secret_${Math.random().toString(16).slice(2, 14)}`,
+      appName: body.appName,
+      description: body.description ?? null,
+      logo: body.logo ?? null,
+      websiteUrl: body.websiteUrl ?? null,
+      redirectUris: [...body.redirectUris],
+      scopes: [...body.scopes],
+      ownerUserId: MOCK_CURRENT_USER_ID,
+      ownerName: mockUsers.find((user) => user.userId === MOCK_CURRENT_USER_ID)?.username ?? '我',
+      status: 0,
+      auditRemark: null,
+      auditTime: null,
+      createTime: nowIso(),
+      updateTime: nowIso(),
+    }
+    mockOAuthApplications.push(app)
+    return HttpResponse.json(ok(app, '已提交申请，等待审核'))
+  }),
+
+  mswHttp.post('/api/v1/auth/account/oauth-apps/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireUser(request)
+    if (guard) return guard
+    const app = mockOAuthApplications.find(
+      (item) => item.id === Number(params.id) && item.ownerUserId === MOCK_CURRENT_USER_ID,
+    )
+    if (!app) return fail(40702, '应用不存在', 404)
+    const body = (await request.json()) as OAuthAppSavePayload
+    app.appName = body.appName
+    app.description = body.description ?? null
+    app.logo = body.logo ?? null
+    app.websiteUrl = body.websiteUrl ?? null
+    app.redirectUris = [...body.redirectUris]
+    app.scopes = [...body.scopes]
+    // 已通过 / 已驳回的应用修改后需重新审核
+    if (app.status === 1 || app.status === 2) {
+      app.status = 0
+      app.auditRemark = null
+      app.auditTime = null
+    }
+    app.updateTime = nowIso()
+    app.clientSecret = null
+    return HttpResponse.json(ok(app, '已更新，等待审核'))
+  }),
+
+  mswHttp.post('/api/v1/auth/account/oauth-apps/:id/secret', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireUser(request)
+    if (guard) return guard
+    const app = mockOAuthApplications.find(
+      (item) => item.id === Number(params.id) && item.ownerUserId === MOCK_CURRENT_USER_ID,
+    )
+    if (!app) return fail(40702, '应用不存在', 404)
+    if (app.status !== 1) return fail(40703, '应用未通过审核，无法重置密钥', 409)
+    app.clientSecret = `ynk_secret_${Math.random().toString(16).slice(2, 14)}`
+    app.updateTime = nowIso()
+    return HttpResponse.json(ok(app, '密钥已重置'))
+  }),
+
+  mswHttp.delete('/api/v1/auth/account/oauth-apps/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireUser(request)
+    if (guard) return guard
+    const index = mockOAuthApplications.findIndex(
+      (item) => item.id === Number(params.id) && item.ownerUserId === MOCK_CURRENT_USER_ID,
+    )
+    if (index < 0) return fail(40702, '应用不存在', 404)
+    mockOAuthApplications.splice(index, 1)
+    return HttpResponse.json(ok(null, '应用已撤回'))
+  }),
+
+  /* ------------------------------ OAuth 接入应用 · 管理端 ------------------------------ */
+
+  mswHttp.get('/api/v1/auth/admin/oauth-apps', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const status = new URL(request.url).searchParams.get('status')
+    const filter = status !== null && status !== '' ? Number(status) : null
+    const list = [...mockOAuthApplications]
+      .filter((app) => (filter === null ? true : app.status === filter))
+      .sort(
+        (a, b) =>
+          a.status - b.status || Date.parse(b.createTime ?? '') - Date.parse(a.createTime ?? ''),
+      )
+      .map((app) => ({ ...app, clientSecret: null }))
+    return HttpResponse.json(ok(list))
+  }),
+
+  mswHttp.post('/api/v1/auth/admin/oauth-apps/:id/audit', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const app = mockOAuthApplications.find((item) => item.id === Number(params.id))
+    if (!app) return fail(40702, '应用不存在', 404)
+    const body = (await request.json()) as OAuthAppAuditPayload
+    if (body.approved) {
+      app.status = 1
+      app.clientId = app.clientId ?? `ynk_app_${Math.random().toString(16).slice(2, 12)}`
+    } else {
+      app.status = 2
+    }
+    app.auditRemark = body.auditRemark ?? null
+    app.auditTime = nowIso()
+    app.updateTime = nowIso()
+    return HttpResponse.json(
+      ok({ ...app, clientSecret: null }, body.approved ? '审核已通过' : '已驳回'),
+    )
+  }),
+
+  mswHttp.post('/api/v1/auth/admin/oauth-apps/:id/status', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const app = mockOAuthApplications.find((item) => item.id === Number(params.id))
+    if (!app) return fail(40702, '应用不存在', 404)
+    const body = (await request.json()) as { status: number }
+    app.status = body.status as OAuthApplicationView['status']
+    app.updateTime = nowIso()
+    return HttpResponse.json(ok(null, body.status === 1 ? '应用已启用' : '应用已停用'))
+  }),
+
+  mswHttp.delete('/api/v1/auth/admin/oauth-apps/:id', async ({ request, params }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const index = mockOAuthApplications.findIndex((item) => item.id === Number(params.id))
+    if (index < 0) return fail(40702, '应用不存在', 404)
+    mockOAuthApplications.splice(index, 1)
+    return HttpResponse.json(ok(null, '应用已删除'))
   }),
 
   /* ------------------------------ 通知中心 · 站内信 ------------------------------ */
@@ -1260,6 +1553,47 @@ export const handlers = [
     if (index < 0) return fail(60202, '门户页面不存在', 404)
     portalPages.splice(index, 1)
     return HttpResponse.json(ok(null, '页面已删除'))
+  }),
+
+  /* ---------------------------- 行为分析（契约 §8.2） ---------------------------- */
+
+  // 漏斗分析
+  mswHttp.get('/api/v1/analytics/funnel', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    return HttpResponse.json(ok(mockFunnel))
+  }),
+
+  // 留存分析
+  mswHttp.get('/api/v1/analytics/retention', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    return HttpResponse.json(ok(mockRetention))
+  }),
+
+  // 用户分群
+  mswHttp.get('/api/v1/analytics/segments', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    return HttpResponse.json(ok(mockSegment))
+  }),
+
+  // 单用户画像
+  mswHttp.get('/api/v1/analytics/profile', async ({ request }) => {
+    await delay(LATENCY)
+    const guard = requireAdmin(request)
+    if (guard) return guard
+    const userId = Number(new URL(request.url).searchParams.get('userId') ?? 0)
+    const profile = mockAnalyticsProfiles[userId] ?? {
+      userId,
+      tags: [],
+      eventCounts: {},
+      valueTier: '未知',
+    }
+    return HttpResponse.json(ok(profile))
   }),
 
   /* ---------------------------- 服务运行状态（门户） ---------------------------- */
