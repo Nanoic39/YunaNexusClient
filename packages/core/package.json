@@ -17,6 +17,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@noble/hashes": "1.8.0",
     "msw": "^2.7.0"
   },
   "peerDependencies": {

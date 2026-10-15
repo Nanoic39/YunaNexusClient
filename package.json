@@ -18,11 +18,13 @@
     "typecheck": "pnpm -r typecheck",
     "msw:init": "pnpm --filter @yuna/core exec msw init ../../apps/admin/public --save && pnpm --filter @yuna/core exec msw init ../../apps/user/public --save",
     "format": "prettier --write \"**/*.{ts,vue,css,json}\"",
-    "format:check": "prettier --check \"**/*.{ts,vue,css,json}\""
+    "format:check": "prettier --check \"**/*.{ts,vue,css,json}\"",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "prettier": "^3.4.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "3.2.6"
   }
 }
