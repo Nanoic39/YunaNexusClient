@@ -1,3 +1,4 @@
+import { recoverRouteChunk } from '@yuna/core'
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { loadCurrentUser, session } from '@yuna/core'
@@ -146,4 +147,8 @@ router.beforeEach(async (to) => {
 
 router.afterEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} · YunaNexus 管理台` : 'YunaNexus 管理台'
+})
+
+router.onError((error, to) => {
+  recoverRouteChunk(error, to.fullPath)
 })

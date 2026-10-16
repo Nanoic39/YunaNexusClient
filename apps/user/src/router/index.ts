@@ -1,3 +1,4 @@
+import { recoverRouteChunk } from '@yuna/core'
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { session, siteContent } from '@yuna/core'
@@ -171,4 +172,8 @@ router.beforeEach((to) => {
 router.afterEach((to) => {
   const title = (to.meta.title as string | undefined) ?? siteContent.findPage(to.path)?.title
   document.title = title ? `${title} · YunaNexus` : 'YunaNexus'
+})
+
+router.onError((error, to) => {
+  recoverRouteChunk(error, to.fullPath)
 })
