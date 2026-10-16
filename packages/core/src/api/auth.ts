@@ -48,6 +48,16 @@ export const authApi = {
       method: 'POST',
       body: { ticket, password },
     }),
+  requestRecoveryEmail: (email: string, oldPassword: string) =>
+    userHttp.request<void>(`${BASE}/account/email/request`, {
+      method: 'POST',
+      body: { email, oldPassword },
+    }),
+  verifyRecoveryEmail: (email: string, code: string) =>
+    userHttp.request<void>(`${BASE}/account/email/verify`, {
+      method: 'POST',
+      body: { email, code },
+    }),
   accountSecurity: () =>
     userHttp.request<{ username: string; email: string | null; passwordUpdatedAt: string | null }>(
       `${BASE}/account/security`,

@@ -38,6 +38,52 @@ async function load() {
     if (alive) loading.value = false
   }
 }
+const emailForm = reactive({ email: '', oldPassword: '', code: '' })
+const emailOpen = ref(false),
+  emailBusy = ref(false),
+  emailWait = ref(0),
+  emailSent = ref(false)
+const emailTimer = setInterval(() => (emailWait.value = Math.max(0, emailWait.value - 1)), 1000)
+async function sendEmail() {
+  if (emailBusy.value || emailWait.value) return
+  if (!emailForm.email.includes('@') || !emailForm.oldPassword) {
+    message.warning('请填写当前密码和新的找回邮箱')
+    return
+  }
+  emailBusy.value = true
+  try {
+    await authApi.requestRecoveryEmail(emailForm.email.trim(), emailForm.oldPassword)
+    emailForm.oldPassword = ''
+    emailWait.value = 60
+    emailSent.value = true
+    message.success('验证码已发送至新邮箱')
+  } catch (e) {
+    message.error(toErrorMessage(e))
+  } finally {
+    emailBusy.value = false
+  }
+}
+async function bindEmail() {
+  if (emailBusy.value) return
+  const current = session.state.externalId
+  emailBusy.value = true
+  try {
+    await authApi.verifyRecoveryEmail(emailForm.email.trim(), emailForm.code)
+    emailForm.email = ''
+    emailForm.oldPassword = ''
+    emailForm.code = ''
+    emailOpen.value = false
+    emailSent.value = false
+    if (current === session.state.externalId) {
+      await load()
+      message.success('找回邮箱已更新')
+    }
+  } catch (e) {
+    message.error(toErrorMessage(e))
+  } finally {
+    emailBusy.value = false
+  }
+}
 async function change() {
   if (busy.value) return
   if (
@@ -87,6 +133,10 @@ function logoutAll() {
 onMounted(load)
 onBeforeUnmount(() => {
   alive = false
+  clearInterval(emailTimer)
+  emailForm.oldPassword = ''
+  emailForm.code = ''
+  emailForm.email = ''
   form.oldPassword = ''
   form.password = ''
   form.confirm = ''
@@ -105,18 +155,57 @@ onBeforeUnmount(() => {
             <p>密码更新时间：{{ formatDateTime(account.passwordUpdatedAt) }}</p>
             <p class="muted">此邮箱用于身份验证，与个人资料的联系邮箱分开管理。</p></template
           ></n-spin
-        ><n-button @click="router.push('/password-reset')">通过邮箱找回密码</n-button></section-card
+        ><n-button @click="emailOpen = !emailOpen" :disabled="emailBusy">{{
+          account?.email ? '更换找回邮箱' : '绑定找回邮箱'
+        }}</n-button>
+        <n-form-item v-if="emailOpen" label="当前密码" style="margin-top: 16px"
+          ><n-input
+            v-model:value="emailForm.oldPassword"
+            aria-label="绑定邮箱时的当前密码"
+            type="password"
+            maxlength="64"
+            autocomplete="current-password"
+            :disabled="emailBusy"
+        /></n-form-item>
+        <n-form-item v-if="emailOpen" label="新的找回邮箱"
+          ><n-input
+            v-model:value="emailForm.email"
+            aria-label="新的找回邮箱"
+            maxlength="254"
+            autocomplete="email"
+            :disabled="emailBusy"
+        /></n-form-item>
+        <template v-if="emailOpen"
+          ><n-button :loading="emailBusy" :disabled="emailWait > 0" @click="sendEmail">{{
+            emailWait ? `${emailWait}秒后重发` : '发送绑定验证码'
+          }}</n-button
+          ><template v-if="emailSent"
+            ><n-form-item label="新邮箱验证码" style="margin-top: 16px"
+              ><n-input
+                v-model:value="emailForm.code"
+                aria-label="新邮箱验证码"
+                maxlength="6"
+                autocomplete="one-time-code"
+                :disabled="emailBusy" /></n-form-item
+            ><n-button type="primary" :loading="emailBusy" @click="bindEmail"
+              >验证并绑定邮箱</n-button
+            ></template
+          ></template
+        >
+        <n-button @click="router.push('/password-reset')">通过邮箱找回密码</n-button></section-card
       >
       <section-card title="修改登录密码" description="修改后退出全部设备并撤销个人 API Key"
         ><n-form-item label="当前密码"
           ><n-input
             v-model:value="form.oldPassword"
+            aria-label="当前登录密码"
             type="password"
             autocomplete="current-password"
             maxlength="64" /></n-form-item
         ><n-form-item label="新密码"
           ><n-input
             v-model:value="form.password"
+            aria-label="新登录密码"
             type="password"
             autocomplete="new-password"
             maxlength="64"
@@ -124,6 +213,7 @@ onBeforeUnmount(() => {
         ><n-form-item label="确认新密码"
           ><n-input
             v-model:value="form.confirm"
+            aria-label="确认新登录密码"
             type="password"
             autocomplete="new-password"
             maxlength="64"

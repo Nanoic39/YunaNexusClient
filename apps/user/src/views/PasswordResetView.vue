@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, reactive, onBeforeUnmount } from 'vue'
+import { ref, reactive, onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { NAlert, NButton, NFormItem, NInput, useMessage } from 'naive-ui'
 import { AuthLayout } from '@yuna/ui'
-import { authApi, toErrorMessage } from '@yuna/core'
+import { authApi, session, toErrorMessage } from '@yuna/core'
 const router = useRouter(),
   message = useMessage()
 const form = reactive({ username: '', email: '', code: '', password: '', confirm: '' })
@@ -11,6 +11,14 @@ const step = ref(0),
   busy = ref(false),
   ticket = ref(''),
   remaining = ref(0)
+onMounted(async () => {
+  if (!session.isAuthenticated.value) return
+  try {
+    const current = await authApi.accountSecurity()
+    if (!form.username) form.username = current.username
+    if (!form.email) form.email = current.email || ''
+  } catch {}
+})
 const timer = setInterval(() => (remaining.value = Math.max(0, remaining.value - 1)), 1000)
 onBeforeUnmount(() => {
   clearInterval(timer)
@@ -66,6 +74,7 @@ async function complete() {
   try {
     await authApi.completePasswordReset(ticket.value, form.password)
     ticket.value = ''
+    session.clearUser()
     message.success('密码已更新，旧会话已退出，请重新登录')
     await router.replace('/login')
   } catch (e) {
@@ -84,12 +93,14 @@ async function complete() {
       ><n-form-item label="用户名"
         ><n-input
           v-model:value="form.username"
+          aria-label="找回密码的用户名"
           :disabled="busy"
           autocomplete="username"
           maxlength="64" /></n-form-item
       ><n-form-item label="绑定邮箱"
         ><n-input
           v-model:value="form.email"
+          aria-label="账号绑定邮箱"
           :disabled="busy"
           autocomplete="email"
           maxlength="254" /></n-form-item
@@ -100,6 +111,7 @@ async function complete() {
         ><n-form-item label="邮箱验证码" style="margin-top: 20px"
           ><n-input
             v-model:value="form.code"
+            aria-label="邮箱验证码"
             maxlength="6"
             autocomplete="one-time-code"
             @keyup.enter="verify" /></n-form-item
@@ -112,6 +124,7 @@ async function complete() {
       ><n-form-item label="新密码"
         ><n-input
           v-model:value="form.password"
+          aria-label="设置新登录密码"
           type="password"
           autocomplete="new-password"
           show-password-on="click"
@@ -119,6 +132,7 @@ async function complete() {
       ><n-form-item label="确认新密码"
         ><n-input
           v-model:value="form.confirm"
+          aria-label="再次确认新密码"
           type="password"
           autocomplete="new-password"
           maxlength="64"
