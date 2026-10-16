@@ -109,3 +109,7 @@
 - 加载失败按区块展示；保存后同步顶栏昵称，刷新前提醒未保存修改。
 - 网关仍验证 JWT，用户服务按注入身份限制为本人；不需要管理角色。
 - 新增头像协议、部分更新和标签边界单元测试；生产环境禁用 Mock。
+
+### OAuth 自助接入部署状态
+
+应用申请与管理员审核页面目前仅完成前端契约和开发 Mock，后端 `/auth/account/oauth-apps` 与 `/auth/admin/oauth-apps` 尚未实现。生产构建通过 `VITE_OAUTH_APP_REGISTRATION_ENABLED=false` 关闭申请和审核请求，并明确显示未开放；后端实现、权限隔离和完整联调通过后才可开启。已有平台授权的查看与撤销使用 `/auth/account/applications`，不受影响。

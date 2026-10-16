@@ -17,14 +17,8 @@ import {
   useMessage,
 } from 'naive-ui'
 import type { FormInst, FormRules } from 'naive-ui'
-import {
-  PageContainer,
-  SectionCard,
-  StatusTag,
-  formatDateTime,
-  oauthAppStatusMeta,
-} from '@yuna/ui'
-import { oauthAppApi, copyText, session } from '@yuna/core'
+import { PageContainer, SectionCard, StatusTag, formatDateTime, oauthAppStatusMeta } from '@yuna/ui'
+import { oauthAppApi, oauthAppRegistrationEnabled, copyText, session } from '@yuna/core'
 import { OAUTH_SCOPE_LABELS, OAUTH_SCOPE_OPTIONS } from '@yuna/core'
 import type { OAuthApplicationView, OAuthAppSavePayload } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
@@ -45,6 +39,7 @@ let generation = 0
 let alive = true
 
 async function load(): Promise<void> {
+  if (!oauthAppRegistrationEnabled) return
   const version = ++generation
   loading.value = true
   error.value = ''
@@ -99,6 +94,7 @@ function parseRedirectUris(): string[] {
 }
 
 function openCreate(): void {
+  if (!oauthAppRegistrationEnabled || loading.value || error.value) return
   editingId.value = null
   resetForm()
   modalVisible.value = true
@@ -298,14 +294,41 @@ onBeforeUnmount(() => {
     description="申请自定义 OAuth 应用，接入 YunaNexus 统一登录与授权"
   >
     <template #extra>
-      <n-button :loading="loading" @click="load">刷新</n-button>
-      <n-button type="primary" @click="openCreate">申请接入</n-button>
+      <n-button :loading="loading" :disabled="!oauthAppRegistrationEnabled" @click="load"
+        >刷新</n-button
+      >
+      <n-button
+        type="primary"
+        :disabled="!oauthAppRegistrationEnabled || loading || !!error"
+        @click="openCreate"
+        >申请接入</n-button
+      >
     </template>
 
     <div class="oauth-layout">
       <div class="oauth-main">
-        <section-card title="我的接入应用" :description="`共 ${apps.length} 个应用`">
-          <n-alert v-if="error" type="error">
+        <section-card
+          title="我的接入应用"
+          :description="
+            !oauthAppRegistrationEnabled
+              ? '暂未开放'
+              : loading
+                ? '正在加载'
+                : error
+                  ? '加载失败'
+                  : `共 ${apps.length} 个应用`
+          "
+        >
+          <n-alert v-if="!oauthAppRegistrationEnabled" type="info" title="接入申请暂未开放">
+            自定义 OAuth
+            应用的申请与审核服务尚未开放。已有账号的平台授权可在「已授权应用」中查看和撤销。
+            <p>
+              <n-button text type="primary" @click="router.push('/console/applications')"
+                >查看已授权应用</n-button
+              >
+            </p>
+          </n-alert>
+          <n-alert v-else-if="error" type="error">
             {{ error }}<n-button text @click="load">重试</n-button>
           </n-alert>
           <n-spin :show="loading">
@@ -370,7 +393,7 @@ onBeforeUnmount(() => {
               </div>
             </article>
             <n-empty
-              v-if="!apps.length && !error"
+              v-if="oauthAppRegistrationEnabled && !loading && !apps.length && !error"
               description="尚未申请任何接入应用"
               class="oauth-empty"
             />
@@ -378,7 +401,7 @@ onBeforeUnmount(() => {
         </section-card>
       </div>
 
-      <aside class="oauth-aside">
+      <aside v-if="oauthAppRegistrationEnabled" class="oauth-aside">
         <section-card title="接入流程">
           <p>1. 提交应用名称、回调地址与所需权限范围，进入待审核。</p>
           <p>2. 管理员审核通过后，系统分配 Client ID 与密钥。</p>

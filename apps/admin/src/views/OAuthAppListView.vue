@@ -15,14 +15,8 @@ import {
   useMessage,
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import {
-  DataTable,
-  PageContainer,
-  StatusTag,
-  formatDateTime,
-  oauthAppStatusMeta,
-} from '@yuna/ui'
-import { OAUTH_SCOPE_LABELS, oauthAppAdminApi } from '@yuna/core'
+import { DataTable, PageContainer, StatusTag, formatDateTime, oauthAppStatusMeta } from '@yuna/ui'
+import { OAUTH_SCOPE_LABELS, oauthAppAdminApi, oauthAppRegistrationEnabled } from '@yuna/core'
 import type { OAuthApplicationView } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
 
@@ -86,7 +80,11 @@ const columns: DataTableColumns<OAuthApplicationView> = [
         'div',
         { class: 'yuna-cell-actions', style: { gap: '6px', flexWrap: 'wrap' } },
         row.scopes.map((scope) =>
-          h(NTag, { size: 'small', bordered: false }, { default: () => OAUTH_SCOPE_LABELS[scope] ?? scope }),
+          h(
+            NTag,
+            { size: 'small', bordered: false },
+            { default: () => OAUTH_SCOPE_LABELS[scope] ?? scope },
+          ),
         ),
       ),
   },
@@ -119,6 +117,7 @@ const columns: DataTableColumns<OAuthApplicationView> = [
 ]
 
 async function load(): Promise<void> {
+  if (!oauthAppRegistrationEnabled) return
   loading.value = true
   try {
     rows.value = await oauthAppAdminApi.list()
@@ -228,15 +227,24 @@ onMounted(load)
     description="审核用户提交的 OAuth 接入申请，并管理已接入应用的启用、停用与删除"
   >
     <template #extra>
-      <n-button :loading="loading" @click="load">刷新</n-button>
+      <n-button :loading="loading" :disabled="!oauthAppRegistrationEnabled" @click="load"
+        >刷新</n-button
+      >
     </template>
 
-    <n-tabs v-model:value="activeTab" type="line" animated>
-      <n-tab-pane name="pending" :tab="`待审核${pendingRows.length ? `（${pendingRows.length}）` : ''}`" />
+    <n-alert v-if="!oauthAppRegistrationEnabled" type="info" title="接入审核暂未开放"
+      >自助 OAuth 接入服务尚未部署，暂不接受申请和审核。</n-alert
+    >
+    <n-tabs v-else v-model:value="activeTab" type="line" animated>
+      <n-tab-pane
+        name="pending"
+        :tab="`待审核${pendingRows.length ? `（${pendingRows.length}）` : ''}`"
+      />
       <n-tab-pane name="all" :tab="`全部应用（${rows.length}）`" />
     </n-tabs>
 
     <data-table
+      v-if="oauthAppRegistrationEnabled"
       :columns="columns"
       :data="displayRows"
       :loading="loading"
@@ -255,15 +263,9 @@ onMounted(load)
     >
       <template v-if="reviewApp">
         <div class="review-summary">
-          <p>
-            <span class="review-label">申请人</span>{{ reviewApp.ownerName }}
-          </p>
-          <p>
-            <span class="review-label">权限范围</span>{{ scopeText(reviewApp) }}
-          </p>
-          <p>
-            <span class="review-label">回调地址</span>{{ reviewApp.redirectUris.join('、') }}
-          </p>
+          <p><span class="review-label">申请人</span>{{ reviewApp.ownerName }}</p>
+          <p><span class="review-label">权限范围</span>{{ scopeText(reviewApp) }}</p>
+          <p><span class="review-label">回调地址</span>{{ reviewApp.redirectUris.join('、') }}</p>
           <p v-if="reviewApp.websiteUrl">
             <span class="review-label">应用主页</span>{{ reviewApp.websiteUrl }}
           </p>
@@ -310,7 +312,8 @@ onMounted(load)
           <status-tag :meta="oauthAppStatusMeta(detailApp.status)" />
         </p>
         <p>
-          <span class="review-label">Client ID</span><code>{{ detailApp.clientId || '未分配' }}</code>
+          <span class="review-label">Client ID</span
+          ><code>{{ detailApp.clientId || '未分配' }}</code>
         </p>
         <p><span class="review-label">申请人</span>{{ detailApp.ownerName }}</p>
         <p><span class="review-label">权限范围</span>{{ scopeText(detailApp) }}</p>
