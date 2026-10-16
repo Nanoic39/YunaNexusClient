@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
 import { AuthLayout } from '@yuna/ui'
-import { ApiError, authApi, toErrorMessage } from '@yuna/core'
+import { ApiError, authApi, safeLocalRedirect, toErrorMessage } from '@yuna/core'
 
 /**
  * 注册页。
@@ -13,6 +13,7 @@ import { ApiError, authApi, toErrorMessage } from '@yuna/core'
  * 手机号功能未开放，故不提供手机号字段（携带即被后端拒绝，见 api-contract §3.4）。
  */
 const router = useRouter()
+const route = useRoute()
 const message = useMessage()
 
 const form = reactive({ username: '', password: '', confirm: '', email: '' })
@@ -47,7 +48,10 @@ async function submit(): Promise<void> {
       email,
     })
     message.success('注册成功，请登录；账号默认获得门户权限和普通用户角色')
-    await router.replace({ name: 'login' })
+    await router.replace({
+      name: 'login',
+      query: { redirect: safeLocalRedirect(route.query.redirect, '/console/dashboard') },
+    })
   } catch (error) {
     if (error instanceof ApiError && error.code === 30401) message.error('该账号已被注册')
     else message.error(toErrorMessage(error))

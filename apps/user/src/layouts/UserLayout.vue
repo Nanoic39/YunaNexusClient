@@ -3,31 +3,38 @@ import { computed, watch, onBeforeUnmount, type Component } from 'vue'
 import { currentAvatar, loadAvatar, clearAvatar } from '@/utils/avatar'
 import { useRoute, useRouter } from 'vue-router'
 import { GlobeOutline, LogOutOutline, PersonCircleOutline } from '@vicons/ionicons5'
-import {
-  AccountMenu,
-  AppShell,
-  NotificationButton,
-  ThemeToggle,
-  truncateMiddle,
-  useSiderCollapsed,
-} from '@yuna/ui'
+import { AccountMenu, AppShell, NotificationButton, ThemeToggle, useSiderCollapsed } from '@yuna/ui'
 import { authApi, userApi, buildHandoffUrl, readEnv, session } from '@yuna/core'
 import { userMenuOptions } from '@/config/menu'
 
 let avatarGeneration = 0
 watch(
   () => session.state.externalId,
-  async (id) => {
+  async (id, _previous, onCleanup) => {
     const generation = ++avatarGeneration
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    onCleanup(() => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    })
     clearAvatar()
     if (!id) return
-    try {
-      const profile = await userApi.getProfile()
-      if (generation !== avatarGeneration) return
-      await loadAvatar(profile.avatar)
-      // 全局回填昵称：无需进入个人中心，顶栏即默认展示昵称而非账号标识
-      session.setNickname(profile.nickname)
-    } catch {}
+    for (let attempt = 0; attempt < 6; attempt++) {
+      try {
+        const profile = await userApi.getProfile()
+        if (cancelled || generation !== avatarGeneration) return
+        session.setNickname(profile.nickname || profile.username)
+        void loadAvatar(profile.avatar)
+        return
+      } catch {
+        if (cancelled || generation !== avatarGeneration) return
+        if (attempt < 5)
+          await new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, 1500)
+          })
+      }
+    }
   },
   { immediate: true },
 )
@@ -45,7 +52,7 @@ const { collapsed } = useSiderCollapsed()
 const activeKey = computed(() => route.path)
 const accountName = computed(() => {
   if (session.state.nickname) return session.state.nickname
-  return session.state.externalId ? truncateMiddle(session.state.externalId) : '我的账号'
+  return '我的账号'
 })
 
 /** 仅持有根角色 `admin` 的用户可见「进入管理后台」，且需配置了管理端地址 */

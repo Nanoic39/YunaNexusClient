@@ -10,7 +10,10 @@ const FORMAT = /^[A-Za-z0-9_-]{43}$/
 const TTL = 5 * 60 * 1000
 
 function base64url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
 }
 
 export function pkceChallenge(verifier: string): string {
@@ -23,7 +26,13 @@ function random(): string {
 
 /** 仅允许应用内部路径，拒绝协议相对地址、反斜杠和外部重定向。 */
 export function safeLocalRedirect(value: unknown, fallback: string): string {
-  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || /[\\\r\n]/.test(value)) return fallback
+  if (
+    typeof value !== 'string' ||
+    !value.startsWith('/') ||
+    value.startsWith('//') ||
+    /[\\\r\n]/.test(value)
+  )
+    return fallback
   const url = new URL(value, window.location.origin)
   return url.origin === window.location.origin ? url.pathname + url.search + url.hash : fallback
 }
@@ -33,7 +42,12 @@ function adminTarget(target: string): URL {
   if (!configured) throw new Error('未配置管理端地址')
   const expected = new URL(configured)
   const url = new URL(target, window.location.origin)
-  if (!['http:', 'https:'].includes(url.protocol) || url.origin !== expected.origin || url.username || url.password) {
+  if (
+    !['http:', 'https:'].includes(url.protocol) ||
+    url.origin !== expected.origin ||
+    url.username ||
+    url.password
+  ) {
     throw new Error('拒绝跳转到未授权的管理端地址')
   }
   return url
@@ -41,7 +55,14 @@ function adminTarget(target: string): URL {
 
 /** 旧函数名保留用于菜单导航；不再把任何会话凭据写入 URL。 */
 export function buildHandoffUrl(baseUrl: string): string {
-  return adminTarget(baseUrl).toString()
+  const target = adminTarget(baseUrl)
+  const login = new URL('/login', target.origin)
+  login.searchParams.set('reauth', '1')
+  login.searchParams.set(
+    'redirect',
+    target.pathname === '/' ? '/overview' : target.pathname + target.search + target.hash,
+  )
+  return login.toString()
 }
 
 /** 在管理端生成 verifier/state，只有公开的 challenge/state 发送到用户端。 */
@@ -51,8 +72,16 @@ export function buildSsoLoginUrl(returnTo: unknown = '/overview'): string {
   const verifier = random()
   const state = random()
   const redirectUri = window.location.origin + CALLBACK
-  sessionStorage.setItem(PENDING, JSON.stringify({ verifier, state, redirectUri,
-    returnTo: safeLocalRedirect(returnTo, '/overview'), createdAt: Date.now() }))
+  sessionStorage.setItem(
+    PENDING,
+    JSON.stringify({
+      verifier,
+      state,
+      redirectUri,
+      returnTo: safeLocalRedirect(returnTo, '/overview'),
+      createdAt: Date.now(),
+    }),
+  )
   const login = new URL('/login', env.userAppUrl)
   login.searchParams.set('redirect', redirectUri)
   login.searchParams.set('sso_state', state)
@@ -61,18 +90,36 @@ export function buildSsoLoginUrl(returnTo: unknown = '/overview'): string {
 }
 
 /** 用户端登录完成后，以 HttpOnly SSO Cookie 换取一次性授权码。 */
-export async function authorizeAdminRedirect(target: string, state: unknown, challenge: unknown): Promise<string> {
+export async function authorizeAdminRedirect(
+  target: string,
+  state: unknown,
+  challenge: unknown,
+): Promise<string> {
   const url = adminTarget(target)
-  if (url.pathname !== CALLBACK || url.search || url.hash || typeof state !== 'string'
-      || typeof challenge !== 'string' || !FORMAT.test(state) || !FORMAT.test(challenge)) {
+  if (
+    url.pathname !== CALLBACK ||
+    url.search ||
+    url.hash ||
+    typeof state !== 'string' ||
+    typeof challenge !== 'string' ||
+    !FORMAT.test(state) ||
+    !FORMAT.test(challenge)
+  ) {
     throw new Error('统一登录请求无效，请从管理端重新发起登录')
   }
   const result = await userHttp.request<{ redirectUrl: string }>('/api/v1/auth/sso/authorize', {
-    method: 'POST', body: { clientCode: 'web', redirectUri: url.toString(), state,
-      codeChallenge: challenge, codeChallengeMethod: 'S256' },
+    method: 'POST',
+    body: {
+      clientCode: 'web',
+      redirectUri: url.toString(),
+      state,
+      codeChallenge: challenge,
+      codeChallengeMethod: 'S256',
+    },
   })
   const callback = adminTarget(result.redirectUrl)
-  if (callback.pathname !== CALLBACK || callback.searchParams.get('state') !== state) throw new Error('统一登录回调地址无效')
+  if (callback.pathname !== CALLBACK || callback.searchParams.get('state') !== state)
+    throw new Error('统一登录回调地址无效')
   return callback.toString()
 }
 
@@ -92,17 +139,37 @@ export async function consumeHandoff(): Promise<boolean> {
     if (!raw) throw new Error('登录请求不存在')
     const pending = JSON.parse(raw)
     const code = params.get('code')
-    if (!code || params.get('state') !== pending.state || !FORMAT.test(pending.state)
-        || !FORMAT.test(pending.verifier) || typeof pending.createdAt !== 'number'
-        || Date.now() - pending.createdAt > TTL || pending.createdAt > Date.now()
-        || pending.redirectUri !== window.location.origin + CALLBACK) throw new Error('登录请求已失效')
+    if (
+      !code ||
+      params.get('state') !== pending.state ||
+      !FORMAT.test(pending.state) ||
+      !FORMAT.test(pending.verifier) ||
+      typeof pending.createdAt !== 'number' ||
+      Date.now() - pending.createdAt > TTL ||
+      pending.createdAt > Date.now() ||
+      pending.redirectUri !== window.location.origin + CALLBACK
+    )
+      throw new Error('登录请求已失效')
     const response = await fetch(`${readEnv().apiBaseUrl}/api/v1/auth/sso/token`, {
-      method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ code, state: pending.state, codeVerifier: pending.verifier,
-        clientCode: 'web', redirectUri: pending.redirectUri }),
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        code,
+        state: pending.state,
+        codeVerifier: pending.verifier,
+        clientCode: 'web',
+        redirectUri: pending.redirectUri,
+      }),
     })
-    const result = await response.json() as Result<TokenResult>
-    if (!response.ok || result.code !== 200 || !result.data?.accessToken || !result.data.refreshToken) throw new Error('统一登录失败')
+    const result = (await response.json()) as Result<TokenResult>
+    if (
+      !response.ok ||
+      result.code !== 200 ||
+      !result.data?.accessToken ||
+      !result.data.refreshToken
+    )
+      throw new Error('统一登录失败')
     session.setTokens(result.data, 'web')
     window.history.replaceState(null, '', safeLocalRedirect(pending.returnTo, '/overview'))
     return true

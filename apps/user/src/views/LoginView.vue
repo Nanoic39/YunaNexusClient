@@ -93,6 +93,7 @@ async function goCrossApp(target: string): Promise<void> {
 onMounted(async () => {
   if (!session.isAuthenticated.value) return
   await loadCurrentUser()
+  if (!session.isAuthenticated.value) return
   const redirect = resolveRedirect()
   if (isCrossApp(redirect)) {
     await goCrossApp(redirect)
@@ -122,6 +123,7 @@ async function submit(): Promise<void> {
       captcha: needCaptcha.value ? form.captcha.trim() : undefined,
     })
     session.setTokens(result, 'web')
+    session.setNickname(result.nickname || username)
     await loadCurrentUser()
     message.success('登录成功')
     const redirect = resolveRedirect()
@@ -210,7 +212,13 @@ async function submit(): Promise<void> {
     <template #footer>
       <div class="auth-links">
         <router-link to="/password-reset">忘记密码？</router-link><span>·</span>
-        <router-link :to="{ name: 'register' }">注册账号</router-link>
+        <router-link
+          :to="{
+            name: 'register',
+            query: { redirect: safeLocalRedirect(route.query.redirect, '/console/dashboard') },
+          }"
+          >注册账号</router-link
+        >
         <span class="auth-links__sep">·</span>
         <router-link :to="{ name: 'unlock-appeal' }">账号被锁定？提交解锁申诉</router-link>
       </div>

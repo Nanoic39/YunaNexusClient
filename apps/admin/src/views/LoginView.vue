@@ -32,7 +32,7 @@ function goSso(): void {
 
 onMounted(() => {
   // 已从用户端接驳会话且持有管理角色：无需二次登录，直接放行
-  if (session.canAccessAdmin.value) {
+  if (route.query.reauth !== '1' && session.canAccessAdmin.value) {
     void router.replace(targetAfterLogin())
     return
   }
@@ -57,7 +57,14 @@ onMounted(() => {
       </ul>
     </template>
 
-    <n-button type="primary" block size="large" :loading="redirecting" :disabled="!ssoUrl" @click="goSso">
+    <n-button
+      type="primary"
+      block
+      size="large"
+      :loading="redirecting"
+      :disabled="!ssoUrl"
+      @click="goSso"
+    >
       前往统一登录
     </n-button>
 
