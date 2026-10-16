@@ -143,111 +143,123 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <page-container title="账号设置" description="集中管理账号安全、外观和个人授权"
-    ><div class="settings-grid">
-      <section-card title="账号与安全"
-        ><n-spin :show="loading"
-          ><n-alert v-if="error" type="error"
-            >{{ error }} <n-button text @click="load">重试</n-button></n-alert
-          ><template v-else-if="account"
-            ><p>账号：{{ account.username }}</p>
-            <p>找回密码邮箱：{{ account.email || '未绑定' }}</p>
-            <p>密码更新时间：{{ formatDateTime(account.passwordUpdatedAt) }}</p>
-            <p class="muted">此邮箱用于身份验证，与个人资料的联系邮箱分开管理。</p></template
-          ></n-spin
-        ><n-button @click="emailOpen = !emailOpen" :disabled="emailBusy">{{
-          account?.email ? '更换找回邮箱' : '绑定找回邮箱'
-        }}</n-button>
-        <n-form-item v-if="emailOpen" label="当前密码" style="margin-top: 16px"
-          ><n-input
-            v-model:value="emailForm.oldPassword"
-            aria-label="绑定邮箱时的当前密码"
-            type="password"
-            maxlength="64"
-            autocomplete="current-password"
-            :disabled="emailBusy"
-        /></n-form-item>
-        <n-form-item v-if="emailOpen" label="新的找回邮箱"
-          ><n-input
-            v-model:value="emailForm.email"
-            aria-label="新的找回邮箱"
-            maxlength="254"
-            autocomplete="email"
-            :disabled="emailBusy"
-        /></n-form-item>
-        <template v-if="emailOpen"
-          ><n-button :loading="emailBusy" :disabled="emailWait > 0" @click="sendEmail">{{
-            emailWait ? `${emailWait}秒后重发` : '发送绑定验证码'
-          }}</n-button
-          ><template v-if="emailSent"
-            ><n-form-item label="新邮箱验证码" style="margin-top: 16px"
-              ><n-input
-                v-model:value="emailForm.code"
-                aria-label="新邮箱验证码"
-                maxlength="6"
-                autocomplete="one-time-code"
-                :disabled="emailBusy" /></n-form-item
-            ><n-button type="primary" :loading="emailBusy" @click="bindEmail"
-              >验证并绑定邮箱</n-button
+  <page-container title="账号设置" description="集中管理账号安全、外观和个人授权">
+    <div class="settings-grid">
+      <div class="settings-column">
+        <section-card title="账号与安全"
+          ><n-spin :show="loading"
+            ><n-alert v-if="error" type="error"
+              >{{ error }} <n-button text @click="load">重试</n-button></n-alert
+            ><template v-else-if="account"
+              ><p>账号：{{ account.username }}</p>
+              <p>找回密码邮箱：{{ account.email || '未绑定' }}</p>
+              <p>密码更新时间：{{ formatDateTime(account.passwordUpdatedAt) }}</p>
+              <p class="muted">此邮箱用于身份验证，与个人资料的联系邮箱分开管理。</p></template
+            ></n-spin
+          ><n-button @click="emailOpen = !emailOpen" :disabled="emailBusy">{{
+            account?.email ? '更换找回邮箱' : '绑定找回邮箱'
+          }}</n-button>
+          <n-form-item v-if="emailOpen" label="当前密码" style="margin-top: 16px"
+            ><n-input
+              v-model:value="emailForm.oldPassword"
+              aria-label="绑定邮箱时的当前密码"
+              type="password"
+              maxlength="64"
+              autocomplete="current-password"
+              :disabled="emailBusy"
+          /></n-form-item>
+          <n-form-item v-if="emailOpen" label="新的找回邮箱"
+            ><n-input
+              v-model:value="emailForm.email"
+              aria-label="新的找回邮箱"
+              maxlength="254"
+              autocomplete="email"
+              :disabled="emailBusy"
+          /></n-form-item>
+          <template v-if="emailOpen"
+            ><n-button :loading="emailBusy" :disabled="emailWait > 0" @click="sendEmail">{{
+              emailWait ? `${emailWait}秒后重发` : '发送绑定验证码'
+            }}</n-button
+            ><template v-if="emailSent"
+              ><n-form-item label="新邮箱验证码" style="margin-top: 16px"
+                ><n-input
+                  v-model:value="emailForm.code"
+                  aria-label="新邮箱验证码"
+                  maxlength="6"
+                  autocomplete="one-time-code"
+                  :disabled="emailBusy" /></n-form-item
+              ><n-button type="primary" :loading="emailBusy" @click="bindEmail"
+                >验证并绑定邮箱</n-button
+              ></template
             ></template
-          ></template
+          >
+          <n-button @click="router.push('/password-reset')"
+            >通过邮箱找回密码</n-button
+          ></section-card
         >
-        <n-button @click="router.push('/password-reset')">通过邮箱找回密码</n-button></section-card
-      >
-      <section-card title="修改登录密码" description="修改后退出全部设备并撤销个人 API Key"
-        ><n-form-item label="当前密码"
-          ><n-input
-            v-model:value="form.oldPassword"
-            aria-label="当前登录密码"
-            type="password"
-            autocomplete="current-password"
-            maxlength="64" /></n-form-item
-        ><n-form-item label="新密码"
-          ><n-input
-            v-model:value="form.password"
-            aria-label="新登录密码"
-            type="password"
-            autocomplete="new-password"
-            maxlength="64"
-            show-password-on="click" /></n-form-item
-        ><n-form-item label="确认新密码"
-          ><n-input
-            v-model:value="form.confirm"
-            aria-label="确认新登录密码"
-            type="password"
-            autocomplete="new-password"
-            maxlength="64"
-            @keyup.enter="change" /></n-form-item
-        ><n-button type="primary" :loading="busy" @click="change"
-          >更新密码并重新登录</n-button
-        ></section-card
-      >
-      <section-card title="显示外观" description="立即生效，并保存在当前浏览器"
-        ><n-radio-group
-          :value="themeMode.mode.value"
-          @update:value="(v: ThemeMode) => themeMode.setMode(v)"
-          ><n-radio-button value="auto">跟随系统</n-radio-button
-          ><n-radio-button value="light">浅色</n-radio-button
-          ><n-radio-button value="dark">深色</n-radio-button></n-radio-group
-        ></section-card
-      >
-      <section-card title="授权与设备"
-        ><div class="settings-actions">
-          <n-button @click="router.push('/console/profile')">资料、头像与会话</n-button
-          ><n-button @click="router.push('/console/applications')">查看和撤销平台授权</n-button
-          ><n-button @click="router.push('/console/api-keys')">管理个人 API Key</n-button
-          ><n-button type="error" secondary @click="logoutAll">退出所有设备</n-button>
-        </div></section-card
-      >
-    </div></page-container
-  >
+        <section-card title="显示外观" description="立即生效，并保存在当前浏览器"
+          ><n-radio-group
+            :value="themeMode.mode.value"
+            @update:value="(v: ThemeMode) => themeMode.setMode(v)"
+            ><n-radio-button value="auto">跟随系统</n-radio-button
+            ><n-radio-button value="light">浅色</n-radio-button
+            ><n-radio-button value="dark">深色</n-radio-button></n-radio-group
+          ></section-card
+        >
+      </div>
+      <div class="settings-column">
+        <section-card title="修改登录密码" description="修改后退出全部设备并撤销个人 API Key"
+          ><n-form-item label="当前密码"
+            ><n-input
+              v-model:value="form.oldPassword"
+              aria-label="当前登录密码"
+              type="password"
+              autocomplete="current-password"
+              maxlength="64" /></n-form-item
+          ><n-form-item label="新密码"
+            ><n-input
+              v-model:value="form.password"
+              aria-label="新登录密码"
+              type="password"
+              autocomplete="new-password"
+              maxlength="64"
+              show-password-on="click" /></n-form-item
+          ><n-form-item label="确认新密码"
+            ><n-input
+              v-model:value="form.confirm"
+              aria-label="确认新登录密码"
+              type="password"
+              autocomplete="new-password"
+              maxlength="64"
+              @keyup.enter="change" /></n-form-item
+          ><n-button type="primary" :loading="busy" @click="change"
+            >更新密码并重新登录</n-button
+          ></section-card
+        >
+        <section-card title="授权与设备"
+          ><div class="settings-actions">
+            <n-button @click="router.push('/console/profile')">资料、头像与会话</n-button
+            ><n-button @click="router.push('/console/applications')">查看和撤销平台授权</n-button
+            ><n-button @click="router.push('/console/api-keys')">管理个人 API Key</n-button
+            ><n-button type="error" secondary @click="logoutAll">退出所有设备</n-button>
+          </div></section-card
+        >
+      </div>
+    </div>
+  </page-container>
 </template>
 <style scoped>
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+}
+.settings-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
 }
 .settings-actions {
   display: flex;
