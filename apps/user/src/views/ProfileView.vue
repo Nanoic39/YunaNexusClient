@@ -336,6 +336,12 @@ onMounted(load)
           </template>
         </section-card>
 
+        <section-card title="账号安全"
+          ><p>修改密码、找回密码、外观偏好与设备授权统一在账号设置中管理。</p>
+          <n-button type="primary" @click="router.push('/console/settings')"
+            >打开账号设置</n-button
+          ></section-card
+        >
         <section-card title="我的标签" description="最多 20 个标签，添加或移除后点击保存生效">
           <n-alert v-if="errors.tags" type="error" title="标签加载失败">{{ errors.tags }}</n-alert>
           <template v-else>

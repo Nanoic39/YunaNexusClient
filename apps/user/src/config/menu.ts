@@ -36,6 +36,7 @@ export const userMenuOptions: MenuOption[] = [
     label: '个人中心',
     icon: renderIcon(PersonCircleOutline),
   },
+  { key: '/console/settings', label: '账号设置', icon: renderIcon(KeyOutline) },
   { key: '/console/files', label: '我的文件', icon: renderIcon(FolderOpenOutline) },
   { key: '/console/shares', label: '我的分享', icon: renderIcon(ShareSocialOutline) },
   { key: '/console/applications', label: '已授权应用', icon: renderIcon(AppsOutline) },

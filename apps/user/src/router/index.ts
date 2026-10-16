@@ -14,6 +14,13 @@ import { session, siteContent } from '@yuna/core'
  */
 const routes: RouteRecordRaw[] = [
   {
+    path: '/password-reset',
+    name: 'password-reset',
+    component: () => import('@/views/PasswordResetView.vue'),
+    meta: { public: true, title: '找回密码' },
+  },
+
+  {
     path: '/share',
     name: 'shared-file',
     component: () => import('@/views/SharedFileView.vue'),
@@ -60,6 +67,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/UserLayout.vue'),
     redirect: '/console/dashboard',
     children: [
+      {
+        path: 'settings',
+        name: 'settings',
+        component: () => import('@/views/SettingsView.vue'),
+        meta: { title: '账号设置' },
+      },
       {
         path: 'files',
         name: 'files',
