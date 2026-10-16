@@ -39,7 +39,7 @@ const creating = ref(false),
 const scopeNames: Record<string, string> = {
   'profile:read': '读取个人资料',
   'files:read': '查看与下载本人文件',
-  'files:write': '上传与删除本人文件',
+  'files:write': '上传、重命名与删除本人文件',
 }
 const now = ref(Date.now())
 let clock: ReturnType<typeof setInterval> | undefined,
