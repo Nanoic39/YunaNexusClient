@@ -14,6 +14,12 @@ import { session, siteContent } from '@yuna/core'
  */
 const routes: RouteRecordRaw[] = [
   {
+    path: '/oauth/authorize',
+    name: 'oauth-consent',
+    component: () => import('@/views/OAuthConsentView.vue'),
+    meta: { title: '应用授权' },
+  },
+  {
     path: '/password-reset',
     name: 'password-reset',
     component: () => import('@/views/PasswordResetView.vue'),
