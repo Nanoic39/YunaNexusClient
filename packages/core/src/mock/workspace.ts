@@ -38,6 +38,18 @@ const fail = (msg: string) => HttpResponse.json({ code: 404, msg, data: null }, 
 const denied = (request: Request) => !request.headers.get('Authorization')?.startsWith('Bearer ')
 const now = () => new Date().toISOString()
 export const workspaceHandlers = [
+  http.get('/api/v1/auth/account/security', ({ request }) => {
+    if (denied(request)) return fail('请先登录')
+    return result({
+      username: 'development-user',
+      email: 'development@example.invalid',
+      passwordUpdatedAt: now(),
+    })
+  }),
+  http.get('/api/v1/auth/admin/password-reset-records', ({ request }) => {
+    if (denied(request)) return fail('请先登录')
+    return result([])
+  }),
   http.get('/api/v1/file/me', ({ request }) => {
     if (denied(request)) return fail('请先登录')
     const q = new URL(request.url).searchParams,
