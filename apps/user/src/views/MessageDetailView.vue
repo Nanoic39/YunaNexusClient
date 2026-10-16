@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NSpin, useMessage } from 'naive-ui'
+import { NAlert, NButton, NSpin } from 'naive-ui'
 import {
   PageContainer,
   PageEmpty,
@@ -10,45 +10,84 @@ import {
   formatDateTime,
   noticeStatusMeta,
 } from '@yuna/ui'
-import { noticeApi } from '@yuna/core'
+import { noticeApi, session } from '@yuna/core'
 import type { NoticeRecordView } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
-
-const route = useRoute()
-const router = useRouter()
-const message = useMessage()
-
-const loading = ref(true)
-const notice = ref<NoticeRecordView | null>(null)
-
+const route = useRoute(),
+  router = useRouter(),
+  loading = ref(true),
+  notice = ref<NoticeRecordView | null>(null),
+  error = ref(''),
+  readError = ref(''),
+  reading = ref(false)
 const noticeId = computed(() => Number(route.params.noticeId))
-
-/** 进入详情即视为已读（幂等，失败静默，不阻断阅读） */
-async function markRead(): Promise<void> {
-  const current = notice.value
-  if (!current || current.status === 3) return
+const identity = () => `${session.state.externalId}|${session.state.clientCode}`
+let alive = true,
+  generation = 0,
+  controller: AbortController | undefined
+async function markRead() {
+  const current = notice.value,
+    version = generation,
+    account = identity()
+  if (!current || current.status === 3 || reading.value) return
+  reading.value = true
+  readError.value = ''
   try {
     await noticeApi.markRead(current.noticeId)
-    current.status = 3
-  } catch {
-    /* 静默 */
-  }
-}
-
-/** 按 ID 加载本人通知，避免较旧通知因分页而显示不存在。 */
-async function load(): Promise<void> {
-  loading.value = true
-  try {
-    notice.value = await noticeApi.detail(noticeId.value)
-    await markRead()
-  } catch (error) {
-    message.error(handleApiError(error, router))
+    if (alive && version === generation && account === identity()) current.status = 3
+  } catch (cause) {
+    if (alive && version === generation && account === identity())
+      readError.value = handleApiError(cause, router)
   } finally {
-    loading.value = false
+    if (alive && version === generation) reading.value = false
   }
 }
-
-onMounted(load)
+async function load() {
+  const id = noticeId.value,
+    version = ++generation,
+    account = identity()
+  controller?.abort()
+  controller = new AbortController()
+  const signal = controller.signal
+  notice.value = null
+  error.value = ''
+  readError.value = ''
+  reading.value = false
+  loading.value = true
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    error.value = '通知编号无效'
+    loading.value = false
+    return
+  }
+  try {
+    const result = await noticeApi.detail(id, signal)
+    if (!alive || version !== generation || account !== identity()) return
+    notice.value = result
+    await markRead()
+  } catch (cause) {
+    if (alive && version === generation && account === identity() && !signal.aborted)
+      error.value = handleApiError(cause, router)
+  } finally {
+    if (alive && version === generation) loading.value = false
+  }
+}
+watch(
+  [noticeId, identity],
+  () => {
+    if (session.state.accessToken) void load()
+    else {
+      ++generation
+      controller?.abort()
+      notice.value = null
+    }
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => {
+  alive = false
+  ++generation
+  controller?.abort()
+})
 </script>
 
 <template>
@@ -57,6 +96,13 @@ onMounted(load)
       <n-button quaternary @click="router.back()">返回</n-button>
     </template>
 
+    <n-alert v-if="error" type="error" role="alert"
+      >{{ error }} <n-button text @click="load">重试</n-button></n-alert
+    >
+    <n-alert v-if="readError" type="warning"
+      >通知正文已加载，但未能标记已读：{{ readError }}
+      <n-button text :loading="reading" @click="markRead">重试标记已读</n-button></n-alert
+    >
     <n-spin :show="loading">
       <section-card v-if="notice" :title="notice.title || '（无标题）'">
         <template #extra>
@@ -72,7 +118,7 @@ onMounted(load)
         </div>
       </section-card>
 
-      <page-empty v-else-if="!loading" description="未找到该通知，可能已被删除" />
+      <page-empty v-else-if="!loading && !error" description="未找到该通知，可能已被删除" />
     </n-spin>
   </page-container>
 </template>

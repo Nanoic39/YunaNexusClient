@@ -1,7 +1,31 @@
-import {workspaceHandlers} from './workspace'
+import { workspaceHandlers } from './workspace'
 import { pkceChallenge } from '../http/handoff'
 import { http as mswHttp, HttpResponse, delay } from 'msw'
-import type { AdminUserView, AuditLogView, BadgeDefinitionView, BadgeGrantPayload, BadgeGrantRecord, BadgeSavePayload, DeptTreeNode, DeptView, MenuTreeNode, MenuView, NoticeRecordView, NoticeSendPayload, NoticeTemplateSavePayload, NoticeTemplateView, OAuthAppAuditPayload, OAuthApplicationView, OAuthAppSavePayload, Result, RoleView, TokenResult, UserProfileUpdatePayload, UserTag, UserTagSavePayload } from '../types'
+import type {
+  AdminUserView,
+  AuditLogView,
+  BadgeDefinitionView,
+  BadgeGrantPayload,
+  BadgeGrantRecord,
+  BadgeSavePayload,
+  DeptTreeNode,
+  DeptView,
+  MenuTreeNode,
+  MenuView,
+  NoticeRecordView,
+  NoticeSendPayload,
+  NoticeTemplateSavePayload,
+  NoticeTemplateView,
+  OAuthAppAuditPayload,
+  OAuthApplicationView,
+  OAuthAppSavePayload,
+  Result,
+  RoleView,
+  TokenResult,
+  UserProfileUpdatePayload,
+  UserTag,
+  UserTagSavePayload,
+} from '../types'
 import type { ServiceHealth } from '../content/status'
 import { defaultContent } from '../content/defaults'
 import type {
@@ -70,7 +94,10 @@ function trace(): string {
   return Math.random().toString(16).slice(2).padEnd(24, '0')
 }
 
-function paged<T>(list: T[], query: URLSearchParams): { records: T[]; total: number; page: number; size: number } {
+function paged<T>(
+  list: T[],
+  query: URLSearchParams,
+): { records: T[]; total: number; page: number; size: number } {
   const page = Math.max(1, Number(query.get('page') ?? 1))
   const size = Math.min(100, Math.max(1, Number(query.get('size') ?? 20)))
   const start = (page - 1) * size
@@ -84,7 +111,14 @@ function requireAdmin(request: Request): Response | null {
   const bearer = request.headers.get('Authorization')
   if (!bearer?.startsWith('Bearer ')) {
     return HttpResponse.json(
-      { code: 30501, msg: '登录状态无效，请重新登录', tips: null, data: null, traceId: trace(), timestamp: Date.now() },
+      {
+        code: 30501,
+        msg: '登录状态无效，请重新登录',
+        tips: null,
+        data: null,
+        traceId: trace(),
+        timestamp: Date.now(),
+      },
       { status: 401 },
     )
   }
@@ -155,7 +189,8 @@ function buildDeptTree(depts: DeptView[]): DeptTreeNode[] {
   return roots
 }
 
-const nextId = (items: { id: number }[]): number => items.reduce((max, item) => Math.max(max, item.id), 0) + 1
+const nextId = (items: { id: number }[]): number =>
+  items.reduce((max, item) => Math.max(max, item.id), 0) + 1
 
 /* --------------------------- 通知中心 · 工具 --------------------------- */
 
@@ -210,7 +245,9 @@ const portalPages: PortalPageView[] = defaultContent.pages.map((page, index) => 
 
 /** 按排序号升序（与后端 listPages 一致） */
 function sortedPortalPages(): PortalPageView[] {
-  return [...portalPages].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.recordId - b.recordId)
+  return [...portalPages].sort(
+    (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.recordId - b.recordId,
+  )
 }
 
 /** 站点视图 → 公开元信息（仅内容字段） */
@@ -232,12 +269,18 @@ export const handlers = [
   mswHttp.get('/api/v1/auth/captcha', async ({ request }) => {
     await delay(LATENCY)
     const username = new URL(request.url).searchParams.get('username') ?? ''
-    return HttpResponse.json(ok({ captchaId: `cap-${username || 'anon'}-${Date.now()}`, code: '123456' }))
+    return HttpResponse.json(
+      ok({ captchaId: `cap-${username || 'anon'}-${Date.now()}`, code: '123456' }),
+    )
   }),
 
   mswHttp.post('/api/v1/auth/login', async ({ request }) => {
     await delay(LATENCY)
-    const body = (await request.json()) as { username?: string; password?: string; clientCode?: string }
+    const body = (await request.json()) as {
+      username?: string
+      password?: string
+      clientCode?: string
+    }
     if (!body.username || !body.password) return fail(30001, '账号或密码错误', 401)
     if (body.password === 'wrong') return fail(30001, '账号或密码错误', 401)
     const data: TokenResult = {
@@ -253,11 +296,23 @@ export const handlers = [
   mswHttp.post('/api/v1/auth/sso/authorize', async ({ request }) => {
     const rejected = requireAdmin(request)
     if (rejected) return rejected
-    const body = await request.json() as { state: string; codeChallenge: string; redirectUri: string; clientCode: string }
-    if (body.clientCode !== 'web' || !/^[A-Za-z0-9_-]{43}$/.test(body.codeChallenge)) return fail(400, '授权请求无效', 400)
+    const body = (await request.json()) as {
+      state: string
+      codeChallenge: string
+      redirectUri: string
+      clientCode: string
+    }
+    if (body.clientCode !== 'web' || !/^[A-Za-z0-9_-]{43}$/.test(body.codeChallenge))
+      return fail(400, '授权请求无效', 400)
     // 两端 Mock 运行在不同 origin；仅在开发模式用自描述的公开 challenge 模拟授权码。
-    const code = btoa(JSON.stringify({ challenge: body.codeChallenge, redirectUri: body.redirectUri,
-      expiresAt: Date.now() + 60000, nonce: crypto.randomUUID() }))
+    const code = btoa(
+      JSON.stringify({
+        challenge: body.codeChallenge,
+        redirectUri: body.redirectUri,
+        expiresAt: Date.now() + 60000,
+        nonce: crypto.randomUUID(),
+      }),
+    )
     const url = new URL(body.redirectUri)
     url.searchParams.set('code', code)
     url.searchParams.set('state', body.state)
@@ -265,15 +320,37 @@ export const handlers = [
   }),
 
   mswHttp.post('/api/v1/auth/sso/token', async ({ request }) => {
-    const body = await request.json() as { code: string; codeVerifier: string; redirectUri: string; clientCode: string }
+    const body = (await request.json()) as {
+      code: string
+      codeVerifier: string
+      redirectUri: string
+      clientCode: string
+    }
     let record: { challenge: string; redirectUri: string; expiresAt: number; nonce: string }
-    try { record = JSON.parse(atob(body.code)) } catch { return fail(401, '授权码无效', 401) }
-    if (!record || !record.nonce || record.expiresAt < Date.now() || record.challenge !== pkceChallenge(body.codeVerifier)
-        || record.redirectUri !== body.redirectUri || body.clientCode !== 'web'
-        || sessionStorage.getItem('yuna.mock.sso.used.' + record.nonce)) return fail(401, '授权码无效', 401)
+    try {
+      record = JSON.parse(atob(body.code))
+    } catch {
+      return fail(401, '授权码无效', 401)
+    }
+    if (
+      !record ||
+      !record.nonce ||
+      record.expiresAt < Date.now() ||
+      record.challenge !== pkceChallenge(body.codeVerifier) ||
+      record.redirectUri !== body.redirectUri ||
+      body.clientCode !== 'web' ||
+      sessionStorage.getItem('yuna.mock.sso.used.' + record.nonce)
+    )
+      return fail(401, '授权码无效', 401)
     sessionStorage.setItem('yuna.mock.sso.used.' + record.nonce, '1')
-    return HttpResponse.json(ok({ accessToken: `mock.access.${crypto.randomUUID()}`, refreshToken: `mock.refresh.${crypto.randomUUID()}`,
-      expiresIn: 1800, externalId: 'k7Qm9xZ2vL4pR8wT5nB3dF6hJ1sA2cE4g' }))
+    return HttpResponse.json(
+      ok({
+        accessToken: `mock.access.${crypto.randomUUID()}`,
+        refreshToken: `mock.refresh.${crypto.randomUUID()}`,
+        expiresIn: 1800,
+        externalId: 'k7Qm9xZ2vL4pR8wT5nB3dF6hJ1sA2cE4g',
+      }),
+    )
   }),
 
   mswHttp.post('/api/v1/auth/register', async ({ request }) => {
@@ -373,7 +450,11 @@ export const handlers = [
     const auth = request.headers.get('Authorization')
     if (!auth?.startsWith('Bearer ')) return fail(30006, '未登录或登录已失效', 401)
     return HttpResponse.json(
-      ok({ externalId: 'k7Qm9xZ2vL4pR8wT5nB3dF6hJ1sA2cE4g', clientCode: 'user', nickname: '演示用户' }),
+      ok({
+        externalId: 'k7Qm9xZ2vL4pR8wT5nB3dF6hJ1sA2cE4g',
+        clientCode: 'user',
+        nickname: '演示用户',
+      }),
     )
   }),
 
@@ -431,7 +512,10 @@ export const handlers = [
     if (guard) return guard
     const query = new URL(request.url).searchParams
     const status = query.get('status')
-    const list = status !== null && status !== '' ? mockAppeals.filter((a) => String(a.status) === status) : mockAppeals
+    const list =
+      status !== null && status !== ''
+        ? mockAppeals.filter((a) => String(a.status) === status)
+        : mockAppeals
     return HttpResponse.json(ok(paged(list, query)))
   }),
 
@@ -454,7 +538,8 @@ export const handlers = [
     const body = (await request.json().catch(() => ({}))) as { auditor?: string; remark?: string }
     appeal.status = params.action === 'approve' ? 1 : 2
     appeal.auditor = body.auditor ?? 'admin'
-    appeal.auditRemark = body.remark ?? (params.action === 'approve' ? '人工复核通过' : '未通过身份核验')
+    appeal.auditRemark =
+      body.remark ?? (params.action === 'approve' ? '人工复核通过' : '未通过身份核验')
     appeal.auditTime = nowIso()
     appeal.updateTime = nowIso()
     if (appeal.status === 1 && appeal.userId) {
@@ -472,7 +557,9 @@ export const handlers = [
     const auth = request.headers.get('Authorization')
     if (!auth?.startsWith('Bearer ')) return fail(30006, '未登录或登录已失效', 401)
     const roleIds = mockCurrentUserRoles.map((role) => role.id)
-    const enabledRoleIds = mockRoles.filter((role) => roleIds.includes(role.id) && role.status === 1).map((r) => r.id)
+    const enabledRoleIds = mockRoles
+      .filter((role) => roleIds.includes(role.id) && role.status === 1)
+      .map((r) => r.id)
     // 权限为各启用角色的权限并集（与后端一致：去重升序）
     const permissionIds = new Set(enabledRoleIds.flatMap((id) => mockRolePermissions[id] ?? []))
     const permissions = mockPermissions
@@ -520,7 +607,8 @@ export const handlers = [
       dataScope?: number
       status?: number
     }
-    if (mockRoles.some((role) => role.roleCode === body.roleCode)) return fail(40002, '角色标识已存在', 409)
+    if (mockRoles.some((role) => role.roleCode === body.roleCode))
+      return fail(40002, '角色标识已存在', 409)
     const role = {
       id: nextId(mockRoles),
       roleCode: body.roleCode,
@@ -577,14 +665,17 @@ export const handlers = [
     return HttpResponse.json(ok(mockRolePermissions[Number(params.roleId)] ?? []))
   }),
 
-  mswHttp.post('/api/v1/permission/admin/roles/:roleId/permissions', async ({ request, params }) => {
-    await delay(LATENCY)
-    const guard = requireAdmin(request)
-    if (guard) return guard
-    const body = (await request.json()) as { permissionIds?: number[] }
-    mockRolePermissions[Number(params.roleId)] = body.permissionIds ?? []
-    return HttpResponse.json(ok(null, '权限绑定已更新'))
-  }),
+  mswHttp.post(
+    '/api/v1/permission/admin/roles/:roleId/permissions',
+    async ({ request, params }) => {
+      await delay(LATENCY)
+      const guard = requireAdmin(request)
+      if (guard) return guard
+      const body = (await request.json()) as { permissionIds?: number[] }
+      mockRolePermissions[Number(params.roleId)] = body.permissionIds ?? []
+      return HttpResponse.json(ok(null, '权限绑定已更新'))
+    },
+  ),
 
   mswHttp.get('/api/v1/permission/admin/roles/:roleId/menus', async ({ request, params }) => {
     await delay(LATENCY)
@@ -670,7 +761,12 @@ export const handlers = [
     if (guard) return guard
     const permission = mockPermissions.find((item) => item.id === Number(params.id))
     if (!permission) return fail(40101, '权限不存在', 404)
-    const body = (await request.json()) as { resource: string; action: string; description?: string; status?: number }
+    const body = (await request.json()) as {
+      resource: string
+      action: string
+      description?: string
+      status?: number
+    }
     permission.resource = body.resource
     permission.action = body.action
     permission.description = body.description ?? null
@@ -687,7 +783,9 @@ export const handlers = [
     if (index < 0) return fail(40101, '权限不存在', 404)
     const [removed] = mockPermissions.splice(index, 1)
     for (const roleId of Object.keys(mockRolePermissions)) {
-      mockRolePermissions[Number(roleId)] = mockRolePermissions[Number(roleId)].filter((id) => id !== removed.id)
+      mockRolePermissions[Number(roleId)] = mockRolePermissions[Number(roleId)].filter(
+        (id) => id !== removed.id,
+      )
     }
     return HttpResponse.json(ok(null, '权限已删除'))
   }),
@@ -729,9 +827,11 @@ export const handlers = [
       sort?: number
       status?: number
     }
-    if (mockMenus.some((item) => item.menuCode === body.menuCode)) return fail(40702, '菜单编码已存在', 409)
+    if (mockMenus.some((item) => item.menuCode === body.menuCode))
+      return fail(40702, '菜单编码已存在', 409)
     const parentId = body.parentId ?? 0
-    if (parentId !== 0 && !mockMenus.some((item) => item.id === parentId)) return fail(40701, '菜单不存在', 404)
+    if (parentId !== 0 && !mockMenus.some((item) => item.id === parentId))
+      return fail(40701, '菜单不存在', 404)
     const menu: MenuView = {
       id: nextId(mockMenus),
       menuCode: body.menuCode,
@@ -753,7 +853,12 @@ export const handlers = [
     if (guard) return guard
     const menu = mockMenus.find((item) => item.id === Number(params.id))
     if (!menu) return fail(40701, '菜单不存在', 404)
-    const body = (await request.json()) as { menuName: string; path?: string; sort?: number; status?: number }
+    const body = (await request.json()) as {
+      menuName: string
+      path?: string
+      sort?: number
+      status?: number
+    }
     menu.menuName = body.menuName
     menu.path = body.path ?? null
     if (body.sort !== undefined) menu.sort = body.sort
@@ -769,10 +874,13 @@ export const handlers = [
     const id = Number(params.id)
     const index = mockMenus.findIndex((item) => item.id === id)
     if (index < 0) return fail(40701, '菜单不存在', 404)
-    if (mockMenus.some((item) => item.parentId === id)) return fail(40703, '存在子菜单，无法删除', 409)
+    if (mockMenus.some((item) => item.parentId === id))
+      return fail(40703, '存在子菜单，无法删除', 409)
     mockMenus.splice(index, 1)
     for (const roleId of Object.keys(mockRoleMenus)) {
-      mockRoleMenus[Number(roleId)] = mockRoleMenus[Number(roleId)].filter((menuId) => menuId !== id)
+      mockRoleMenus[Number(roleId)] = mockRoleMenus[Number(roleId)].filter(
+        (menuId) => menuId !== id,
+      )
     }
     return HttpResponse.json(ok(null, '菜单已删除'))
   }),
@@ -813,9 +921,11 @@ export const handlers = [
       sort?: number
       status?: number
     }
-    if (mockDepts.some((item) => item.deptCode === body.deptCode)) return fail(40402, '部门编码已存在', 409)
+    if (mockDepts.some((item) => item.deptCode === body.deptCode))
+      return fail(40402, '部门编码已存在', 409)
     const parentId = body.parentId ?? 0
-    if (parentId !== 0 && !mockDepts.some((item) => item.id === parentId)) return fail(40401, '部门不存在', 404)
+    if (parentId !== 0 && !mockDepts.some((item) => item.id === parentId))
+      return fail(40401, '部门不存在', 404)
     const dept: DeptView = {
       id: nextId(mockDepts),
       deptCode: body.deptCode,
@@ -851,10 +961,13 @@ export const handlers = [
     const id = Number(params.id)
     const index = mockDepts.findIndex((item) => item.id === id)
     if (index < 0) return fail(40401, '部门不存在', 404)
-    if (mockDepts.some((item) => item.parentId === id)) return fail(40403, '存在子部门，无法删除', 409)
+    if (mockDepts.some((item) => item.parentId === id))
+      return fail(40403, '存在子部门，无法删除', 409)
     mockDepts.splice(index, 1)
     for (const roleId of Object.keys(mockRoleDepts)) {
-      mockRoleDepts[Number(roleId)] = mockRoleDepts[Number(roleId)].filter((deptId) => deptId !== id)
+      mockRoleDepts[Number(roleId)] = mockRoleDepts[Number(roleId)].filter(
+        (deptId) => deptId !== id,
+      )
     }
     return HttpResponse.json(ok(null, '部门已删除'))
   }),
@@ -896,7 +1009,8 @@ export const handlers = [
     if (!profile) return fail(20001, '用户不存在', 404)
     const body = (await request.json()) as UserProfileUpdatePayload
     // 手机号功能当前关闭：携带任一手机号字段一律拒绝（与后端一致）
-    if (body.mobile != null || body.mobileCountry != null) return fail(30404, '手机号功能暂未开放', 400)
+    if (body.mobile != null || body.mobileCountry != null)
+      return fail(30404, '手机号功能暂未开放', 400)
     // 与后端一致：仅更新非 null 字段
     if (body.nickname != null) profile.nickname = body.nickname
     if (body.avatar != null) profile.avatar = body.avatar
@@ -917,8 +1031,19 @@ export const handlers = [
     const guard = requireUser(request)
     if (guard) return guard
     const body = (await request.json()) as UserTagSavePayload
-    if (!Array.isArray(body.tags) || body.tags.length > 20) return fail(400, '最多保存 20 个标签', 400)
-    if (body.tags.some(tag => !tag?.tagCode?.trim() || !tag?.tagName?.trim() || tag.tagCode.length > 32 || tag.tagName.length > 32 || (tag.color?.length ?? 0) > 16)) return fail(400, '标签格式不正确', 400)
+    if (!Array.isArray(body.tags) || body.tags.length > 20)
+      return fail(400, '最多保存 20 个标签', 400)
+    if (
+      body.tags.some(
+        (tag) =>
+          !tag?.tagCode?.trim() ||
+          !tag?.tagName?.trim() ||
+          tag.tagCode.length > 32 ||
+          tag.tagName.length > 32 ||
+          (tag.color?.length ?? 0) > 16,
+      )
+    )
+      return fail(400, '标签格式不正确', 400)
     // 覆盖式：同一 tagCode 保留第一项，最多 20 个（与后端一致）
     const dedup = new Map<string, UserTag>()
     for (const tag of body.tags ?? []) {
@@ -995,7 +1120,9 @@ export const handlers = [
     const badge = mockBadgeDefinitions.find((item) => item.id === Number(params.id))
     if (!badge) return fail(40302, '徽章不存在', 404)
     const body = (await request.json()) as BadgeSavePayload
-    if (mockBadgeDefinitions.some((item) => item.badgeCode === body.badgeCode && item.id !== badge.id)) {
+    if (
+      mockBadgeDefinitions.some((item) => item.badgeCode === body.badgeCode && item.id !== badge.id)
+    ) {
       return fail(40301, '徽章编码已存在', 409)
     }
     badge.badgeCode = body.badgeCode
@@ -1021,7 +1148,11 @@ export const handlers = [
     let granted = 0
     for (const userId of body.userIds ?? []) {
       // 幂等：同一徽章不重复发放给同一用户
-      if (mockBadgeGrantRecords.some((record) => record.badgeId === badge.id && record.userId === userId)) {
+      if (
+        mockBadgeGrantRecords.some(
+          (record) => record.badgeId === badge.id && record.userId === userId,
+        )
+      ) {
         continue
       }
       seq += 1
@@ -1040,7 +1171,9 @@ export const handlers = [
     }
     badge.grantedCount += granted
     badge.updateTime = nowIso()
-    return HttpResponse.json(ok(null, granted > 0 ? `已发放给 ${granted} 位用户` : '所选用户均已持有该徽章'))
+    return HttpResponse.json(
+      ok(null, granted > 0 ? `已发放给 ${granted} 位用户` : '所选用户均已持有该徽章'),
+    )
   }),
 
   mswHttp.delete('/api/v1/user/admin/badges/:id', async ({ request, params }) => {
@@ -1215,9 +1348,25 @@ export const handlers = [
 
   /* ------------------------------ 通知中心 · 站内信 ------------------------------ */
 
+  mswHttp.get('/api/v1/notice/inbox/summary', () => {
+    const visible = mockNotices.filter((n) => n.channel === 1 && (n.status === 1 || n.status === 3))
+    return HttpResponse.json(
+      ok({ total: visible.length, unread: visible.filter((n) => n.status === 1).length }),
+    )
+  }),
+  mswHttp.post('/api/v1/notice/read/all', async () => {
+    await delay(120)
+    const unread = mockNotices.filter((n) => n.channel === 1 && n.status === 1)
+    unread.forEach((n) => (n.status = 3))
+    return HttpResponse.json(ok({ changed: unread.length }))
+  }),
   mswHttp.get('/api/v1/notice/inbox/:noticeId', ({ params }) => {
-    const record = mockNotices.find((item) => item.noticeId === Number(params.noticeId)
-      && item.channel === 1 && (item.status === 1 || item.status === 3))
+    const record = mockNotices.find(
+      (item) =>
+        item.noticeId === Number(params.noticeId) &&
+        item.channel === 1 &&
+        (item.status === 1 || item.status === 3),
+    )
     return record ? HttpResponse.json(ok(record)) : fail(60103, '通知不存在', 404)
   }),
 
@@ -1225,14 +1374,20 @@ export const handlers = [
     await delay(LATENCY)
     const query = new URL(request.url).searchParams
     // 与后端一致：仅 channel=1 且状态为「已发送 / 已读」的记录
-    const visible = mockNotices.filter((n) => n.channel === 1 && (n.status === 1 || n.status === 3))
+    const visible = mockNotices.filter(
+      (n) =>
+        n.channel === 1 &&
+        (n.status === 1 || n.status === 3) &&
+        (!query.has('status') || n.status === Number(query.get('status'))),
+    )
     return HttpResponse.json(ok(paged(visible, query)))
   }),
 
   mswHttp.post('/api/v1/notice/read/:noticeId', async ({ params }) => {
     await delay(120)
     const notice = mockNotices.find((n) => n.noticeId === Number(params.noticeId))
-    if (!notice || notice.channel !== 1 || notice.status !== 1) return fail(60103, '通知记录不存在或不可操作')
+    if (!notice || notice.channel !== 1 || ![1, 3].includes(notice.status))
+      return fail(60103, '通知记录不存在或不可操作')
     notice.status = 3
     return HttpResponse.json(ok(null))
   }),
@@ -1297,7 +1452,9 @@ export const handlers = [
     const template = mockNoticeTemplates.find((t) => t.id === Number(params.id))
     if (!template) return fail(60101, '通知模板不存在', 404)
     const body = (await request.json()) as NoticeTemplateSavePayload
-    if (mockNoticeTemplates.some((t) => t.templateCode === body.templateCode && t.id !== template.id)) {
+    if (
+      mockNoticeTemplates.some((t) => t.templateCode === body.templateCode && t.id !== template.id)
+    ) {
       return fail(60102, '模板编码已存在', 409)
     }
     template.templateCode = body.templateCode
@@ -1484,7 +1641,8 @@ export const handlers = [
     const guard = requireAdmin(request)
     if (guard) return guard
     const body = (await request.json()) as PortalPageSaveRequest
-    if (portalPages.some((page) => page.id === body.id)) return fail(60203, '门户页面标识已存在', 409)
+    if (portalPages.some((page) => page.id === body.id))
+      return fail(60203, '门户页面标识已存在', 409)
     const path = normalizePath(body.path)
     if (portalPages.some((page) => normalizePath(page.path) === path)) {
       return fail(60204, '门户页面路径已存在', 409)
@@ -1529,7 +1687,11 @@ export const handlers = [
       return fail(60203, '门户页面标识已存在', 409)
     }
     const path = normalizePath(body.path)
-    if (portalPages.some((item) => normalizePath(item.path) === path && item.recordId !== page.recordId)) {
+    if (
+      portalPages.some(
+        (item) => normalizePath(item.path) === path && item.recordId !== page.recordId,
+      )
+    ) {
       return fail(60204, '门户页面路径已存在', 409)
     }
     page.id = body.id

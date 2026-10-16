@@ -1,3 +1,4 @@
+import { ref } from 'vue'
 import { adminHttp, userHttp } from '../http/client'
 import type {
   NoticeRecordView,
@@ -10,16 +11,36 @@ import type {
 
 const BASE = '/api/v1/notice'
 
+/** 成功变更已读状态后通知本页其他组件重新取数，不乐观伪造未读数。 */
+export const noticeRevision = ref(0)
+export interface NoticeInboxSummary {
+  total: number
+  unread: number
+}
+
 /** 通知中心 · 站内信（终端用户） */
 export const noticeApi = {
   /** 当前用户的单条站内信详情；服务端校验接收方。 */
-  detail: (noticeId: number) => userHttp.request<NoticeRecordView>(`${BASE}/inbox/${noticeId}`),
+  detail: (noticeId: number, signal?: AbortSignal) =>
+    userHttp.request<NoticeRecordView>(`${BASE}/inbox/${noticeId}`, { signal }),
   /** 站内信收件箱（分页，按时间倒序，仅 channel=1 且已发送/已读） */
-  inbox: (query?: PageQuery) =>
-    userHttp.request<PageResult<NoticeRecordView>>(`${BASE}/inbox`, { query }),
+  inbox: (query?: PageQuery & { status?: 1 | 3 }, signal?: AbortSignal) =>
+    userHttp.request<PageResult<NoticeRecordView>>(`${BASE}/inbox`, { query, signal }),
+  summary: (signal?: AbortSignal) =>
+    userHttp.request<NoticeInboxSummary>(`${BASE}/inbox/summary`, { signal }),
+  markAllRead: async () => {
+    const result = await userHttp.request<{ changed: number }>(`${BASE}/read/all`, {
+      method: 'POST',
+    })
+    noticeRevision.value++
+    return result
+  },
 
   /** 标记已读 */
-  markRead: (noticeId: number) => userHttp.request<void>(`${BASE}/read/${noticeId}`, { method: 'POST' }),
+  markRead: async (noticeId: number) => {
+    await userHttp.request<void>(`${BASE}/read/${noticeId}`, { method: 'POST' })
+    noticeRevision.value++
+  },
 }
 
 /** 通知中心 · 管理后台（模板 / 发送 / 记录） */
@@ -39,14 +60,18 @@ export const noticeAdminApi = {
 
   /** 修改模板 */
   updateTemplate: (id: number, payload: NoticeTemplateSavePayload) =>
-    adminHttp.request<NoticeTemplateView>(`${BASE}/template/${id}`, { method: 'PUT', body: payload }),
+    adminHttp.request<NoticeTemplateView>(`${BASE}/template/${id}`, {
+      method: 'PUT',
+      body: payload,
+    }),
 
   /** 启用 / 停用模板（1-启用 0-停用） */
   toggleTemplateStatus: (id: number, status: number) =>
     adminHttp.request<void>(`${BASE}/template/${id}/status`, { method: 'POST', query: { status } }),
 
   /** 删除模板 */
-  removeTemplate: (id: number) => adminHttp.request<void>(`${BASE}/template/${id}`, { method: 'DELETE' }),
+  removeTemplate: (id: number) =>
+    adminHttp.request<void>(`${BASE}/template/${id}`, { method: 'DELETE' }),
 
   /* ------------------------------ 发送 / 记录 ------------------------------ */
 

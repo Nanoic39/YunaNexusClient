@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { noticeApi } from '@yuna/core'
+import { noticeApi, noticeRevision, session, toErrorMessage } from '@yuna/core'
+import { useDialog } from 'naive-ui'
 import type { NoticeRecordView } from '@yuna/core'
 import { formatRelative } from '../utils/format'
 
@@ -15,7 +16,7 @@ import { formatRelative } from '../utils/format'
  * - 「查看全部通知」→ 抛出 `open` 事件（无 id）跳转站内信列表页。
  *
  * 面板高度随内容（加载中 / 空态 / 列表）平滑过渡，避免数据到位后的突兀跳变。
- * 数据源为站内信收件箱（`noticeApi.inbox`），未读判定为 `status !== 3`。
+ * 数据来自已送达收件箱；徽标读取服务端全局未读计数，不受浮层条数影响。
  */
 interface Props {
   /** 面板最多展示的条数 */
@@ -41,6 +42,15 @@ const PREVIEW_GAP = 10
 const open = ref(false)
 const loading = ref(false)
 const notices = ref<NoticeRecordView[]>([])
+const unreadCount = ref(0),
+  error = ref(''),
+  markingAll = ref(false),
+  dialog = useDialog()
+let alive = true,
+  generation = 0,
+  controller: AbortController | undefined,
+  refreshTimer: ReturnType<typeof setInterval> | undefined
+const identity = () => `${session.state.externalId}|${session.state.clientCode}`
 
 const rootRef = ref<HTMLElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
@@ -55,7 +65,6 @@ const previewStyle = ref<Record<string, string>>({})
 let hideTimer: number | undefined
 
 const unread = computed(() => notices.value.filter((item) => item.status !== 3))
-const unreadCount = computed(() => unread.value.length)
 const badge = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 const visible = computed(() => notices.value.slice(0, props.limit))
 
@@ -67,13 +76,32 @@ function syncBodyHeight(): void {
 }
 
 async function load(): Promise<void> {
-  loading.value = true
-  try {
-    notices.value = (await noticeApi.inbox()).records
-  } catch {
-    /* 未登录 / 接口不可用时保持空列表，徽标不展示 */
-  } finally {
+  const version = ++generation,
+    account = identity()
+  controller?.abort()
+  controller = new AbortController()
+  const signal = controller.signal
+  if (!session.state.accessToken) {
+    notices.value = []
+    unreadCount.value = 0
     loading.value = false
+    return
+  }
+  loading.value = true
+  error.value = ''
+  try {
+    const [list, summary] = await Promise.all([
+      noticeApi.inbox({ page: 1, size: Math.max(1, Math.min(100, props.limit)) }, signal),
+      noticeApi.summary(signal),
+    ])
+    if (!alive || version !== generation || account !== identity()) return
+    notices.value = list.records
+    unreadCount.value = summary.unread
+  } catch (cause) {
+    if (alive && version === generation && account === identity() && !signal.aborted)
+      error.value = toErrorMessage(cause)
+  } finally {
+    if (alive && version === generation) loading.value = false
   }
 }
 
@@ -95,19 +123,30 @@ function close(): void {
   cancelHide()
 }
 
-async function markAllRead(): Promise<void> {
-  const targets = unread.value.slice()
-  targets.forEach((item) => {
-    item.status = 3
-    emit('read', item.noticeId)
+function confirmAllRead() {
+  if (!unreadCount.value || markingAll.value || loading.value || error.value) return
+  dialog.warning({
+    title: '全部标记已读',
+    content: `将当前账号所有已送达的未读站内信标记已读（当前 ${unreadCount.value} 条），不限于浮层中的记录。`,
+    positiveText: '全部已读',
+    negativeText: '取消',
+    onPositiveClick: markAllRead,
   })
-  await Promise.all(
-    targets.map((item) =>
-      noticeApi.markRead(item.noticeId).catch(() => {
-        item.status = 1
-      }),
-    ),
-  )
+}
+async function markAllRead(): Promise<void> {
+  if (markingAll.value) return
+  const account = identity()
+  markingAll.value = true
+  try {
+    await noticeApi.markAllRead()
+    if (!alive || account !== identity()) return
+    unread.value.forEach((item) => emit('read', item.noticeId))
+    await load()
+  } catch (cause) {
+    if (alive && account === identity()) error.value = toErrorMessage(cause)
+  } finally {
+    if (alive) markingAll.value = false
+  }
 }
 
 /** 跳转独立页面查看（可选定位到某条通知） */
@@ -183,7 +222,7 @@ function onKeydown(event: KeyboardEvent): void {
 
 /** 内容变化后重新测量高度，触发平滑过渡而非跳变；加载中保持收缩态不测量 */
 watch(
-  [loading, visible],
+  [loading, visible, error],
   () => {
     if (loading.value) return
     syncBodyHeight()
@@ -192,12 +231,35 @@ watch(
 )
 
 onMounted(() => {
-  void load()
+  refreshTimer = setInterval(() => {
+    if (!document.hidden && !loading.value && !markingAll.value) void load()
+  }, 60000)
   document.addEventListener('mousedown', onDocPointerDown)
   document.addEventListener('keydown', onKeydown)
 })
 
+watch(noticeRevision, () => {
+  if (!markingAll.value) void load()
+})
+watch(
+  identity,
+  () => {
+    ++generation
+    controller?.abort()
+    notices.value = []
+    unreadCount.value = 0
+    error.value = ''
+    void load()
+  },
+  { immediate: true },
+)
+
 onBeforeUnmount(() => {
+  alive = false
+  ++generation
+  controller?.abort()
+  if (refreshTimer) clearInterval(refreshTimer)
+  cancelHide()
   document.removeEventListener('mousedown', onDocPointerDown)
   document.removeEventListener('keydown', onKeydown)
 })
@@ -230,7 +292,7 @@ onBeforeUnmount(() => {
           stroke-linecap="round"
         />
       </svg>
-      <span v-if="unreadCount" class="ntf__badge">{{ badge }}</span>
+      <span v-if="unreadCount && !error" class="ntf__badge">{{ badge }}</span>
     </button>
 
     <Transition name="ntf-pop">
@@ -240,8 +302,8 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="ntf__action"
-            :disabled="!unreadCount"
-            @click="markAllRead"
+            :disabled="!unreadCount || loading || markingAll || !!error"
+            @click="confirmAllRead"
           >
             全部已读
           </button>
@@ -250,6 +312,9 @@ onBeforeUnmount(() => {
         <div class="ntf__body" :style="{ height: bodyHeight }">
           <div ref="bodyInnerRef" class="ntf__body-inner">
             <p v-if="loading" class="ntf__hint">加载中…</p>
+            <p v-else-if="error" class="ntf__hint" role="alert">
+              通知加载失败：{{ error }} <button type="button" @click="load">重试</button>
+            </p>
             <p v-else-if="!visible.length" class="ntf__hint">暂无通知</p>
             <ul v-else class="ntf__list">
               <li
@@ -328,7 +393,9 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   border-radius: var(--yuna-radius-md);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .ntf__trigger:hover,
@@ -506,7 +573,9 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   border-radius: 10px;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .ntf__more:hover {
@@ -582,11 +651,15 @@ onBeforeUnmount(() => {
 }
 
 .ntf-preview-enter-active {
-  transition: opacity 0.18s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    opacity 0.18s ease,
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .ntf-preview-leave-active {
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
 }
 
 .ntf-preview-enter-from,

@@ -1,139 +1,188 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NPagination, NSpin, NTabPane, NTabs, useDialog, useMessage } from 'naive-ui'
-import { PageContainer, PageEmpty, SectionCard, StatusTag, formatRelative, noticeStatusMeta } from '@yuna/ui'
-import { noticeApi } from '@yuna/core'
+import {
+  NAlert,
+  NButton,
+  NPagination,
+  NSpin,
+  NTabPane,
+  NTabs,
+  useDialog,
+  useMessage,
+} from 'naive-ui'
+import {
+  PageContainer,
+  PageEmpty,
+  SectionCard,
+  StatusTag,
+  formatRelative,
+  noticeStatusMeta,
+} from '@yuna/ui'
+import { noticeApi, noticeRevision, session } from '@yuna/core'
 import type { NoticeRecordView } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
 
-const router = useRouter()
-const message = useMessage()
-const dialog = useDialog()
-
-const loading = ref(true)
-const notices = ref<NoticeRecordView[]>([])
-const total = ref(0)
-const filter = ref('all')
-const readingId = ref<number | null>(null)
-const markingAll = ref(false)
-
-/** 使用服务端分页；后端暂不支持按状态过滤，仅筛选当前页 */
-const PAGE_SIZE = 10
-const page = ref(1)
-
-const filtered = computed(() => {
-  if (filter.value === 'unread') return notices.value.filter((item) => item.status === 1)
-  if (filter.value === 'read') return notices.value.filter((item) => item.status === 3)
-  return notices.value
-})
-
-const paged = filtered
-
-const unreadCount = computed(() => notices.value.filter((item) => item.status === 1).length)
-
+const router = useRouter(),
+  message = useMessage(),
+  dialog = useDialog()
+const loading = ref(true),
+  notices = ref<NoticeRecordView[]>([]),
+  total = ref(0),
+  filter = ref('all')
+const summary = ref({ total: 0, unread: 0 }),
+  error = ref(''),
+  readingId = ref<number | null>(null),
+  markingAll = ref(false)
+const PAGE_SIZE = 10,
+  page = ref(1)
+const unreadCount = computed(() => summary.value.unread)
+const filtered = notices,
+  paged = notices
 const emptyDescription = computed(() =>
   filter.value === 'all' ? '暂无站内信' : '没有符合条件的站内信',
 )
-
-function onPageChange(next: number): void {
+let alive = true,
+  generation = 0,
+  controller: AbortController | undefined
+const identity = () => `${session.state.externalId}|${session.state.clientCode}`
+function onPageChange(next: number) {
   page.value = next
   void load()
 }
-
 async function load(): Promise<void> {
+  const version = ++generation,
+    account = identity()
+  controller?.abort()
+  controller = new AbortController()
+  const signal = controller.signal
   loading.value = true
+  error.value = ''
   try {
-    const result = await noticeApi.inbox({ page: page.value, size: PAGE_SIZE })
+    const [result, counts] = await Promise.all([
+      noticeApi.inbox(
+        {
+          page: page.value,
+          size: PAGE_SIZE,
+          status: filter.value === 'unread' ? 1 : filter.value === 'read' ? 3 : undefined,
+        },
+        signal,
+      ),
+      noticeApi.summary(signal),
+    ])
+    if (!alive || version !== generation || account !== identity()) return
+    const last = Math.max(1, Math.ceil(result.total / PAGE_SIZE))
+    if (page.value > last) {
+      page.value = last
+      await load()
+      return
+    }
     notices.value = result.records
     total.value = result.total
-  } catch (error) {
-    message.error(handleApiError(error, router))
+    summary.value = counts
+  } catch (cause) {
+    if (alive && version === generation && account === identity() && !signal.aborted)
+      error.value = handleApiError(cause, router)
   } finally {
-    loading.value = false
+    if (alive && version === generation) loading.value = false
   }
 }
-
 async function markRead(notice: NoticeRecordView): Promise<void> {
-  if (notice.status === 3) return
+  if (notice.status === 3 || readingId.value !== null || markingAll.value) return
+  const account = identity()
   readingId.value = notice.id
   try {
     await noticeApi.markRead(notice.noticeId)
-    notice.status = 3
+    if (!alive || account !== identity()) return
+    await load()
     message.success('已标记为已读')
-  } catch (error) {
-    message.error(handleApiError(error, router))
+  } catch (cause) {
+    if (alive && account === identity()) message.error(handleApiError(cause, router))
   } finally {
-    readingId.value = null
+    if (alive) readingId.value = null
   }
 }
-
-/** 一键本页已读：后端暂无批量接口，逐条幂等调用 */
-function confirmMarkAllRead(): void {
-  if (!unreadCount.value) {
-    message.info('没有未读的站内信')
-    return
-  }
+function confirmMarkAllRead() {
+  if (!unreadCount.value || markingAll.value || loading.value || error.value) return
   dialog.warning({
-    title: '本页标记已读',
-    content: `确认将 ${unreadCount.value} 条本页未读站内信标记为已读？`,
-    positiveText: '本页已读',
+    title: '全部标记已读',
+    content: `将当前账号所有已送达的未读站内信标记已读（当前 ${unreadCount.value} 条），不限于本页。`,
+    positiveText: '全部已读',
     negativeText: '取消',
     onPositiveClick: markAllRead,
   })
 }
-
-async function markAllRead(): Promise<void> {
+async function markAllRead() {
+  if (markingAll.value) return
+  const account = identity()
   markingAll.value = true
   try {
-    const unread = notices.value.filter((item) => item.status === 1)
-    for (const item of unread) {
-      await noticeApi.markRead(item.noticeId)
-      item.status = 3
-    }
-    message.success(`已将 ${unread.length} 条站内信标记为已读`)
-  } catch (error) {
-    message.error(handleApiError(error, router))
+    const result = await noticeApi.markAllRead()
+    if (!alive || account !== identity()) return
     await load()
+    message.success(`已将 ${result.changed} 条站内信标记为已读`)
+  } catch (cause) {
+    if (alive && account === identity()) message.error(handleApiError(cause, router))
   } finally {
-    markingAll.value = false
+    if (alive) markingAll.value = false
   }
 }
-
-/** 进入单条通知详情页，便于查看超长通知 */
-function openDetail(notice: NoticeRecordView): void {
+function openDetail(notice: NoticeRecordView) {
   void router.push({ name: 'message-detail', params: { noticeId: String(notice.noticeId) } })
 }
-
+watch(filter, () => {
+  page.value = 1
+  void load()
+})
+watch(noticeRevision, () => {
+  if (readingId.value === null && !markingAll.value) void load()
+})
+watch(identity, () => {
+  ++generation
+  controller?.abort()
+  notices.value = []
+  summary.value = { total: 0, unread: 0 }
+  total.value = 0
+  if (session.state.accessToken) void load()
+})
 onMounted(load)
+onBeforeUnmount(() => {
+  alive = false
+  ++generation
+  controller?.abort()
+})
 </script>
 
 <template>
-  <page-container title="站内信" description="系统通知与安全提醒；状态筛选和批量已读仅作用于当前页">
+  <page-container
+    title="站内信"
+    description="系统通知与安全提醒；按全部记录筛选，已读状态与顶栏同步"
+  >
     <template #extra>
       <n-button
         secondary
         type="primary"
-        :disabled="!unreadCount"
+        :disabled="loading || !!error || !unreadCount || readingId !== null"
         :loading="markingAll"
         @click="confirmMarkAllRead"
       >
-        本页已读
+        全部已读
       </n-button>
       <n-button quaternary :loading="loading" @click="load">刷新</n-button>
     </template>
 
     <template #tabs>
       <n-tabs v-model:value="filter" type="line" size="small" style="max-width: 320px">
-        <n-tab-pane name="all" tab="本页全部" />
-        <n-tab-pane name="unread" :tab="`本页未读${unreadCount ? ` (${unreadCount})` : ''}`" />
-        <n-tab-pane name="read" tab="本页已读" />
+        <n-tab-pane name="all" tab="全部" />
+        <n-tab-pane name="unread" :tab="`未读${unreadCount ? ` (${unreadCount})` : ''}`" />
+        <n-tab-pane name="read" tab="已读" />
       </n-tabs>
     </template>
 
     <section-card flush>
+      <n-alert v-if="error" type="error" role="alert">{{ error }}</n-alert>
       <n-spin :show="loading">
-        <page-empty v-if="!filtered.length" :description="emptyDescription" />
+        <page-empty v-if="!filtered.length && !error" :description="emptyDescription" />
         <ul v-else class="msg-list">
           <li
             v-for="item in paged"
@@ -160,7 +209,7 @@ onMounted(load)
               text
               type="primary"
               size="small"
-              :disabled="item.status === 3"
+              :disabled="loading || item.status === 3 || markingAll || readingId !== null"
               :loading="readingId === item.id"
               @click.stop="markRead(item)"
             >
@@ -173,6 +222,7 @@ onMounted(load)
       <div v-if="total > PAGE_SIZE" class="msg-pager">
         <n-pagination
           :page="page"
+          :disabled="loading || markingAll || readingId !== null"
           @update:page="onPageChange"
           :page-size="PAGE_SIZE"
           :item-count="total"
