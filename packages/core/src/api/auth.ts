@@ -11,7 +11,6 @@ import type {
   LoginPayload,
   PageResult,
   RegisterPayload,
-  ResetPasswordPayload,
   TokenResult,
   UnlockAppealPayload,
 } from '../types'
@@ -21,7 +20,8 @@ const BASE = '/api/v1/auth'
 /** 认证中心 · 终端用户接口 */
 export const authApi = {
   /** 登录 */
-  login: (payload: LoginPayload) => http.request<TokenResult>(`${BASE}/login`, { method: 'POST', body: payload }),
+  login: (payload: LoginPayload) =>
+    http.request<TokenResult>(`${BASE}/login`, { method: 'POST', body: payload }),
 
   /** 登出（吊销当前会话） */
   logout: () => userHttp.request<void>(`${BASE}/logout`, { method: 'POST' }),
@@ -33,6 +33,30 @@ export const authApi = {
   refresh: (refreshToken: string) =>
     http.request<TokenResult>(`${BASE}/refresh`, { method: 'POST', body: { refreshToken } }),
 
+  requestPasswordReset: (username: string, email: string) =>
+    http.request<void>(`${BASE}/password-reset/request`, {
+      method: 'POST',
+      body: { username, email },
+    }),
+  verifyPasswordReset: (username: string, email: string, code: string) =>
+    http.request<{ ticket: string }>(`${BASE}/password-reset/verify`, {
+      method: 'POST',
+      body: { username, email, code },
+    }),
+  completePasswordReset: (ticket: string, password: string) =>
+    http.request<void>(`${BASE}/password-reset/complete`, {
+      method: 'POST',
+      body: { ticket, password },
+    }),
+  accountSecurity: () =>
+    userHttp.request<{ username: string; email: string | null; passwordUpdatedAt: string | null }>(
+      `${BASE}/account/security`,
+    ),
+  changePassword: (oldPassword: string, password: string) =>
+    userHttp.request<void>(`${BASE}/account/password`, {
+      method: 'POST',
+      body: { oldPassword, password },
+    }),
   /** 注册 */
   register: (payload: RegisterPayload) =>
     http.request<string>(`${BASE}/register`, { method: 'POST', body: payload }),
@@ -42,7 +66,8 @@ export const authApi = {
     http.request<void>(`${BASE}/unlock-appeal`, { method: 'POST', body: payload }),
 
   /** 签发验证码 */
-  captcha: (username: string) => http.request<CaptchaResult>(`${BASE}/captcha`, { query: { username } }),
+  captcha: (username: string) =>
+    http.request<CaptchaResult>(`${BASE}/captcha`, { query: { username } }),
 
   /** 当前身份 */
   me: () => userHttp.request<IdentityResult>(`${BASE}/me`),
@@ -62,11 +87,17 @@ export const authAdminApi = {
 
   /** 通过申诉（并解锁账号） */
   approveAppeal: (id: number, payload: AppealAuditPayload = {}) =>
-    adminHttp.request<void>(`${BASE}/admin/appeals/${id}/approve`, { method: 'POST', body: payload }),
+    adminHttp.request<void>(`${BASE}/admin/appeals/${id}/approve`, {
+      method: 'POST',
+      body: payload,
+    }),
 
   /** 驳回申诉 */
   rejectAppeal: (id: number, payload: AppealAuditPayload = {}) =>
-    adminHttp.request<void>(`${BASE}/admin/appeals/${id}/reject`, { method: 'POST', body: payload }),
+    adminHttp.request<void>(`${BASE}/admin/appeals/${id}/reject`, {
+      method: 'POST',
+      body: payload,
+    }),
 
   /** 分页查询用户 */
   listUsers: (query: AdminUserQuery) =>
@@ -76,24 +107,24 @@ export const authAdminApi = {
   getUser: (userId: number) => adminHttp.request<AdminUserView>(`${BASE}/admin/users/${userId}`),
 
   /** 启用账号 */
-  enableUser: (userId: number) => adminHttp.request<void>(`${BASE}/admin/users/${userId}/enable`, { method: 'POST' }),
+  enableUser: (userId: number) =>
+    adminHttp.request<void>(`${BASE}/admin/users/${userId}/enable`, { method: 'POST' }),
 
   /** 禁用账号 */
   disableUser: (userId: number) =>
     adminHttp.request<void>(`${BASE}/admin/users/${userId}/disable`, { method: 'POST' }),
 
   /** 解锁账号 */
-  unlockUser: (userId: number) => adminHttp.request<void>(`${BASE}/admin/users/${userId}/unlock`, { method: 'POST' }),
+  unlockUser: (userId: number) =>
+    adminHttp.request<void>(`${BASE}/admin/users/${userId}/unlock`, { method: 'POST' }),
 
   /** 踢下线（撤销全部会话） */
-  kickUser: (userId: number) => adminHttp.request<void>(`${BASE}/admin/users/${userId}/kick`, { method: 'POST' }),
+  kickUser: (userId: number) =>
+    adminHttp.request<void>(`${BASE}/admin/users/${userId}/kick`, { method: 'POST' }),
 
-  /**
-   * 重置用户密码。
-   *
-   * 依赖后端提供 `POST /api/v1/auth/admin/users/{userId}/reset-password`；
-   * 接口缺失时按通用错误处理（生产环境不做 Mock 兜底）。
-   */
-  resetPassword: (userId: number, payload: ResetPasswordPayload) =>
-    adminHttp.request<void>(`${BASE}/admin/users/${userId}/reset-password`, { method: 'POST', body: payload }),
+  /** 密码重置审计（不含密码） */
+  resetRecords: () =>
+    adminHttp.request<
+      Array<{ id: number; userId: number; username: string; event: string; createTime: string }>
+    >(`${BASE}/admin/password-reset-records`),
 }

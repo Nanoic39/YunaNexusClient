@@ -146,9 +146,17 @@ export const session = {
   /** 终端用户是否已登录（未校验过期，过期由 401 兜底） */
   isAuthenticated: computed(() => Boolean(state.accessToken)),
   /** 是否具备管理后台访问资格（持有根角色 `admin`） */
-  canEnterAdmin: computed(() => Boolean(state.accessToken) && state.roles.some((role) => role.roleCode === ADMIN_ROLE_CODE)),
+  canEnterAdmin: computed(
+    () =>
+      Boolean(state.accessToken) &&
+      state.roles.some((role) => [ADMIN_ROLE_CODE, 'super_admin'].includes(role.roleCode)),
+  ),
   /** 管理端是否可直接进入（持有根角色 `admin`） */
-  canAccessAdmin: computed(() => Boolean(state.accessToken) && state.roles.some((role) => role.roleCode === ADMIN_ROLE_CODE)),
+  canAccessAdmin: computed(
+    () =>
+      Boolean(state.accessToken) &&
+      state.roles.some((role) => [ADMIN_ROLE_CODE, 'super_admin'].includes(role.roleCode)),
+  ),
   setTokens,
   setIdentity,
   setCurrentUser,

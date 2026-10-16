@@ -2,7 +2,7 @@ import { readEnv } from '../env'
 import { adminHttp, userHttp } from '../http/client'
 import type { OAuthAppAuditPayload, OAuthAppSavePayload, OAuthApplicationView } from '../types'
 
-// 自助接入接口尚未部署；仅在开发预览或明确完成后端联调后开启。
+// 按部署配置启用自助接入，开发 Mock 可独立预览。
 export const oauthAppRegistrationEnabled = readEnv().oauthAppRegistrationEnabled
 
 const USER_BASE = '/api/v1/auth/account/oauth-apps'
@@ -12,7 +12,7 @@ const ADMIN_BASE = '/api/v1/auth/admin/oauth-apps'
  * OAuth 接入应用 · 用户端（申请人视角）。
  *
  * 契约：我的应用列表 / 提交申请 / 更新 / 撤回 / 重置密钥。
- * 后端补齐前生产环境调用将返回通用错误（不做 Mock 兜底）。
+ * 生产环境使用真实后端，开发环境可使用 Mock。
  */
 export const oauthAppApi = {
   /** 我申请接入的应用列表 */

@@ -1,17 +1,4 @@
-/**
- * OAuth 应用接入类型契约。
- *
- * 后端现仅有 SSO 授权码流程（§3.10 `/api/v1/auth/sso/authorize`、§3.11
- * `/api/v1/auth/sso/token`）与用户端「已授权应用」只读视图
- * （`GET /api/v1/auth/account/applications`），暂无「第三方自定义接入应用」的
- * 申请 / 审核 / 管理接口。下述契约为前端据需求（申请自定义 OAuth 接入应用、
- * 管理面板审核与管理应用）约定，待后端补齐后即可切换真实网关
- * （生产环境不做 Mock 兜底）。
- *
- * 约定路由：
- * - 用户端：`/api/v1/auth/account/oauth-apps`
- * - 管理端：`/api/v1/auth/admin/oauth-apps`
- */
+/** OAuth接入应用类型：本人申请、管理员审核、回调白名单与一次性客户端密钥。 */
 
 /** 接入应用审核状态：0-待审核 1-已通过 2-已驳回 3-已停用 */
 export type OAuthAppStatus = 0 | 1 | 2 | 3
@@ -19,7 +6,7 @@ export type OAuthAppStatus = 0 | 1 | 2 | 3
 /** OAuth 接入应用视图 */
 export interface OAuthApplicationView {
   id: number
-  /** 客户端标识（审核通过后由后端分配；申请阶段为空） */
+  /** 客户端标识（由后端创建时分配；审核前不可使用） */
   clientId: string | null
   /** 客户端密钥明文（仅创建 / 重置后一次性返回，其余场景为 null） */
   clientSecret: string | null

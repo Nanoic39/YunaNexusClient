@@ -1,10 +1,4 @@
-/**
- * 徽章中心 · 管理后台类型。
- *
- * 后端现仅提供内部发放接口 `POST /internal/user/badges/grant`（§4.6）与用户端只读
- * `GET /api/v1/user/badges`（§4.9）；下述管理端接口为前端据「徽章发放与管理」需求
- * 约定的契约，待后端补齐后即可切换真实网关（生产环境不做 Mock 兜底）。
- */
+/** 徽章管理契约：目录、手动发放和记录；自动条件规则尚未开放。 */
 
 /** 发放方式：手动发放 / 条件自动发放 */
 export type BadgeGrantType = 'manual' | 'condition'

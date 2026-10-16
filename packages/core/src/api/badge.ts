@@ -13,7 +13,7 @@ const BASE = '/api/v1/user/admin/badges'
  *
  * 契约：`GET/POST /admin/badges`、`POST/DELETE /admin/badges/{id}`、
  * `POST /admin/badges/{id}/grant`（手动发放）、`GET /admin/badges/records`（发放记录）。
- * 后端补齐前生产环境调用将返回通用错误（不做 Mock 兜底）。
+ * 生产环境使用真实后端，开发环境可使用 Mock。
  */
 export const badgeAdminApi = {
   /** 徽章定义列表 */
