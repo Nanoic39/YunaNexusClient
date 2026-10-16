@@ -135,6 +135,36 @@ async function download(file: FileView) {
     busy.value = false
   }
 }
+const renaming = ref<FileView>(),
+  renameName = ref(''),
+  renameBusy = ref(false)
+function openRename(file: FileView) {
+  renaming.value = file
+  renameName.value = file.fileName
+}
+async function saveRename() {
+  const file = renaming.value
+  if (!file || renameBusy.value) return
+  const name = renameName.value.trim()
+  if (!name || name.length > 255 || /[\\/\x00-\x1f\x7f]/.test(name)) {
+    message.warning('请输入有效文件名，不能包含路径或控制字符')
+    return
+  }
+  renameBusy.value = true
+  try {
+    const updated = await workspaceApi.rename(file.fileId, name)
+    if (!alive) return
+    rows.value = rows.value.map((row) => (row.fileId === updated.fileId ? updated : row))
+    if (detail.value?.fileId === updated.fileId) detail.value = updated
+    renaming.value = undefined
+    message.success('文件已重命名，分享链接继续有效')
+    await load()
+  } catch (error) {
+    if (alive) message.error(handleApiError(error, router))
+  } finally {
+    renameBusy.value = false
+  }
+}
 function remove(files: FileView[]) {
   if (!files.length) return
   dialog.warning({
@@ -312,6 +342,12 @@ onBeforeUnmount(() => {
                     <div class="file-actions">
                       <n-button text size="small" :disabled="busy" @click="download(file)"
                         >下载</n-button
+                      ><n-button
+                        text
+                        size="small"
+                        :disabled="busy || renameBusy"
+                        @click="openRename(file)"
+                        >重命名</n-button
                       ><n-button text size="small" @click="share(file)">分享</n-button
                       ><n-button
                         text
@@ -391,6 +427,42 @@ onBeforeUnmount(() => {
       </aside>
     </div>
     <n-modal
+      :show="!!renaming"
+      preset="card"
+      title="重命名文件"
+      style="width: 480px; max-width: calc(100vw - 32px)"
+      :mask-closable="!renameBusy"
+      :closable="!renameBusy"
+      :close-on-esc="!renameBusy"
+      @update:show="
+        (value) => {
+          if (!value && !renameBusy) renaming = undefined
+        }
+      "
+    >
+      <n-form-item label="文件名称"
+        ><n-input
+          v-model:value="renameName"
+          autofocus
+          maxlength="255"
+          show-count
+          :disabled="renameBusy"
+          aria-label="新文件名称"
+          @keydown.enter.prevent="saveRename"
+      /></n-form-item>
+      <p class="muted">请保留原扩展名。已有分享链接和文件内容不受影响。</p>
+      <div class="file-actions">
+        <n-button :disabled="renameBusy" @click="renaming = undefined">取消</n-button
+        ><n-button
+          type="primary"
+          :loading="renameBusy"
+          :disabled="!renameName.trim()"
+          @click="saveRename"
+          >保存名称</n-button
+        >
+      </div>
+    </n-modal>
+    <n-modal
       v-model:show="shareOpen"
       preset="card"
       title="创建文件分享"
@@ -466,6 +538,7 @@ onBeforeUnmount(() => {
           </dl>
           <div class="file-actions">
             <n-button type="primary" :loading="busy" @click="download(detail)">下载文件</n-button
+            ><n-button @click="openRename(detail)">重命名</n-button
             ><n-button @click="share(detail)">创建分享</n-button>
           </div></template
         ></n-drawer-content

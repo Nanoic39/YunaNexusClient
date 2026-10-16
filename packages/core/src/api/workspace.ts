@@ -40,6 +40,8 @@ export const workspaceApi = {
   avatar: (file: File) => upload(`${FILE}/avatar`, file),
   download: (id: number, signal?: AbortSignal) =>
     userHttp.request<Blob>(`${FILE}/${id}/download`, { responseType: 'blob', signal }),
+  rename: (id: number, fileName: string) =>
+    userHttp.request<FileView>(`${FILE}/${id}/rename`, { method: 'POST', body: { fileName } }),
   delete: (id: number) => userHttp.request<void>(`${FILE}/${id}/delete`, { method: 'POST' }),
   shares: () => userHttp.request<FileShare[]>(`${FILE}/shares`),
   share: (fileId: number, days: number, code: string) =>

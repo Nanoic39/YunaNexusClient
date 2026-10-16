@@ -98,6 +98,28 @@ export const workspaceHandlers = [
       },
     )
   }),
+  http.post('/api/v1/file/me/:id/rename', async ({ request, params }) => {
+    if (denied(request)) return fail('请先登录')
+    const file = files.find((f) => f.fileId === Number(params.id))
+    if (!file) return fail('文件不存在')
+    const body = (await request.json()) as { fileName?: string }
+    const name = body.fileName?.trim() ?? ''
+    const extension = (value: string) =>
+      value.lastIndexOf('.') > 0 ? value.slice(value.lastIndexOf('.')).toLowerCase() : ''
+    if (
+      !name ||
+      name.length > 255 ||
+      /[\\/\x00-\x1f\x7f-\x9f]/.test(name) ||
+      extension(name) !== extension(file.fileName)
+    )
+      return HttpResponse.json(
+        { code: 400, msg: '文件名无效，请保留原扩展名', data: null },
+        { status: 400 },
+      )
+    file.fileName = name
+    shares.filter((s) => s.fileId === file.fileId).forEach((s) => (s.fileName = name))
+    return result(file)
+  }),
   http.post('/api/v1/file/me/:id/delete', ({ request, params }) => {
     if (denied(request)) return fail('请先登录')
     const i = files.findIndex((f) => f.fileId === Number(params.id))
