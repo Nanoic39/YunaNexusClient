@@ -404,12 +404,18 @@ onBeforeUnmount(() => {
       <aside v-if="oauthAppRegistrationEnabled" class="oauth-aside">
         <section-card title="接入流程">
           <p>1. 提交应用名称、回调地址与所需权限范围，进入待审核。</p>
-          <p>2. 管理员审核通过后，系统分配 Client ID 与密钥。</p>
-          <p>3. 使用授权码流程（authorize → token）换取访问令牌。</p>
+          <p>2. 保存创建时展示的 Client ID 与密钥，等待管理员审核通过。</p>
+          <p>3. 将用户引导到平台授权确认页，使用 PKCE 授权码流程换取令牌。</p>
         </section-card>
         <section-card title="安全提示">
           <p>密钥仅在创建或重置时展示一次，请妥善保存，不要提交到公开仓库。</p>
-          <p>回调地址需与实际使用一致，精确匹配才可完成授权。</p>
+          <p>回调地址需与实际使用一致，精确匹配才可完成授权。应用范围变更后，用户必须重新同意。</p>
+          <a
+            href="https://github.com/Nanoic39/YunaNexus/blob/main/docs/oauth-integration-zh.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            >完整 OAuth 中文接入指南 ↗</a
+          >
         </section-card>
       </aside>
     </div>

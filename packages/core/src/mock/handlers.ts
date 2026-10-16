@@ -293,6 +293,22 @@ export const handlers = [
     return HttpResponse.json(ok(data, '登录成功'))
   }),
 
+  mswHttp.get('/api/v1/auth/account/oauth-consent', async ({ request }) => {
+    const url = new URL(request.url)
+    return HttpResponse.json(
+      ok({
+        clientId: url.searchParams.get('clientCode'),
+        appName: 'OAuth 接入演示',
+        description: '演示应用授权信息',
+        websiteUrl: 'https://example.com',
+        scopes: ['profile:read', 'files:read'],
+        redirectUri: url.searchParams.get('redirectUri'),
+      }),
+    )
+  }),
+  mswHttp.post('/api/v1/auth/account/oauth-consent', async () =>
+    fail(400, 'Mock 预览不签发真实授权码', 400),
+  ),
   mswHttp.post('/api/v1/auth/sso/authorize', async ({ request }) => {
     const rejected = requireAdmin(request)
     if (rejected) return rejected
@@ -484,6 +500,20 @@ export const handlers = [
       )
     }
     if (status !== null && status !== '') list = list.filter((u) => String(u.status) === status)
+    const roleId = query.get('roleId'),
+      permissionId = query.get('permissionId')
+    if (roleId || permissionId)
+      list = list.filter((user) => {
+        const roles = (mockUserRoles[user.userId] ?? []).filter((id) =>
+          mockRoles.some((role) => role.id === id && role.status === 1),
+        )
+        return (
+          (!roleId || roles.includes(Number(roleId))) &&
+          (!permissionId ||
+            (mockPermissions.some((p) => p.id === Number(permissionId) && p.status === 1) &&
+              roles.some((id) => (mockRolePermissions[id] ?? []).includes(Number(permissionId)))))
+        )
+      })
     return HttpResponse.json(ok(paged(list, query)))
   }),
 
@@ -580,6 +610,9 @@ export const handlers = [
 
   /* ---------------------------- 权限中心 · 角色 ---------------------------- */
 
+  mswHttp.get('/api/v1/permission/admin/roles/delegation', async () =>
+    HttpResponse.json(ok({ unrestricted: true, permissionIds: [], dataScopes: [1, 2, 3, 4, 5] })),
+  ),
   mswHttp.get('/api/v1/permission/admin/roles', async ({ request }) => {
     await delay(LATENCY)
     const guard = requireAdmin(request)
