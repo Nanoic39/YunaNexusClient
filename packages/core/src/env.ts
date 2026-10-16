@@ -24,6 +24,8 @@ export interface AppEnv {
   enableCsrf: boolean
   /** 应用标题 */
   appTitle: string
+  /** 后端完成自助接入与审核联调后开启；开发 Mock 可预览。 */
+  oauthAppRegistrationEnabled: boolean
   /**
    * 用户端访问地址（管理端顶栏「进入用户端」的跳转目标）。
    * 开发环境默认 localhost:5174；生产环境由 VITE_USER_URL 显式配置。
@@ -47,6 +49,7 @@ interface EnvRecord {
   VITE_API_BASE_URL?: string
   VITE_ENABLE_MOCK?: string
   VITE_ENABLE_CSRF?: string
+  VITE_OAUTH_APP_REGISTRATION_ENABLED?: string
   VITE_APP_TITLE?: string
   VITE_USER_URL?: string
   VITE_ADMIN_URL?: string
@@ -66,11 +69,19 @@ function resolveMode(raw: string | undefined, devFlag: boolean): AppMode {
 /** 从 import.meta.env 读取环境配置 */
 export function readEnv(): AppEnv {
   const env = (import.meta as unknown as { env?: EnvRecord }).env ?? ({} as EnvRecord)
+  return parseEnv(env)
+}
+
+/** 解析显式配置，供环境矩阵回归验证。 */
+export function parseEnv(env: EnvRecord): AppEnv {
   const mode = env.PROD === true ? 'production' : resolveMode(env.VITE_APP_ENV, env.DEV === true)
   const isDev = mode === 'development'
   return {
     mode,
     isDev,
+    oauthAppRegistrationEnabled:
+      (isDev && readBool(env.VITE_ENABLE_MOCK, true)) ||
+      readBool(env.VITE_OAUTH_APP_REGISTRATION_ENABLED, false),
     apiBaseUrl: env.VITE_API_BASE_URL ?? '',
     // 生产模式强制关闭 Mock（禁止兜底）；开发模式默认开启，可用 VITE_ENABLE_MOCK=false 关闭
     enableMock: isDev && readBool(env.VITE_ENABLE_MOCK, true),

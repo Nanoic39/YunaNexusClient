@@ -1,9 +1,9 @@
+import { readEnv } from '../env'
 import { adminHttp, userHttp } from '../http/client'
-import type {
-  OAuthAppAuditPayload,
-  OAuthAppSavePayload,
-  OAuthApplicationView,
-} from '../types'
+import type { OAuthAppAuditPayload, OAuthAppSavePayload, OAuthApplicationView } from '../types'
+
+// 自助接入接口尚未部署；仅在开发预览或明确完成后端联调后开启。
+export const oauthAppRegistrationEnabled = readEnv().oauthAppRegistrationEnabled
 
 const USER_BASE = '/api/v1/auth/account/oauth-apps'
 const ADMIN_BASE = '/api/v1/auth/admin/oauth-apps'

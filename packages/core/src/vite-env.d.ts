@@ -14,6 +14,7 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_MOCK?: string
   /** 是否启用 CSRF 令牌回显（真实网关开启 CSRF 校验时置 'true'） */
   readonly VITE_ENABLE_CSRF?: string
+  readonly VITE_OAUTH_APP_REGISTRATION_ENABLED?: string
   /** 应用标题 */
   readonly VITE_APP_TITLE?: string
 }
