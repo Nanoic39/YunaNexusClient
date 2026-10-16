@@ -82,3 +82,17 @@ it('rejects oversize or empty files before issuing a request', async () => {
   expect(send).not.toHaveBeenCalled()
   await expect(f.queue.start(Array.from({ length: 21 }, () => file('x')))).rejects.toThrow('20')
 })
+
+it('stops pending uploads when the session expires, then allows an explicit retry', async () => {
+  const send = vi.fn(async (): Promise<unknown> => {
+    throw new ApiError({ code: 30001, message: '登录已失效', httpStatus: 401 })
+  })
+  const f = fixture(send)
+  await f.queue.start([file('a.txt'), file('b.txt'), file('c.txt')])
+  expect(send).toHaveBeenCalledTimes(1)
+  expect(f.rows().map((e) => e.state)).toEqual(['失败', '已取消', '已取消'])
+  send.mockImplementation(async () => ({}))
+  await f.queue.retry()
+  expect(f.rows().every((e) => e.state === '完成')).toBe(true)
+  expect(send).toHaveBeenCalledTimes(4)
+})

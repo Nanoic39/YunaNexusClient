@@ -97,6 +97,7 @@ export class UploadQueue {
             e.state = uncertain ? '待确认' : '失败'
             e.retryable = !uncertain
             e.error = error instanceof Error ? error.message : '上传失败'
+            if (error instanceof ApiError && error.isUnauthorized) this.stopped = true
             this.failed(error)
           }
         } finally {
