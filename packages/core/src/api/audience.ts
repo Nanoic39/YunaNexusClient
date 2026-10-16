@@ -34,37 +34,55 @@ const ROLE_LOOKUP_CONCURRENCY = 8
 
 /** 分页拉取全部用户（管理端） */
 async function listAllUsers(): Promise<AdminUserView[]> {
-  const all: AdminUserView[] = []
-  for (let page = 1; page <= MAX_USER_PAGES; page += 1) {
+  const all = new Map<number, AdminUserView>()
+  let expected: number | undefined
+  for (let page = 1; page <= MAX_USER_PAGES; page++) {
     const result = await authAdminApi.listUsers({ page, size: USER_PAGE_SIZE })
-    all.push(...result.records)
-    if (result.records.length < USER_PAGE_SIZE || all.length >= result.total) break
+    if (
+      !Number.isSafeInteger(result.total) ||
+      result.total < 0 ||
+      result.total > MAX_USER_PAGES * USER_PAGE_SIZE
+    )
+      throw new Error('用户数量超出安全解析范围，请缩小受众范围；不会发送部分名单')
+    if (expected !== undefined && expected !== result.total)
+      throw new Error('用户列表已变化，请刷新后重新确认受众')
+    expected = result.total
+    for (const user of result.records) all.set(user.userId, user)
+    if (all.size === expected) return [...all.values()]
+    if (result.records.length < USER_PAGE_SIZE) throw new Error('用户列表不完整，已中止受众解析')
   }
-  return all
+  throw new Error('受众解析超出上限，已中止，未返回部分名单')
 }
 
-/** 并发组装「用户 → 角色 ID」索引（单条失败按无角色处理） */
+/** 任一角色查询失败均中止；剩余工作不再继续排队，避免静默漏发。 */
 async function buildUserRoleIndex(users: AdminUserView[]): Promise<Map<number, number[]>> {
   const index = new Map<number, number[]>()
-  let cursor = 0
-  const workerCount = Math.min(ROLE_LOOKUP_CONCURRENCY, users.length)
-  const workers = Array.from({ length: workerCount }, async () => {
-    while (cursor < users.length) {
-      const user = users[cursor]
-      cursor += 1
-      try {
-        index.set(user.userId, await userRoleApi.list(user.userId))
-      } catch {
-        index.set(user.userId, [])
+  let cursor = 0,
+    failed = false
+  await Promise.all(
+    Array.from({ length: Math.min(ROLE_LOOKUP_CONCURRENCY, users.length) }, async () => {
+      while (cursor < users.length && !failed) {
+        const user = users[cursor++]!
+        try {
+          index.set(user.userId, await userRoleApi.list(user.userId))
+        } catch {
+          failed = true
+        }
       }
-    }
-  })
-  await Promise.all(workers)
+    }),
+  )
+  if (failed) throw new Error('部分用户角色查询失败，已中止受众解析，请重试')
   return index
 }
 
 /** 解析目标用户集合（mode=users 无意义，调用方应自行处理手动输入） */
 async function resolveUsers(selector: AudienceSelector): Promise<AdminUserView[]> {
+  if (
+    selector.mode === 'users' ||
+    (selector.mode === 'roles' && !selector.roleIds?.length) ||
+    (selector.mode === 'permissions' && !selector.permissionIds?.length)
+  )
+    return []
   const users = await listAllUsers()
   if (selector.mode === 'all') return users
 
@@ -87,7 +105,9 @@ async function resolveUsers(selector: AudienceSelector): Promise<AdminUserView[]
       .filter(([, permissionIds]) => permissionIds.some((id) => wantedPerms.has(id)))
       .map(([roleId]) => roleId),
   )
-  return users.filter((user) => (roleIndex.get(user.userId) ?? []).some((id) => targetRoleIds.has(id)))
+  return users.filter((user) =>
+    (roleIndex.get(user.userId) ?? []).some((id) => targetRoleIds.has(id)),
+  )
 }
 
 /** 通知受众解析 */
