@@ -44,7 +44,7 @@ const keyword = ref('')
 
 const grantTypeOptions = [
   { label: '手动发放', value: 'manual' },
-  { label: '条件发放', value: 'condition' },
+  { label: '条件发放（暂未开放）', value: 'condition', disabled: true },
 ]
 
 function grantTypeText(type: BadgeGrantType): string {
@@ -58,16 +58,11 @@ const filteredRows = computed(() => {
   if (!text) return rows.value
   return rows.value.filter(
     (row) =>
-      row.badgeCode.toLowerCase().includes(text) ||
-      row.badgeName.toLowerCase().includes(text),
+      row.badgeCode.toLowerCase().includes(text) || row.badgeName.toLowerCase().includes(text),
   )
 })
 
-function actionButton(
-  label: string,
-  onClick: () => void,
-  type: 'default' | 'primary' = 'default',
-) {
+function actionButton(label: string, onClick: () => void, type: 'default' | 'primary' = 'default') {
   return h(NButton, { size: 'small', secondary: true, type, onClick }, { default: () => label })
 }
 
@@ -94,7 +89,8 @@ const columns: DataTableColumns<BadgeDefinitionView> = [
     title: '等级',
     key: 'badgeLevel',
     width: 90,
-    render: (row) => h(NTag, { size: 'small', bordered: false }, { default: () => `Lv.${row.badgeLevel}` }),
+    render: (row) =>
+      h(NTag, { size: 'small', bordered: false }, { default: () => `Lv.${row.badgeLevel}` }),
   },
   {
     title: '发放方式',
@@ -417,16 +413,18 @@ onMounted(load)
           <n-input v-model:value="editForm.badgeName" placeholder="如 内容贡献者" />
         </n-form-item>
         <n-form-item label="等级">
-          <n-input-number v-model:value="editForm.badgeLevel" :min="1" :max="5" style="width: 160px" />
+          <n-input-number
+            v-model:value="editForm.badgeLevel"
+            :min="1"
+            :max="5"
+            style="width: 160px"
+          />
         </n-form-item>
         <n-form-item label="发放方式">
           <n-select v-model:value="editForm.grantType" :options="grantTypeOptions" />
         </n-form-item>
         <n-form-item v-if="editForm.grantType === 'condition'" label="触发条件">
-          <n-input
-            v-model:value="editForm.condition"
-            placeholder="如 login.streak >= 7"
-          />
+          <n-input v-model:value="editForm.condition" placeholder="如 login.streak >= 7" />
         </n-form-item>
         <n-form-item label="状态">
           <n-switch v-model:value="editForm.status" :checked-value="1" :unchecked-value="0">

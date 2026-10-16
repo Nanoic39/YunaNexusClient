@@ -48,6 +48,7 @@ export const adminMenuOptions: MenuOption[] = [
     label: '系统管理',
     icon: renderIcon(ShieldCheckmarkOutline),
     children: [
+      { key: '/password-resets', label: '密码重置记录', icon: renderIcon(LockClosedOutline) },
       {
         key: '/users',
         label: '用户管理',

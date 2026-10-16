@@ -5,8 +5,6 @@ import { useRouter } from 'vue-router'
 import {
   NAlert,
   NButton,
-  NForm,
-  NFormItem,
   NInput,
   NModal,
   NScrollbar,
@@ -32,6 +30,7 @@ import {
 } from '@yuna/ui'
 import {
   authAdminApi,
+  session,
   buildPermissionTree,
   countPermissions,
   permissionApi,
@@ -97,23 +96,17 @@ function renderStatus(row: AdminUserView) {
   return h('div', { class: 'yuna-cell-actions' }, tags)
 }
 
-function actionButton(
-  label: string,
-  onClick: () => void,
-  type: 'default' | 'primary' = 'default',
-) {
-  return h(
-    NButton,
-    { size: 'small', secondary: true, type, onClick },
-    { default: () => label },
-  )
+function actionButton(label: string, onClick: () => void, type: 'default' | 'primary' = 'default') {
+  return h(NButton, { size: 'small', secondary: true, type, onClick }, { default: () => label })
 }
 
 function renderActions(row: AdminUserView) {
   const nodes = [
-    row.status === 1
-      ? actionButton('禁用', () => confirmAction(row, 'disable'))
-      : actionButton('启用', () => confirmAction(row, 'enable'), 'primary'),
+    row.externalId === session.state.externalId
+      ? h(NButton, { size: 'small', disabled: true }, { default: () => '当前账号' })
+      : row.status === 1
+        ? actionButton('禁用', () => confirmAction(row, 'disable'))
+        : actionButton('启用', () => confirmAction(row, 'enable'), 'primary'),
   ]
   if (hasLock(row)) nodes.push(actionButton('解锁', () => confirmAction(row, 'unlock'), 'primary'))
   nodes.push(actionButton('踢下线', () => confirmAction(row, 'kick')))
@@ -235,10 +228,6 @@ const savingRoles = ref(false)
 const permissionTree = ref<PermissionTreeNode[]>([])
 const grantedPermIds = ref<number[]>([])
 
-const newPassword = ref('')
-const confirmPassword = ref('')
-const savingPassword = ref(false)
-
 const settingsTitle = computed(() =>
   settingsUser.value ? `用户设置 · ${settingsUser.value.username}` : '用户设置',
 )
@@ -274,7 +263,11 @@ function renderPermLabel({ option }: { option: TreeOption }): VNodeChild {
   const granted = node.permission ? grantedSet.value.has(node.permission.id) : false
   return h('div', { class: 'perm-item' }, [
     h('div', { class: 'perm-item__head' }, [
-      h('span', { class: 'perm-item__code' }, node.permission ? node.permission.permCode : String(node.label)),
+      h(
+        'span',
+        { class: 'perm-item__code' },
+        node.permission ? node.permission.permCode : String(node.label),
+      ),
       granted ? h(StatusTag, { tone: 'success', text: '已授权' }) : null,
     ]),
     h(
@@ -310,8 +303,7 @@ async function openSettings(row: AdminUserView): Promise<void> {
   settingsTab.value = 'roles'
   settingsVisible.value = true
   settingsLoading.value = true
-  newPassword.value = ''
-  confirmPassword.value = ''
+
   rolePermCache.clear()
   try {
     const [roles, perms, bound] = await Promise.all([
@@ -346,33 +338,14 @@ async function saveRoles(): Promise<void> {
   }
 }
 
-async function savePassword(): Promise<void> {
-  if (!settingsUser.value) return
-  const password = newPassword.value
-  if (password.length < 6) {
-    message.warning('密码长度至少 6 位')
-    return
-  }
-  if (password !== confirmPassword.value) {
-    message.warning('两次输入的密码不一致')
-    return
-  }
-  savingPassword.value = true
-  try {
-    await authAdminApi.resetPassword(settingsUser.value.userId, { password })
-    message.success('密码已重置')
-    newPassword.value = ''
-    confirmPassword.value = ''
-  } catch (error) {
-    message.error(handleApiError(error, router))
-  } finally {
-    savingPassword.value = false
-  }
-}
-
 function search(): void {
   page.value = 1
   void load()
+}
+
+function openResetRecords() {
+  settingsVisible.value = false
+  void router.push('/password-resets')
 }
 
 function reset(): void {
@@ -399,7 +372,7 @@ onMounted(load)
 <template>
   <page-container
     title="用户管理"
-    description="查询账号状态、执行启用 / 禁用 / 解锁 / 会话撤销，并配置角色、权限与密码"
+    description="查询账号状态、执行启用 / 禁用 / 解锁 / 会话撤销，并配置角色与权限、查看账号和密码重置记录"
   >
     <filter-bar :loading="loading" @search="search" @reset="reset">
       <n-input
@@ -445,6 +418,7 @@ onMounted(load)
             </div>
             <n-select
               multiple
+              filterable
               :options="roleOptions"
               :value="selectedRoleIds"
               placeholder="选择角色"
@@ -456,7 +430,9 @@ onMounted(load)
           </n-tab-pane>
 
           <n-tab-pane name="permissions" tab="权限">
-            <div class="settings-hint">已授权 {{ grantedPermIds.length }} 项（由角色派生，只读）</div>
+            <div class="settings-hint">
+              已授权 {{ grantedPermIds.length }} 项（由角色派生，只读）
+            </div>
             <n-scrollbar style="max-height: 380px">
               <n-tree
                 block-line
@@ -469,34 +445,17 @@ onMounted(load)
             </n-scrollbar>
           </n-tab-pane>
 
-          <n-tab-pane name="password" tab="重置密码">
-            <n-alert type="info" :bordered="false" style="margin-bottom: 12px">
-              重置后该用户需使用新密码登录，原有会话不受影响。
-            </n-alert>
-            <n-form label-placement="top">
-              <n-form-item label="新密码">
-                <n-input
-                  v-model:value="newPassword"
-                  type="password"
-                  show-password-on="click"
-                  placeholder="至少 6 位"
-                />
-              </n-form-item>
-              <n-form-item label="确认密码">
-                <n-input
-                  v-model:value="confirmPassword"
-                  type="password"
-                  show-password-on="click"
-                  placeholder="再次输入新密码"
-                />
-              </n-form-item>
-            </n-form>
-            <div class="modal-footer">
-              <n-button type="primary" :loading="savingPassword" @click="savePassword">
-                重置密码
-              </n-button>
-            </div>
-          </n-tab-pane>
+          <n-tab-pane name="account" tab="账号信息"
+            ><p>账号：{{ settingsUser?.username }}</p>
+            <p>邮箱：{{ settingsUser?.email || '未绑定' }}</p>
+            <p>外部标识：{{ settingsUser?.externalId }}</p>
+            <p>注册时间：{{ formatDateTime(settingsUser?.createTime ?? null) }}</p>
+            <n-alert type="info"
+              >密码由用户在登录页通过邮箱验证码自行重置。管理员无法设置或查看用户密码。</n-alert
+            ><n-button style="margin-top: 16px" @click="openResetRecords"
+              >查看密码重置记录</n-button
+            ></n-tab-pane
+          >
         </n-tabs>
       </n-spin>
     </n-modal>

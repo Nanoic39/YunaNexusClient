@@ -18,21 +18,8 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
-import type {
-  DataTableColumns,
-  FormInst,
-  FormRules,
-  TreeOption,
-} from 'naive-ui'
-import {
-  DataTable,
-  FilterBar,
-  PageContainer,
-  StatusTag,
-  dataScopeText,
-  enabledStatusMeta,
-  formatDateTime,
-} from '@yuna/ui'
+import type { FormInst, FormRules, TreeOption } from 'naive-ui'
+import { FilterBar, PageContainer, StatusTag, dataScopeText, enabledStatusMeta } from '@yuna/ui'
 import {
   buildPermissionTree,
   collectPermissionIds,
@@ -74,77 +61,35 @@ const filteredRows = computed(() => {
   const text = keyword.value.trim().toLowerCase()
   if (!text) return rows.value
   return rows.value.filter(
-    (row) =>
-      row.roleCode.toLowerCase().includes(text) ||
-      row.roleName.toLowerCase().includes(text),
+    (row) => row.roleCode.toLowerCase().includes(text) || row.roleName.toLowerCase().includes(text),
   )
 })
 
-function actionButton(
-  label: string,
-  onClick: () => void,
-  type: 'default' | 'primary' = 'default',
-) {
-  return h(NButton, { size: 'small', secondary: true, type, onClick }, { default: () => label })
-}
-
-function renderActions(row: RoleView) {
-  return h('div', { class: 'yuna-cell-actions', style: { gap: '6px' } }, [
-    actionButton('编辑', () => openEdit(row), 'primary'),
-    actionButton('绑定', () => openBind(row)),
-    actionButton('删除', () => confirmRemove(row)),
-  ])
-}
-
-const columns: DataTableColumns<RoleView> = [
+const selectedRoleId = ref<number | null>(null)
+const selectedRole = computed(() => rows.value.find((r) => r.id === selectedRoleId.value))
+const systemRole = (r: RoleView) => ['user', 'admin', 'super_admin'].includes(r.roleCode)
+const roleTree = computed(() => [
   {
-    title: '角色',
-    key: 'roleName',
-    minWidth: 200,
-    render: (row) =>
-      h('div', { class: 'yuna-cell' }, [
-        h('span', null, row.roleName),
-        h('span', { class: 'yuna-cell__sub' }, row.roleCode),
-      ]),
+    key: 'system',
+    label: '系统默认角色',
+    children: filteredRows.value
+      .filter(systemRole)
+      .map((r) => ({ key: r.id, label: `${r.roleName} · ${r.roleCode}` })),
   },
   {
-    title: '描述',
-    key: 'description',
-    minWidth: 220,
-    ellipsis: { tooltip: true },
-    render: (row) => row.description ?? '—',
+    key: 'custom',
+    label: '自定义角色',
+    children: filteredRows.value
+      .filter((r) => !systemRole(r))
+      .map((r) => ({ key: r.id, label: `${r.roleName} · ${r.roleCode}` })),
   },
-  {
-    title: '数据范围',
-    key: 'dataScope',
-    width: 140,
-    render: (row) => dataScopeText(row.dataScope),
-  },
-  {
-    title: '状态',
-    key: 'status',
-    width: 110,
-    render: (row) => h(StatusTag, { meta: enabledStatusMeta(row.status) }),
-  },
-  {
-    title: '创建时间',
-    key: 'createTime',
-    width: 172,
-    render: (row) => formatDateTime(row.createTime),
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 220,
-    fixed: 'right',
-    render: renderActions,
-  },
-]
-
+])
 async function load(): Promise<void> {
   loading.value = true
   try {
     rows.value = await roleApi.list()
+    if (!rows.value.some((r) => r.id === selectedRoleId.value))
+      selectedRoleId.value = rows.value[0]?.id ?? null
   } catch (error) {
     message.error(handleApiError(error, router))
   } finally {
@@ -278,8 +223,12 @@ const checkedPermKeys = ref<Array<string | number>>([])
 const checkedMenuKeys = ref<Array<string | number>>([])
 const checkedDeptKeys = ref<Array<string | number>>([])
 
-const menuOptions = computed<TreeOption[]>(() => toTreeOptions(menuTree.value, (node) => node.menuName))
-const deptOptions = computed<TreeOption[]>(() => toTreeOptions(deptTree.value, (node) => node.deptName))
+const menuOptions = computed<TreeOption[]>(() =>
+  toTreeOptions(menuTree.value, (node) => node.menuName),
+)
+const deptOptions = computed<TreeOption[]>(() =>
+  toTreeOptions(deptTree.value, (node) => node.deptName),
+)
 
 /* 权限点：按 permCode 前缀分层，勾选分组将级联其下权限点 */
 interface PermOption extends TreeOption {
@@ -414,14 +363,44 @@ onMounted(load)
       />
     </filter-bar>
 
-    <data-table
-      :columns="columns"
-      :data="filteredRows"
-      :loading="loading"
-      :row-key="(row: RoleView) => row.id"
-      :scroll-x="1100"
-      :show-pagination="false"
-    />
+    <n-spin :show="loading"
+      ><div class="access-workspace">
+        <section class="access-tree">
+          <n-tree
+            block-line
+            default-expand-all
+            :data="roleTree"
+            :selected-keys="selectedRoleId === null ? [] : [selectedRoleId]"
+            @update:selected-keys="
+              (keys) => (selectedRoleId = typeof keys[0] === 'number' ? keys[0] : null)
+            "
+          />
+        </section>
+        <section class="access-detail" v-if="selectedRole">
+          <h2>{{ selectedRole.roleName }}</h2>
+          <code>{{ selectedRole.roleCode }}</code>
+          <p>{{ selectedRole.description || '暂无描述' }}</p>
+          <p>数据范围：{{ dataScopeText(selectedRole.dataScope) }}</p>
+          <status-tag :meta="enabledStatusMeta(selectedRole.status)" />
+          <p v-if="systemRole(selectedRole)">系统默认角色受保护，可由超级管理员维护授权绑定。</p>
+          <div class="access-actions">
+            <n-button type="primary" @click="openBind(selectedRole)"
+              >配置权限、菜单和数据范围</n-button
+            ><n-button v-if="!systemRole(selectedRole)" @click="openEdit(selectedRole)"
+              >编辑角色</n-button
+            ><n-button
+              v-if="!systemRole(selectedRole)"
+              type="error"
+              @click="confirmRemove(selectedRole)"
+              >删除角色</n-button
+            >
+          </div>
+        </section>
+        <section class="access-detail" v-else>
+          <p>从左侧树选择角色以查看详情和配置授权。</p>
+        </section>
+      </div></n-spin
+    >
 
     <!-- 新建 / 编辑 -->
     <n-modal
@@ -502,7 +481,9 @@ onMounted(load)
             </n-scrollbar>
           </n-spin>
           <div class="modal-footer">
-            <n-button type="primary" :loading="savingPerm" @click="savePermissions">保存权限点</n-button>
+            <n-button type="primary" :loading="savingPerm" @click="savePermissions"
+              >保存权限点</n-button
+            >
           </div>
         </n-tab-pane>
 
@@ -530,8 +511,14 @@ onMounted(load)
         <n-tab-pane name="depts" tab="数据范围">
           <n-spin :show="bindLoading">
             <div class="bind-hint">
-              <template v-if="bindRole?.dataScope === 5">自定义数据范围：勾选该角色可见的部门</template>
-              <template v-else>当前数据范围为「{{ dataScopeText(bindRole?.dataScope) }}」，此处的部门绑定仅在数据范围设为「自定义」时生效</template>
+              <template v-if="bindRole?.dataScope === 5"
+                >自定义数据范围：勾选该角色可见的部门</template
+              >
+              <template v-else
+                >当前数据范围为「{{
+                  dataScopeText(bindRole?.dataScope)
+                }}」，此处的部门绑定仅在数据范围设为「自定义」时生效</template
+              >
             </div>
             <n-scrollbar style="max-height: 380px">
               <n-tree
@@ -547,7 +534,9 @@ onMounted(load)
             </n-scrollbar>
           </n-spin>
           <div class="modal-footer">
-            <n-button type="primary" :loading="savingDept" @click="saveDepts">保存数据范围</n-button>
+            <n-button type="primary" :loading="savingDept" @click="saveDepts"
+              >保存数据范围</n-button
+            >
           </div>
         </n-tab-pane>
       </n-tabs>
@@ -583,5 +572,41 @@ onMounted(load)
 .perm-item__desc {
   font-size: 12px;
   color: var(--yuna-gray-500);
+}
+</style>
+
+<style scoped>
+.access-workspace {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.4fr);
+  gap: 24px;
+  min-height: 420px;
+}
+.access-tree,
+.access-detail {
+  padding: 20px;
+  background: var(--yuna-surface);
+  border: var(--yuna-card-border);
+  border-radius: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.access-tree {
+  max-height: 70vh;
+  overflow: auto;
+}
+.access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+@media (max-width: 800px) {
+  .access-workspace {
+    grid-template-columns: 1fr;
+  }
+  .access-tree {
+    max-height: 40vh;
+  }
 }
 </style>

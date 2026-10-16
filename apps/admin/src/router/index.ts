@@ -15,6 +15,12 @@ const routes: RouteRecordRaw[] = [
     redirect: '/overview',
     children: [
       {
+        path: 'password-resets',
+        name: 'password-resets',
+        component: () => import('@/views/PasswordResetRecordsView.vue'),
+        meta: { title: '密码重置记录' },
+      },
+      {
         path: 'overview',
         name: 'overview',
         component: () => import('@/views/OverviewView.vue'),

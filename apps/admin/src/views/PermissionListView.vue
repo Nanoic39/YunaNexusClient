@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { h, computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NButton,
+  NTree,
+  NSpin,
   NForm,
   NFormItem,
   NInput,
@@ -11,15 +13,8 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
-import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
-import {
-  DataTable,
-  FilterBar,
-  PageContainer,
-  StatusTag,
-  enabledStatusMeta,
-  formatDateTime,
-} from '@yuna/ui'
+import type { FormInst, FormRules, TreeOption } from 'naive-ui'
+import { FilterBar, PageContainer, StatusTag, enabledStatusMeta } from '@yuna/ui'
 import { buildPermissionTree, countPermissions, permissionApi } from '@yuna/core'
 import type { PermissionSavePayload, PermissionTreeNode, PermissionView } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
@@ -61,77 +56,26 @@ function filterTree(nodes: PermissionTreeNode[]): PermissionTreeNode[] {
 }
 
 const filteredRows = computed(() => filterTree(rows.value))
+function toOptions(nodes: PermissionTreeNode[]): TreeOption[] {
+  return nodes.map((n) => ({
+    key: n.key,
+    label: n.permission ? `${n.permission.permCode} · ${n.permission.description || ''}` : n.label,
+    children: n.children.length ? toOptions(n.children) : undefined,
+  }))
+}
+const treeOptions = computed(() => toOptions(filteredRows.value))
 
 function flattenKeys(nodes: PermissionTreeNode[]): Array<string | number> {
   return nodes.flatMap((node) => [node.key, ...flattenKeys(node.children)])
 }
 
-function actionButton(
-  label: string,
-  onClick: () => void,
-  type: 'default' | 'primary' = 'default',
-) {
-  return h(NButton, { size: 'small', secondary: true, type, onClick }, { default: () => label })
+const selectedKey = ref('')
+function allNodes(nodes: PermissionTreeNode[]): PermissionTreeNode[] {
+  return nodes.flatMap((n) => [n, ...allNodes(n.children)])
 }
-
-function renderActions(row: PermissionTreeNode) {
-  const perm = row.permission
-  const actions = perm
-    ? [actionButton('编辑', () => openEdit(perm), 'primary'), actionButton('删除', () => confirmRemove(perm))]
-    : [actionButton('新增子权限', () => openCreate(row.code), 'primary')]
-  return h('div', { class: 'yuna-cell-actions', style: { gap: '6px' } }, actions)
-}
-
-const columns: DataTableColumns<PermissionTreeNode> = [
-  {
-    title: '权限标识',
-    key: 'label',
-    minWidth: 280,
-    render: (row) =>
-      h('div', { class: 'yuna-cell' }, [
-        h('span', null, row.permission ? row.permission.permCode : row.label),
-        h(
-          'span',
-          { class: 'yuna-cell__sub' },
-          row.permission ? (row.permission.description ?? '—') : `${countPermissions(row)} 项权限`,
-        ),
-      ]),
-  },
-  {
-    title: '资源',
-    key: 'resource',
-    minWidth: 240,
-    ellipsis: { tooltip: true },
-    render: (row) => row.permission?.resource ?? '—',
-  },
-  {
-    title: '动作',
-    key: 'action',
-    width: 110,
-    render: (row) => row.permission?.action ?? '—',
-  },
-  {
-    title: '状态',
-    key: 'status',
-    width: 110,
-    render: (row) =>
-      row.permission ? h(StatusTag, { meta: enabledStatusMeta(row.permission.status) }) : '—',
-  },
-  {
-    title: '创建时间',
-    key: 'createTime',
-    width: 172,
-    render: (row) => (row.permission ? formatDateTime(row.permission.createTime) : '—'),
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 190,
-    fixed: 'right',
-    render: renderActions,
-  },
-]
-
+const selectedNode = computed(() =>
+  allNodes(rows.value).find((n) => String(n.key) === selectedKey.value),
+)
 async function load(): Promise<void> {
   loading.value = true
   try {
@@ -263,16 +207,45 @@ onMounted(load)
       />
     </filter-bar>
 
-    <data-table
-      :columns="columns"
-      :data="filteredRows"
-      :loading="loading"
-      :row-key="(row: PermissionTreeNode) => row.key"
-      :scroll-x="1180"
-      :show-pagination="false"
-      :expanded-row-keys="expandedKeys"
-      @update:expanded-row-keys="(keys: Array<string | number>) => (expandedKeys = keys)"
-    />
+    <n-spin :show="loading"
+      ><div class="access-workspace">
+        <section class="access-tree">
+          <n-tree
+            block-line
+            :data="treeOptions"
+            v-model:expanded-keys="expandedKeys"
+            :selected-keys="selectedKey ? [selectedKey] : []"
+            @update:selected-keys="(keys) => (selectedKey = String(keys[0] ?? ''))"
+          />
+        </section>
+        <section class="access-detail" v-if="selectedNode">
+          <h2>{{ selectedNode.permission?.permCode || selectedNode.label }}</h2>
+          <template v-if="selectedNode.permission"
+            ><p>{{ selectedNode.permission.description || '暂无描述' }}</p>
+            <p>
+              资源：<code>{{ selectedNode.permission.resource }}</code>
+            </p>
+            <p>动作：{{ selectedNode.permission.action }}</p>
+            <status-tag :meta="enabledStatusMeta(selectedNode.permission.status)" />
+            <div class="access-actions">
+              <n-button type="primary" @click="openEdit(selectedNode.permission)">编辑权限</n-button
+              ><n-button type="error" @click="confirmRemove(selectedNode.permission)"
+                >删除权限</n-button
+              >
+            </div></template
+          >
+          <template v-else
+            ><p>包含 {{ countPermissions(selectedNode) }} 项权限</p>
+            <n-button type="primary" @click="openCreate(selectedNode.code)"
+              >新增子权限</n-button
+            ></template
+          >
+        </section>
+        <section class="access-detail" v-else>
+          <p>选择左侧权限节点，查看资源、动作与授权说明。</p>
+        </section>
+      </div></n-spin
+    >
 
     <n-modal
       v-model:show="editVisible"
@@ -331,5 +304,41 @@ onMounted(load)
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+</style>
+
+<style scoped>
+.access-workspace {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.4fr);
+  gap: 24px;
+  min-height: 420px;
+}
+.access-tree,
+.access-detail {
+  padding: 20px;
+  background: var(--yuna-surface);
+  border: var(--yuna-card-border);
+  border-radius: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.access-tree {
+  max-height: 70vh;
+  overflow: auto;
+}
+.access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+@media (max-width: 800px) {
+  .access-workspace {
+    grid-template-columns: 1fr;
+  }
+  .access-tree {
+    max-height: 40vh;
+  }
 }
 </style>
