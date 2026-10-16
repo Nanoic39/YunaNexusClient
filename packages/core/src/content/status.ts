@@ -23,7 +23,15 @@ import type { ContentElement, ContentItem, ContentItemStatus } from './types'
  * history 为按时间正序（旧 → 新）的每日状态序列，末位即当天。
  */
 
-export type ServiceHealth = 'up' | 'degraded' | 'down' | 'planned'
+export type ServiceHealth = 'up' | 'degraded' | 'down' | 'planned' | 'unknown'
+
+export interface ServiceStatusPeriod {
+  startAt: string
+  endAt: string
+  status: ServiceHealth
+  availability: number | null
+  samples: number
+}
 
 /** 聚合响应中的单个服务条目，key / id / name 任一命中即可 */
 export interface ServiceStatusEntry {
@@ -34,6 +42,8 @@ export interface ServiceStatusEntry {
   /** 可选：可用性百分比（如 99.92），缺省时由 history 推算 */
   availability?: number
   /** 可选：每日状态序列（旧 → 新），用于渲染条形图 */
+  checkedAt?: string
+  timeline?: ServiceStatusPeriod[]
   history?: ServiceHealth[]
 }
 
@@ -42,6 +52,8 @@ export interface ServiceStatusPayload {
   services?: ServiceStatusEntry[]
   /** 单服务接口可直接在顶层返回 */
   availability?: number
+  checkedAt?: string
+  timeline?: ServiceStatusPeriod[]
   history?: ServiceHealth[]
 }
 
@@ -49,6 +61,8 @@ export interface ServiceStatusPayload {
 export interface ServiceStatusDetail {
   health?: ServiceHealth
   availability?: number
+  checkedAt?: string
+  timeline?: ServiceStatusPeriod[]
   history?: ServiceHealth[]
 }
 
@@ -57,6 +71,7 @@ const HEALTH_TO_ITEM: Record<ServiceHealth, ContentItemStatus> = {
   degraded: 'doing',
   down: 'todo',
   planned: 'todo',
+  unknown: 'todo',
 }
 
 const ITEM_TO_HEALTH: Record<ContentItemStatus, ServiceHealth> = {
@@ -66,16 +81,26 @@ const ITEM_TO_HEALTH: Record<ContentItemStatus, ServiceHealth> = {
 }
 
 export function isServiceHealth(value: unknown): value is ServiceHealth {
-  return value === 'up' || value === 'degraded' || value === 'down' || value === 'planned'
+  return (
+    value === 'up' ||
+    value === 'degraded' ||
+    value === 'down' ||
+    value === 'planned' ||
+    value === 'unknown'
+  )
 }
 
 /** 状态接口语义 → 内容条目语义（复用 done / doing / todo 三态） */
-export function healthToItemStatus(health: ServiceHealth | undefined): ContentItemStatus | undefined {
+export function healthToItemStatus(
+  health: ServiceHealth | undefined,
+): ContentItemStatus | undefined {
   return health ? HEALTH_TO_ITEM[health] : undefined
 }
 
 /** 内容条目静态值 → 状态接口语义（作为接口未配置 / 请求失败时的回退） */
-export function itemStatusToHealth(status: ContentItemStatus | undefined): ServiceHealth | undefined {
+export function itemStatusToHealth(
+  status: ContentItemStatus | undefined,
+): ServiceHealth | undefined {
   return status ? ITEM_TO_HEALTH[status] : undefined
 }
 
@@ -103,6 +128,27 @@ function normalizeHistory(value: unknown): ServiceHealth[] | undefined {
   if (!Array.isArray(value)) return undefined
   const list = value.filter(isServiceHealth)
   return list.length ? list : undefined
+}
+
+function normalizeTimeline(value: unknown): ServiceStatusPeriod[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const list = value.filter(
+    (v): v is ServiceStatusPeriod =>
+      v &&
+      typeof v.startAt === 'string' &&
+      Number.isFinite(Date.parse(v.startAt)) &&
+      typeof v.endAt === 'string' &&
+      Date.parse(v.endAt) > Date.parse(v.startAt) &&
+      isServiceHealth(v.status) &&
+      Number.isInteger(v.samples) &&
+      v.samples >= 0 &&
+      (v.availability === null ||
+        (typeof v.availability === 'number' &&
+          Number.isFinite(v.availability) &&
+          v.availability >= 0 &&
+          v.availability <= 100)),
+  )
+  return list.length ? list.slice(-1440) : undefined
 }
 
 function normalizeAvailability(value: unknown): number | undefined {
@@ -137,7 +183,15 @@ export interface UseServiceStatus {
  *
  * @param source 返回当前 services 元素的 getter（响应式）
  */
-export function useServiceStatus(source: () => ContentElement | undefined): UseServiceStatus {
+export function useServiceStatus(
+  source: () => ContentElement | undefined,
+  hours: () => number = () => 24,
+): UseServiceStatus {
+  function withPeriod(url: string): string {
+    const target = new URL(url, window.location.href)
+    target.searchParams.set('hours', String(hours()))
+    return target.toString()
+  }
   const details = reactive<Record<string, ServiceStatusDetail>>({})
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -175,6 +229,8 @@ export function useServiceStatus(source: () => ContentElement | undefined): UseS
           health: hit.status,
           availability: normalizeAvailability(hit.availability),
           history: normalizeHistory(hit.history),
+          timeline: normalizeTimeline(hit.timeline),
+          checkedAt: hit.checkedAt,
         }
       } else if (overall) {
         details[item.id] = { health: overall }
@@ -182,8 +238,12 @@ export function useServiceStatus(source: () => ContentElement | undefined): UseS
     }
   }
 
-  async function fetchAggregate(url: string, items: ContentItem[], signal: AbortSignal): Promise<void> {
-    const payload = await fetchStatus(url, signal)
+  async function fetchAggregate(
+    url: string,
+    items: ContentItem[],
+    signal: AbortSignal,
+  ): Promise<void> {
+    const payload = await fetchStatus(withPeriod(url), signal)
     if (!payload) throw new Error('状态接口响应格式不正确')
     applyAggregate(payload, items)
   }
@@ -193,12 +253,14 @@ export function useServiceStatus(source: () => ContentElement | undefined): UseS
     if (!targets.length) return
     const results = await Promise.allSettled(
       targets.map(async (item) => {
-        const payload = await fetchStatus((item.statusUrl as string).trim(), signal)
+        const payload = await fetchStatus(withPeriod((item.statusUrl as string).trim()), signal)
         if (!isServiceHealth(payload?.status)) throw new Error('状态字段缺失')
         details[item.id] = {
           health: payload.status,
           availability: normalizeAvailability(payload.availability),
           history: normalizeHistory(payload.history),
+          timeline: normalizeTimeline(payload.timeline),
+          checkedAt: payload.checkedAt,
         }
       }),
     )
@@ -253,6 +315,7 @@ export function useServiceStatus(source: () => ContentElement | undefined): UseS
     const element = source()
     if (!element) return ''
     return [
+      String(hours()),
       element.statusUrl ?? '',
       element.statusIntervalSeconds ?? '',
       element.items.map((item) => `${item.id}:${item.statusUrl ?? ''}`).join('|'),
@@ -263,6 +326,7 @@ export function useServiceStatus(source: () => ContentElement | undefined): UseS
     signature,
     () => {
       const element = source()
+      clearStatuses()
       void run()
       setupTimer(element?.statusIntervalSeconds)
     },
@@ -279,6 +343,12 @@ export function useServiceStatus(source: () => ContentElement | undefined): UseS
     error,
     lastUpdated,
     refresh: () => void run(),
-    detailOf: (item: ContentItem) => details[item.id] ?? { health: itemStatusToHealth(item.status) },
+    detailOf: (item: ContentItem) =>
+      details[item.id] ?? {
+        health:
+          source()?.statusUrl?.trim() || item.statusUrl?.trim()
+            ? 'unknown'
+            : itemStatusToHealth(item.status),
+      },
   }
 }
