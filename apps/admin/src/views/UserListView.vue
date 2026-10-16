@@ -60,7 +60,14 @@ const actionLabel: Record<UserAction, string> = {
   kick: '踢下线',
 }
 
-const filters = reactive<{ keyword: string; status: number | null }>({
+const filters = reactive<{
+  keyword: string
+  status: number | null
+  roleId: number | null
+  permissionId: number | null
+}>({
+  roleId: null,
+  permissionId: null,
   keyword: '',
   status: null,
 })
@@ -178,6 +185,8 @@ async function load(): Promise<void> {
       size: size.value,
       keyword: filters.keyword.trim() || undefined,
       status: filters.status ?? undefined,
+      roleId: filters.roleId ?? undefined,
+      permissionId: filters.permissionId ?? undefined,
     })
     rows.value = result.records
     total.value = result.total
@@ -349,6 +358,8 @@ function openResetRecords() {
 }
 
 function reset(): void {
+  filters.roleId = null
+  filters.permissionId = null
   filters.keyword = ''
   filters.status = null
   page.value = 1
@@ -366,7 +377,21 @@ function onSizeChange(next: number): void {
   void load()
 }
 
-onMounted(load)
+const filterRoles = ref<{ label: string; value: number }[]>([])
+const filterPermissions = ref<{ label: string; value: number }[]>([])
+onMounted(() => {
+  void load()
+  void Promise.all([roleApi.list(), permissionApi.list()])
+    .then(([roles, permissions]) => {
+      filterRoles.value = roles
+        .filter((r) => r.status === 1)
+        .map((r) => ({ label: r.roleName, value: r.id }))
+      filterPermissions.value = permissions
+        .filter((p) => p.status === 1)
+        .map((p) => ({ label: p.permCode, value: p.id }))
+    })
+    .catch((error) => message.error(handleApiError(error, router)))
+})
 </script>
 
 <template>
@@ -388,6 +413,24 @@ onMounted(load)
         placeholder="全部状态"
         clearable
         style="width: 150px"
+      />
+      <n-select
+        v-model:value="filters.roleId"
+        :options="filterRoles"
+        placeholder="全部角色"
+        aria-label="按角色筛选"
+        filterable
+        clearable
+        style="width: 180px"
+      />
+      <n-select
+        v-model:value="filters.permissionId"
+        :options="filterPermissions"
+        placeholder="全部有效权限"
+        aria-label="按权限筛选"
+        filterable
+        clearable
+        style="width: 220px"
       />
     </filter-bar>
 
@@ -412,7 +455,8 @@ onMounted(load)
     >
       <n-spin :show="settingsLoading">
         <n-tabs v-model:value="settingsTab" type="line" animated>
-          <n-tab-pane name="roles" tab="角色">
+          <n-tab-pane name="roles"
+            ><template #tab>角色</template>
             <div class="settings-hint">
               为用户分配角色；用户权限由所选角色派生，如需调整权限请变更角色。
             </div>
@@ -429,7 +473,8 @@ onMounted(load)
             </div>
           </n-tab-pane>
 
-          <n-tab-pane name="permissions" tab="权限">
+          <n-tab-pane name="permissions"
+            ><template #tab>权限</template>
             <div class="settings-hint">
               已授权 {{ grantedPermIds.length }} 项（由角色派生，只读）
             </div>

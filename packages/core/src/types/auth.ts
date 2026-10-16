@@ -84,6 +84,8 @@ export interface AdminUserView {
 
 /** 管理后台 · 用户列表查询 */
 export interface AdminUserQuery extends PageQuery {
+  roleId?: number
+  permissionId?: number
   keyword?: string
   status?: number
 }

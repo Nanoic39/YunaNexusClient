@@ -50,10 +50,18 @@ const rows = ref<RoleView[]>([])
 const loading = ref(false)
 const keyword = ref('')
 
-const dataScopeOptions = [1, 2, 3, 4, 5].map((value) => ({
-  label: dataScopeText(value as DataScope),
-  value,
-}))
+const capabilities = ref({
+  unrestricted: false,
+  permissionIds: [] as number[],
+  dataScopes: [4] as number[],
+})
+const dataScopeOptions = computed(() =>
+  [1, 2, 3, 4, 5].map((value) => ({
+    disabled: !capabilities.value.dataScopes.includes(value),
+    label: dataScopeText(value as DataScope),
+    value,
+  })),
+)
 
 /* ------------------------------ 列表 ------------------------------ */
 
@@ -87,7 +95,9 @@ const roleTree = computed(() => [
 async function load(): Promise<void> {
   loading.value = true
   try {
-    rows.value = await roleApi.list()
+    const [roles, limits] = await Promise.all([roleApi.list(), roleApi.delegation()])
+    rows.value = roles
+    capabilities.value = limits
     if (!rows.value.some((r) => r.id === selectedRoleId.value))
       selectedRoleId.value = rows.value[0]?.id ?? null
   } catch (error) {
@@ -146,7 +156,20 @@ function openCreate(): void {
   editVisible.value = true
 }
 
-function openEdit(row: RoleView): void {
+async function openEdit(row: RoleView): Promise<void> {
+  try {
+    const ids = await roleApi.listPermissions(row.id)
+    if (
+      !capabilities.value.unrestricted &&
+      ids.some((id) => !capabilities.value.permissionIds.includes(id))
+    ) {
+      message.warning('该角色包含高于本人的权限，不能编辑')
+      return
+    }
+  } catch (error) {
+    message.error(handleApiError(error, router))
+    return
+  }
   editingId.value = row.id
   editForm.roleCode = row.roleCode
   editForm.roleName = row.roleName
@@ -245,6 +268,10 @@ function toPermOptions(nodes: PermissionTreeNode[]): PermOption[] {
     key: node.key,
     label: node.permission ? node.permission.permCode : node.label,
     permission: node.permission,
+    disabled:
+      !capabilities.value.unrestricted &&
+      !!node.permission &&
+      !capabilities.value.permissionIds.includes(node.permission.id),
     count: countPermissions(node),
     children: node.children.length ? toPermOptions(node.children) : undefined,
   }))
@@ -292,6 +319,14 @@ async function openBind(row: RoleView): Promise<void> {
       roleApi.listMenus(row.id),
       roleApi.listDepts(row.id),
     ])
+    if (
+      !capabilities.value.unrestricted &&
+      permIds.some((id) => !capabilities.value.permissionIds.includes(id))
+    ) {
+      message.warning('该角色包含高于本人的权限，不能修改绑定')
+      bindVisible.value = false
+      return
+    }
     permissionTree.value = buildPermissionTree(permList)
     menuTree.value = menus
     deptTree.value = depts
@@ -461,7 +496,8 @@ onMounted(load)
       style="width: 680px; max-width: calc(100vw - 32px)"
     >
       <n-tabs type="line" animated>
-        <n-tab-pane name="permissions" tab="权限点">
+        <n-tab-pane name="permissions"
+          ><template #tab>权限点</template>
           <n-spin :show="bindLoading">
             <div class="bind-hint">
               已选 {{ selectedPermCount }} / {{ totalPermCount }} 项，勾选分组将级联其下权限点
@@ -487,7 +523,8 @@ onMounted(load)
           </div>
         </n-tab-pane>
 
-        <n-tab-pane name="menus" tab="菜单">
+        <n-tab-pane name="menus"
+          ><template #tab>菜单</template>
           <n-spin :show="bindLoading">
             <div class="bind-hint">勾选该角色可见的菜单，父级勾选将级联子级</div>
             <n-scrollbar style="max-height: 380px">
@@ -508,7 +545,8 @@ onMounted(load)
           </div>
         </n-tab-pane>
 
-        <n-tab-pane name="depts" tab="数据范围">
+        <n-tab-pane name="depts"
+          ><template #tab>数据范围</template>
           <n-spin :show="bindLoading">
             <div class="bind-hint">
               <template v-if="bindRole?.dataScope === 5"

@@ -36,35 +36,53 @@ export const currentUserApi = {
  * @returns 是否成功回填（`true` 表示角色视图已更新）
  */
 export async function loadCurrentUser(retries = 2): Promise<boolean> {
+  const account = session.state.externalId
+  const client = session.state.clientCode
+  const token = session.state.accessToken
+  const current = () => session.state.externalId === account && session.state.clientCode === client
   for (let attempt = 0; ; attempt += 1) {
+    if (!current()) return false
     try {
-      session.setCurrentUser(await currentUserApi.me())
+      const view = await currentUserApi.me()
+      if (!current()) return false
+      session.setCurrentUser(view)
       return true
     } catch (error) {
       if (error instanceof ApiError && error.isUnauthorized) {
-        session.clearAll()
+        if (current() && session.state.accessToken === token) session.clearAll()
         return false
       }
-      if (attempt >= retries) return false
+      if (!current() || attempt >= retries) return false
       await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)))
     }
   }
 }
 
 /** 权限中心 · 角色管理 */
+export interface DelegationCapabilities {
+  unrestricted: boolean
+  permissionIds: number[]
+  dataScopes: number[]
+}
 export const roleApi = {
+  delegation: () => adminHttp.request<DelegationCapabilities>(`${BASE}/roles/delegation`),
   list: () => adminHttp.request<RoleView[]>(`${BASE}/roles`),
   get: (id: number) => adminHttp.request<RoleView>(`${BASE}/roles/${id}`),
-  create: (payload: RoleSavePayload) => adminHttp.request<RoleView>(`${BASE}/roles`, { method: 'POST', body: payload }),
+  create: (payload: RoleSavePayload) =>
+    adminHttp.request<RoleView>(`${BASE}/roles`, { method: 'POST', body: payload }),
   update: (id: number, payload: RoleSavePayload) =>
     adminHttp.request<RoleView>(`${BASE}/roles/${id}`, { method: 'POST', body: payload }),
   remove: (id: number) => adminHttp.request<void>(`${BASE}/roles/${id}`, { method: 'DELETE' }),
 
   /** 角色权限 ID 列表 */
-  listPermissions: (roleId: number) => adminHttp.request<number[]>(`${BASE}/roles/${roleId}/permissions`),
+  listPermissions: (roleId: number) =>
+    adminHttp.request<number[]>(`${BASE}/roles/${roleId}/permissions`),
   /** 设置角色权限（覆盖式） */
   setPermissions: (roleId: number, permissionIds: number[]) =>
-    adminHttp.request<void>(`${BASE}/roles/${roleId}/permissions`, { method: 'POST', body: { permissionIds } }),
+    adminHttp.request<void>(`${BASE}/roles/${roleId}/permissions`, {
+      method: 'POST',
+      body: { permissionIds },
+    }),
 
   /** 角色菜单 ID 列表 */
   listMenus: (roleId: number) => adminHttp.request<number[]>(`${BASE}/roles/${roleId}/menus`),
@@ -86,8 +104,12 @@ export const permissionApi = {
   create: (payload: PermissionSavePayload) =>
     adminHttp.request<PermissionView>(`${BASE}/permissions`, { method: 'POST', body: payload }),
   update: (id: number, payload: PermissionSavePayload) =>
-    adminHttp.request<PermissionView>(`${BASE}/permissions/${id}`, { method: 'POST', body: payload }),
-  remove: (id: number) => adminHttp.request<void>(`${BASE}/permissions/${id}`, { method: 'DELETE' }),
+    adminHttp.request<PermissionView>(`${BASE}/permissions/${id}`, {
+      method: 'POST',
+      body: payload,
+    }),
+  remove: (id: number) =>
+    adminHttp.request<void>(`${BASE}/permissions/${id}`, { method: 'DELETE' }),
 }
 
 /** 权限中心 · 用户角色绑定 */
