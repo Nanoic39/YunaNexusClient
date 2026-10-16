@@ -19,7 +19,7 @@ import type { ContentElement, ContentItem, ContentItemStatus } from './types'
  *   ]
  * }
  * ```
- * status ∈ up（运行中） / degraded（维护中） / down（故障） / planned（规划中，尚未参与）；
+ * status ∈ up（运行中） / degraded（部分异常） / down（故障） / planned（规划中，尚未参与）；
  * history 为按时间正序（旧 → 新）的每日状态序列，末位即当天。
  */
 
@@ -106,7 +106,7 @@ export function itemStatusToHealth(
 
 export function serviceHealthText(health: ServiceHealth | undefined): string {
   if (health === 'up') return '运行中'
-  if (health === 'degraded') return '维护中'
+  if (health === 'degraded') return '部分异常'
   if (health === 'down') return '故障'
   if (health === 'planned') return '规划中'
   return '未知'
