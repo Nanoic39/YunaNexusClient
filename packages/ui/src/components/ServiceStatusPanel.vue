@@ -20,6 +20,7 @@ const hasSource = computed(() =>
   Boolean(props.element.statusUrl || props.element.items.some((i) => i.statusUrl)),
 )
 const overall = computed(() => {
+  if (error.value) return 'unknown'
   const states = props.element.items.map((i) => detailOf(i).health)
   if (states.includes('down')) return 'down'
   if (states.includes('degraded')) return 'degraded'
@@ -30,7 +31,7 @@ const titles = {
   up: '所有服务运行正常',
   degraded: '部分服务运行异常',
   down: '部分服务暂时不可用',
-  unknown: '正在确认服务状态',
+  unknown: '暂无法确认服务状态',
   planned: '服务规划中',
 }
 function periods(item: ContentItem): ServiceStatusPeriod[] {
