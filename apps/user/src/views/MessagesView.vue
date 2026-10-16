@@ -173,9 +173,15 @@ onBeforeUnmount(() => {
 
     <template #tabs>
       <n-tabs v-model:value="filter" type="line" size="small" style="max-width: 320px">
-        <n-tab-pane name="all" tab="全部" />
-        <n-tab-pane name="unread" :tab="`未读${unreadCount ? ` (${unreadCount})` : ''}`" />
-        <n-tab-pane name="read" tab="已读" />
+        <n-tab-pane name="all"
+          ><template #tab>全部 ({{ summary.total }})</template></n-tab-pane
+        >
+        <n-tab-pane name="unread"
+          ><template #tab>未读 ({{ unreadCount }})</template></n-tab-pane
+        >
+        <n-tab-pane name="read"
+          ><template #tab>已读 ({{ summary.total - unreadCount }})</template></n-tab-pane
+        >
       </n-tabs>
     </template>
 
@@ -289,6 +295,11 @@ onBeforeUnmount(() => {
 }
 
 .msg__content {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin: 0;
   font-size: 13px;
   line-height: 1.6;
   color: var(--yuna-gray-700);
