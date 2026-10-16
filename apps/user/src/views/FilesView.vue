@@ -359,6 +359,10 @@ onBeforeUnmount(() => {
             :percentage="Math.round((complete / queue.length) * 100)"
             :show-indicator="false"
           />
+          <p class="muted" role="status">
+            已处理 {{ complete }} / {{ queue.length }} 项 · 成功
+            {{ queue.filter((q) => q.state === '完成').length }} 项
+          </p>
           <ul class="upload-queue">
             <li v-for="(q, i) in queue" :key="i">
               <span :title="q.file.name">{{ q.file.name }}</span
@@ -660,5 +664,22 @@ onBeforeUnmount(() => {
   .file-pagination {
     justify-content: center;
   }
+}
+</style>
+
+<style scoped>
+.upload-file {
+  flex: 1;
+  min-width: 0;
+}
+.upload-file > span {
+  display: block;
+}
+.upload-error {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 </style>
