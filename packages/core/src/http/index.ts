@@ -6,3 +6,5 @@ export * from './handoff'
 export * from './client'
 
 export * from './upload-queue'
+
+export * from './route-recovery'
