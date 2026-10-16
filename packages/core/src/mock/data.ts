@@ -221,11 +221,12 @@ export const DEFAULT_USER_ROLE_ID = 4
  * - `guest` 默认停用，仅作保留。
  */
 export const mockRoles: RoleView[] = [
+  { id: 6, roleCode: 'super_admin', roleName: '超级管理员', description: '受保护的系统管理与根角色分配权限', dataScope: 1, status: 1, createTime: dt(-60 * 24 * 90), updateTime: dt(-60 * 24 * 10) },
   {
     id: 1,
     roleCode: 'admin',
-    roleName: '超级管理员',
-    description: '根角色，平台最高权限，可完全控制系统；内置账号 nanoic 默认绑定',
+    roleName: '管理员',
+    description: '日常业务管理，不允许分配超级管理员身份',
     dataScope: 1,
     status: 1,
     createTime: dt(-60 * 24 * 90),
@@ -275,7 +276,8 @@ export const mockRoles: RoleView[] = [
 
 /** 演示账号绑定的角色：持有根角色 `admin`，用于演示用户端「进入管理后台」入口 */
 export const mockCurrentUserRoles: RoleBrief[] = [
-  { id: 1, roleCode: 'admin', roleName: '超级管理员' },
+  { id: 6, roleCode: 'super_admin', roleName: '超级管理员' },
+  { id: 1, roleCode: 'admin', roleName: '管理员' },
 ]
 
 /** 用户中心 · 演示账号（userId=10001 / alice）的资料（GET/PUT /api/v1/user/profile） */
@@ -417,8 +419,8 @@ export const mockRoleDepts: Record<number, number[]> = {
 /** 用户 → 角色绑定（覆盖语义；供通知受众「按角色 / 按权限」解析演示） */
 export const mockUserRoles: Record<number, number[]> = {
   // 内置根账号 nanoic：默认绑定超级管理员（根角色），拥有完全的系统控制
-  10000: [1],
-  10001: [1],
+  10000: [1, 6, 4],
+  10001: [1, 6, 4],
   10002: [2],
   10003: [3],
   10004: [2, 3],
