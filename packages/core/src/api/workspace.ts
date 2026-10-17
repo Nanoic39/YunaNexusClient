@@ -1,3 +1,4 @@
+import { readEnv } from '../env'
 import { userHttp, http } from '../http/client'
 import type { FileView, PageResult } from '../types'
 export interface FileShare {
@@ -28,15 +29,22 @@ export interface PersonalApiKey {
   revoked: boolean
 }
 const FILE = '/api/v1/file/me'
-function upload(path: string, file: File, signal?: AbortSignal) {
+function upload(path: string, file: File, signal?: AbortSignal, publicAccess = false) {
   const body = new FormData()
   body.append('file', file)
+  if (publicAccess) body.append('publicAccess', 'true')
   return userHttp.request<FileView>(path, { method: 'POST', body, signal })
 }
 export const workspaceApi = {
   files: (page = 1, search = '', signal?: AbortSignal) =>
     userHttp.request<PageResult<FileView>>(FILE, { query: { page, size: 20, search }, signal }),
-  upload: (file: File, signal?: AbortSignal) => upload(`${FILE}/upload`, file, signal),
+  upload: (file: File, signal?: AbortSignal, publicAccess = false) =>
+    upload(`${FILE}/upload`, file, signal, publicAccess),
+  visibility: (id: number, publicAccess: boolean) =>
+    userHttp.request<{ fileId: number; publicAccess: boolean; publicUrl: string | null }>(
+      `${FILE}/${id}/visibility`,
+      { method: 'POST', body: { publicAccess } },
+    ),
   avatar: (file: File) => upload(`${FILE}/avatar`, file),
   download: (id: number, signal?: AbortSignal) =>
     userHttp.request<Blob>(`${FILE}/${id}/download`, { responseType: 'blob', signal }),
@@ -109,4 +117,13 @@ export async function copyText(value: string): Promise<void> {
   const ok = document.execCommand('copy')
   field.remove()
   if (!ok) throw new Error('浏览器不支持自动复制，请手动选择复制')
+}
+
+export function publicFileUrl(path: string): string {
+  if (!/^\/api\/v1\/file\/public\/assets\/[A-Za-z0-9_-]{43}$/.test(path))
+    throw new Error('公开文件地址无效')
+  return new URL(
+    path,
+    new URL(readEnv().apiBaseUrl || window.location.origin, window.location.origin),
+  ).href
 }

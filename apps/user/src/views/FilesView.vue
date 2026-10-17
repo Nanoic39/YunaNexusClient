@@ -19,7 +19,15 @@ import {
   useDialog,
 } from 'naive-ui'
 import { PageContainer, SectionCard, formatDateTime } from '@yuna/ui'
-import { workspaceApi, formatBytes, saveBlob, shareUrl, copyText, UploadQueue } from '@yuna/core'
+import {
+  workspaceApi,
+  publicFileUrl,
+  formatBytes,
+  saveBlob,
+  shareUrl,
+  copyText,
+  UploadQueue,
+} from '@yuna/core'
 import type { FileView, UploadEntry } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
 const router = useRouter(),
@@ -35,13 +43,15 @@ const rows = ref<FileView[]>([]),
   picker = ref<HTMLInputElement>(),
   selected = ref<number[]>([]),
   busy = ref(false)
+const publicUploads = ref(false),
+  batchPublic = ref(false)
 const queue = shallowRef<UploadEntry[]>([]),
   uploading = ref(false)
 let alive = true,
   listGeneration = 0,
   listController: AbortController | undefined
 const uploader = new UploadQueue(
-  (file, signal) => workspaceApi.upload(file, signal),
+  (file, signal) => workspaceApi.upload(file, signal, batchPublic.value),
   (entries, running) => {
     queue.value = entries
     uploading.value = running
@@ -112,6 +122,7 @@ async function filesChanged(event: Event) {
 async function upload(files: File[]) {
   if (!files.length || uploading.value) return
   try {
+    batchPublic.value = publicUploads.value
     await uploader.start(files)
     if (alive) await load()
   } catch (error) {
@@ -185,6 +196,31 @@ function remove(files: FileView[]) {
         if (failed) message.error(`${failed} 个文件删除失败，请刷新后重试`)
         else message.success('文件已删除')
         await load()
+      } finally {
+        busy.value = false
+      }
+    },
+  })
+}
+function changeVisibility(file: FileView) {
+  const enabled = !file.publicAccess
+  dialog.warning({
+    title: enabled ? '公开文件' : '撤销公开访问',
+    content: enabled
+      ? '发布后，任何持有链接的人都可以无需登录访问，适用于博客图片等公开资源。确认公开此文件？'
+      : '旧链接将立即失效；重新公开会生成新地址。已下载的副本无法收回。',
+    positiveText: enabled ? '确认公开' : '设为私有',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      if (busy.value) return false
+      busy.value = true
+      try {
+        const result = await workspaceApi.visibility(file.fileId, enabled)
+        Object.assign(file, result)
+        message.success(enabled ? '已公开，可复制外链' : '已设为私有')
+      } catch (e) {
+        message.error(handleApiError(e, router))
+        return false
       } finally {
         busy.value = false
       }
@@ -333,13 +369,31 @@ onBeforeUnmount(() => {
                       <span class="file-kind">{{
                         (file.ext || 'FILE').slice(0, 5).toUpperCase()
                       }}</span
-                      ><span>{{ file.fileName }}</span>
+                      ><span
+                        >{{ file.fileName }}
+                        <small>{{ file.publicAccess ? '公开' : '私有' }}</small></span
+                      >
                     </button>
                   </td>
                   <td class="nowrap">{{ formatBytes(file.size) }}</td>
                   <td class="nowrap muted">{{ formatDateTime(file.createTime) }}</td>
                   <td>
                     <div class="file-actions">
+                      <n-button
+                        v-if="file.publicAccess && file.publicUrl"
+                        text
+                        size="small"
+                        :disabled="busy"
+                        @click="copy(publicFileUrl(file.publicUrl))"
+                        >复制外链</n-button
+                      >
+                      <n-button
+                        text
+                        size="small"
+                        :disabled="busy"
+                        @click="changeVisibility(file)"
+                        >{{ file.publicAccess ? '设为私有' : '公开' }}</n-button
+                      >
                       <n-button text size="small" :disabled="busy" @click="download(file)"
                         >下载</n-button
                       ><n-button
@@ -384,7 +438,11 @@ onBeforeUnmount(() => {
       </section-card>
       <aside class="file-aside">
         <section-card title="上传文件"
-          ><div class="drop-zone" @dragover.prevent @drop.prevent="dropped">
+          ><n-checkbox v-model:checked="publicUploads" :disabled="uploading"
+            >上传后公开（适用于博客图片）</n-checkbox
+          >
+          <p class="muted">默认私有。公开文件可通过外链匿名访问，也可随时撤销。</p>
+          <div class="drop-zone" @dragover.prevent @drop.prevent="dropped">
             <strong>拖动文件到这里</strong><span>或点击顶部「上传文件」</span
             ><small>单个文件最大 20MB，每批最多 20 个</small>
           </div></section-card

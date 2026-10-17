@@ -1,5 +1,7 @@
 /** 文件元数据视图（不含存储路径等内部信息） */
 export interface FileView {
+  publicAccess?: boolean
+  publicUrl?: string | null
   fileId: number
   fileName: string
   ext: string | null
