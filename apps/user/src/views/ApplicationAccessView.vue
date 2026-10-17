@@ -86,6 +86,22 @@ function remove(kind: 'roles' | 'permissions', code: string) {
     onPositiveClick: () => save(() => applicationAccessApi.remove(id.value, kind, code)),
   })
 }
+async function loadMember() {
+  if (busy.value || !member.externalId.trim()) return
+  busy.value = true
+  const version = generation
+  try {
+    const result = await applicationAccessApi.memberRoles(id.value, member.externalId.trim())
+    if (alive && version === generation) {
+      member.roles = result.roles
+      message.success('已读取当前角色')
+    }
+  } catch (e) {
+    if (alive) message.error(handleApiError(e, router))
+  } finally {
+    if (alive) busy.value = false
+  }
+}
 function assign() {
   dialog.warning({
     title: '确认成员角色',
@@ -267,6 +283,9 @@ onBeforeUnmount(() => {
                     placeholder="空集合表示撤销全部角色"
                 /></n-form-item>
               </div>
+              <n-button :disabled="busy || !member.externalId.trim()" @click="loadMember"
+                >读取当前角色</n-button
+              >
               <n-button
                 attr-type="submit"
                 type="primary"

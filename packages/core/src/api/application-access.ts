@@ -15,6 +15,10 @@ export interface AppAccessCatalog {
 }
 const path = (id: number) => `/api/v1/auth/account/oauth-apps/${id}/access`
 export const applicationAccessApi = {
+  memberRoles: (id: number, externalId: string) =>
+    userHttp.request<{ externalId: string; roles: string[] }>(`${path(id)}/members`, {
+      query: { externalId },
+    }),
   catalog: (id: number) => userHttp.request<AppAccessCatalog>(path(id)),
   permission: (id: number, body: AppPermission) =>
     userHttp.request<void>(`${path(id)}/permissions`, { method: 'POST', body }),
