@@ -40,6 +40,11 @@ export const oauthAppApi = {
  * 契约：全量列表 / 审核（通过·驳回）/ 启用停用 / 删除。
  */
 export const oauthAppAdminApi = {
+  classify: (client: string, category: import('../types').ApplicationCategory) =>
+    adminHttp.request<void>(
+      `/api/v1/auth/admin/clients/${encodeURIComponent(client)}/classification`,
+      { method: 'POST', body: { category } },
+    ),
   /** 全部接入应用 */
   list: () => adminHttp.request<OAuthApplicationView[]>(ADMIN_BASE),
 

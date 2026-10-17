@@ -1,10 +1,13 @@
 /** OAuth接入应用类型：本人申请、管理员审核、回调白名单与一次性客户端密钥。 */
 
 /** 接入应用审核状态：0-待审核 1-已通过 2-已驳回 3-已停用 */
+export type ApplicationCategory = 'OFFICIAL_NATIVE' | 'OFFICIAL_THIRD_PARTY' | 'THIRD_PARTY'
+
 export type OAuthAppStatus = 0 | 1 | 2 | 3
 
 /** OAuth 接入应用视图 */
 export interface OAuthApplicationView {
+  applicationCategory?: ApplicationCategory
   id: number
   /** 客户端标识（由后端创建时分配；审核前不可使用） */
   clientId: string | null
@@ -52,6 +55,9 @@ export const OAUTH_SCOPE_OPTIONS: { label: string; value: string }[] = [
   { label: '查看与下载本人文件', value: 'files:read' },
   { label: '上传与删除本人文件', value: 'files:write' },
   { label: '读取站内通知', value: 'notice:read' },
+  { label: '读取本人积分', value: 'points:read' },
+  { label: '应用积分交易（非官方仅扣减）', value: 'points:write' },
+  { label: '查询本应用业务权限', value: 'permissions:read' },
 ]
 
 /** 权限范围 value → 展示文案 */

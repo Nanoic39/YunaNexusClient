@@ -5,6 +5,7 @@ import {
   NAlert,
   NButton,
   NInput,
+  NSelect,
   NModal,
   NRadio,
   NRadioGroup,
@@ -16,13 +17,48 @@ import {
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { DataTable, PageContainer, StatusTag, formatDateTime, oauthAppStatusMeta } from '@yuna/ui'
-import { OAUTH_SCOPE_LABELS, oauthAppAdminApi, oauthAppRegistrationEnabled } from '@yuna/core'
-import type { OAuthApplicationView } from '@yuna/core'
+import {
+  session,
+  OAUTH_SCOPE_LABELS,
+  oauthAppAdminApi,
+  oauthAppRegistrationEnabled,
+} from '@yuna/core'
+import type { ApplicationCategory, OAuthApplicationView } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
 
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const classificationApp = ref<OAuthApplicationView | null>(null),
+  classificationVisible = ref(false),
+  classificationSaving = ref(false)
+const category = ref<ApplicationCategory>('THIRD_PARTY')
+const categoryOptions = [
+  { label: '官方原生', value: 'OFFICIAL_NATIVE' },
+  { label: '官方三方', value: 'OFFICIAL_THIRD_PARTY' },
+  { label: '其他三方', value: 'THIRD_PARTY' },
+]
+const canClassify = computed(() => session.state.roles.some((r) => r.roleCode === 'super_admin'))
+function openClassification(app: OAuthApplicationView) {
+  classificationApp.value = app
+  category.value = app.applicationCategory || 'THIRD_PARTY'
+  classificationVisible.value = true
+}
+async function classify() {
+  const app = classificationApp.value
+  if (!app?.clientId || classificationSaving.value) return
+  classificationSaving.value = true
+  try {
+    await oauthAppAdminApi.classify(app.clientId, category.value)
+    message.success('应用分类已更新并记录审计')
+    classificationVisible.value = false
+    await load()
+  } catch (e) {
+    message.error(handleApiError(e, router))
+  } finally {
+    classificationSaving.value = false
+  }
+}
 
 const rows = ref<OAuthApplicationView[]>([])
 const loading = ref(false)
@@ -47,6 +83,8 @@ function actionButton(
 
 function renderActions(row: OAuthApplicationView) {
   const buttons = [actionButton('详情', () => openDetail(row))]
+  if (canClassify.value && (row.status === 1 || row.status === 3))
+    buttons.push(actionButton('应用分类', () => openClassification(row)))
   if (row.status === 0) buttons.push(actionButton('审核', () => openReview(row), 'primary'))
   if (row.status === 1) buttons.push(actionButton('停用', () => confirmToggle(row, 3)))
   if (row.status === 3) buttons.push(actionButton('启用', () => confirmToggle(row, 1)))
@@ -299,6 +337,33 @@ onMounted(load)
       </template>
     </n-modal>
 
+    <n-modal
+      v-model:show="classificationVisible"
+      preset="card"
+      title="应用信任分类"
+      style="width: 520px; max-width: calc(100vw - 32px)"
+      :mask-closable="!classificationSaving"
+    >
+      <n-alert type="warning" style="margin-bottom: 20px"
+        >官方分类允许账号密码登录及具备积分 scope
+        后增加积分。请核实应用归属；此操作由服务端再次校验超管身份并留痕。</n-alert
+      >
+      <p>{{ classificationApp?.appName }}</p>
+      <n-select
+        v-model:value="category"
+        :options="categoryOptions"
+        :disabled="classificationSaving"
+      />
+      <template #footer
+        ><div class="modal-footer">
+          <n-button :disabled="classificationSaving" @click="classificationVisible = false"
+            >取消</n-button
+          ><n-button type="primary" :loading="classificationSaving" @click="classify"
+            >确认分类</n-button
+          >
+        </div></template
+      >
+    </n-modal>
     <!-- 详情 -->
     <n-modal
       v-model:show="detailVisible"
