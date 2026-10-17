@@ -338,6 +338,13 @@ onBeforeUnmount(() => {
                 <h3>
                   {{ app.appName }}
                   <status-tag :meta="oauthAppStatusMeta(app.status)" />
+                  <n-tag size="small">{{
+                    app.applicationCategory === 'OFFICIAL_NATIVE'
+                      ? '官方原生'
+                      : app.applicationCategory === 'OFFICIAL_THIRD_PARTY'
+                        ? '官方三方'
+                        : '其他三方'
+                  }}</n-tag>
                 </h3>
                 <p v-if="app.description">{{ app.description }}</p>
                 <p class="oauth-meta">
@@ -363,6 +370,13 @@ onBeforeUnmount(() => {
                 </div>
               </div>
               <div class="oauth-actions">
+                <n-button
+                  v-if="app.status === 1"
+                  size="small"
+                  secondary
+                  @click="router.push(`/console/oauth-apps/${app.id}/access`)"
+                  >业务权限</n-button
+                >
                 <n-button
                   v-if="canEdit(app)"
                   size="small"

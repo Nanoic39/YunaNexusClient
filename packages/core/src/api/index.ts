@@ -13,3 +13,6 @@ export * from './oauth-app'
 export * from './user-form'
 
 export * from './workspace'
+
+export * from './points'
+export * from './application-access'

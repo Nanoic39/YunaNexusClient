@@ -75,6 +75,18 @@ const routes: RouteRecordRaw[] = [
     redirect: '/console/dashboard',
     children: [
       {
+        path: 'oauth-apps/:id/access',
+        name: 'application-access',
+        component: () => import('@/views/ApplicationAccessView.vue'),
+        meta: { title: '应用业务权限' },
+      },
+      {
+        path: 'points',
+        name: 'points',
+        component: () => import('@/views/PointsView.vue'),
+        meta: { title: '积分与签到' },
+      },
+      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/views/SettingsView.vue'),
