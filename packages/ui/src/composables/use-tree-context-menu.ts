@@ -101,14 +101,18 @@ export function defaultTreeMenuItems(node: TreeMenuNode, options: TreeMenuOption
  * 用法：`<n-tree :node-props="treeNodeProps((node) => defaultTreeMenuItems(node))" />`
  * —— 页面只声明"这个节点的菜单是什么"，不需要关心事件绑定、坐标和面板。
  */
+export interface TreeNodeInfo {
+  option: TreeMenuNode
+}
+
 export function treeNodeProps(
   build: (node: TreeMenuNode) => ContextMenuItem[],
-): (node: TreeMenuNode) => Record<string, unknown> {
-  return (node) => ({
+): (info: TreeNodeInfo) => Record<string, unknown> {
+  return (info) => ({
     onContextmenu: (event: MouseEvent) => {
       event.preventDefault()
       event.stopPropagation()
-      const items = build(node)
+      const items = build(info.option)
       if (!items.length) return
       openContextMenu({ x: event.clientX, y: event.clientY, items, opener: null })
     },

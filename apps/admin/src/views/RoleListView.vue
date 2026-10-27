@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { treeNodeProps, defaultTreeMenuItems } from '@yuna/ui'
 import type { TreeMenuNode } from '@yuna/ui'
+import type { ContextMenuItem } from '@yuna/ui'
 import { h, computed, onMounted, reactive, ref } from 'vue'
 import type { VNodeChild } from 'vue'
 import { useRouter } from 'vue-router'
@@ -100,7 +101,7 @@ const roleTree = computed(() => [
  */
 function buildRoleTreeMenu(node: TreeMenuNode): ReturnType<typeof defaultTreeMenuItems> {
   const role = rows.value.find((row) => String(row.id) === String(node.key))
-  const extra = role
+  const extra: ContextMenuItem[] = role
     ? [
         {
           key: 'edit-role',

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { VNodeChild } from 'vue'
 import {
   NBreadcrumb,
   NBreadcrumbItem,
@@ -204,11 +205,11 @@ watch(
  * Naive 的菜单项 DOM 不保证暴露 key，右键时若拿不到 key 就只能退化成"分组级菜单"，
  * 这里自己打标记，右键菜单才能精确知道用户点的是哪个入口。
  */
-function renderMenuLabel(option: MenuOption): ReturnType<typeof h> | string {
+function renderMenuLabel(option: MenuOption): VNodeChild {
   const key = option.key != null ? String(option.key) : ''
   const label = option.label
-  if (typeof label === 'function') return h('span', { 'data-menu-key': key }, [label()])
-  return h('span', { 'data-menu-key': key }, label ?? '')
+  const children: VNodeChild[] = typeof label === 'function' ? [label()] : [String(label ?? '')]
+  return h('span', { 'data-menu-key': key }, children)
 }
 
 /** 从菜单树里取某个路由 key 的标题，用于页签文案 */
@@ -298,7 +299,9 @@ function buildSiderMenu(target: Element): ContextMenuItem[] {
         key: 'open-tab',
         label: '在新标签页打开',
         icon: 'openTab',
-        onSelect: () => window.open(key, '_blank', 'noopener'),
+        onSelect: () => {
+          window.open(key, '_blank', 'noopener')
+        },
       },
       {
         key: 'open-here',

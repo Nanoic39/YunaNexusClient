@@ -5,7 +5,7 @@
  * 分层拆开的原因：子菜单需要独立的键盘游标、独立的开合状态与独立的贴边翻转，
  * 放在一个组件里用下标数组维护会难读且易错，递归组件则天然对齐数据结构。
  */
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import type { ContextMenuItem } from '../composables/use-context-menu'
 import { moveActive } from '../composables/use-context-menu'
 import ContextMenuIconGlyph from './ContextMenuIconGlyph.vue'
@@ -24,8 +24,6 @@ const openIndex = ref(-1)
 const submenuFlip = ref(false)
 const submenuRef = ref<{ $el?: HTMLElement } | null>(null)
 let hoverTimer: ReturnType<typeof setTimeout> | null = null
-
-const selectedItem = computed(() => (openIndex.value >= 0 ? props.items[openIndex.value] : null))
 
 function clearHoverTimer(): void {
   if (hoverTimer) {
