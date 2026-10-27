@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { openContextMenu } from '../composables/use-context-menu'
 import { NSkeleton } from 'naive-ui'
 
 /**
@@ -39,10 +40,28 @@ const trendText = computed(() => {
   const abs = Math.abs(props.trend as number)
   return `${trendUp.value ? '+' : '-'}${abs}%`
 })
+
+/** 看板卡片的右键：把"卡片上的数字"变成可复制的数据，而不是只能看 */
+function onCardContextMenu(event: MouseEvent): void {
+  const name = String(props.label ?? '')
+  const value = props.value === null || props.value === undefined ? '' : String(props.value)
+  const unit = String(props.unit ?? '')
+  const line = `${name}: ${value}${unit}`
+  openContextMenu({
+    x: event.clientX,
+    y: event.clientY,
+    opener: null,
+    items: [
+      { key: 'copy-line', label: '复制「名称: 数值」', icon: 'copy', disabled: !name || !value, onSelect: () => void navigator.clipboard?.writeText(line).catch(() => {}) },
+      { key: 'copy-value', label: '只复制数值', icon: 'export', disabled: !value, onSelect: () => void navigator.clipboard?.writeText(value).catch(() => {}) },
+      { key: 'copy-name', label: '只复制指标名', icon: 'link', disabled: !name, onSelect: () => void navigator.clipboard?.writeText(name).catch(() => {}) },
+    ],
+  })
+}
 </script>
 
 <template>
-  <div class="yuna-metric">
+  <div class="yuna-metric" @contextmenu.prevent.stop="onCardContextMenu">
     <div class="yuna-metric__head">
       <span class="yuna-metric__label">{{ label }}</span>
       <slot name="icon" />

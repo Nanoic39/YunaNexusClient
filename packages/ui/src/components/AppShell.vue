@@ -11,6 +11,8 @@ import {
 import type { MenuOption } from 'naive-ui'
 import { useSiderExpanded } from '../composables/use-sider-expanded'
 import { openContextMenu } from '../composables/use-context-menu'
+import { useContentTabs } from '../composables/use-content-tabs'
+import ContentTabs from './ContentTabs.vue'
 import type { ContextMenuItem } from '../composables/use-context-menu'
 
 /**
@@ -39,6 +41,8 @@ interface Props {
    * 传值则由调用方接管（此时外壳不再落盘）。
    */
   expandedKeys?: string[]
+  /** 是否在顶栏下方展示内容页签栏（多标签导航） */
+  showTabs?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -49,6 +53,7 @@ const props = withDefaults(defineProps<Props>(), {
   showBreadcrumb: true,
   brandInteractive: false,
   expandedKeys: undefined,
+  showTabs: false,
 })
 
 const emit = defineEmits<{
@@ -204,6 +209,80 @@ function renderMenuLabel(option: MenuOption): ReturnType<typeof h> | string {
   const label = option.label
   if (typeof label === 'function') return h('span', { 'data-menu-key': key }, [label()])
   return h('span', { 'data-menu-key': key }, label ?? '')
+}
+
+/** 从菜单树里取某个路由 key 的标题，用于页签文案 */
+function labelOf(key: string): string {
+  let label = ''
+  const walk = (list: MenuOption[]): boolean => {
+    for (const option of list) {
+      if (option.key != null && String(option.key) === key) {
+        if (typeof option.label === 'string') {
+          label = option.label
+          return true
+        }
+      }
+      const children = (option as { children?: MenuOption[] }).children
+      if (children?.length && walk(children)) return true
+    }
+    return false
+  }
+  walk(props.menuOptions)
+  return label || key
+}
+
+const contentTabs = useContentTabs()
+
+function syncTab(): void {
+  if (!props.showTabs || !props.value) return
+  contentTabs.open({ key: props.value, label: labelOf(props.value) })
+}
+
+watch(() => props.value, syncTab, { immediate: true })
+watch(() => props.showTabs, syncTab)
+// 菜单文案可能来自异步权限配置，就位后同步一次页签标题
+watch(
+  () => props.menuOptions,
+  () => {
+    if (!props.showTabs) return
+    for (const tab of contentTabs.tabs.value) {
+      const label = labelOf(tab.key)
+      if (label !== tab.key) tab.label = label
+    }
+  },
+)
+
+function onTabActivate(key: string): void {
+  contentTabs.activate(key)
+  if (key !== props.value) emit('update:value', key)
+}
+
+function onTabClose(key: string): void {
+  const next = contentTabs.close(key)
+  if (next) emit('update:value', next)
+}
+
+function onTabCloseOthers(key: string): void {
+  const next = contentTabs.closeOthers(key)
+  if (next) emit('update:value', next)
+}
+
+function onTabCloseRight(key: string): void {
+  const next = contentTabs.closeRight(key)
+  if (next) emit('update:value', next)
+}
+
+function onTabCloseAll(): void {
+  const next = contentTabs.closeAll()
+  if (next && next !== props.value) emit('update:value', next)
+}
+
+function onTabRefresh(key: string): void {
+  if (key !== props.value) {
+    emit('update:value', key)
+    return
+  }
+  window.location.reload()
 }
 
 /** 侧栏右键菜单：分组级操作始终可用，命中具体菜单项时追加该项操作 */
@@ -423,6 +502,20 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
+      <ContentTabs
+        v-if="showTabs && contentTabs.tabs.value.length"
+        :tabs="contentTabs.tabs.value"
+        :active-key="contentTabs.activeKey.value"
+        :has-closable-others="contentTabs.hasClosableOthers"
+        :has-closable-right="contentTabs.hasClosableRight"
+        @activate="onTabActivate"
+        @close="onTabClose"
+        @close-others="onTabCloseOthers"
+        @close-right="onTabCloseRight"
+        @close-all="onTabCloseAll"
+        @toggle-pin="contentTabs.togglePin"
+        @refresh="onTabRefresh"
+      />
       <n-layout-content class="yuna-shell__content" :native-scrollbar="false">
         <div class="yuna-shell__page">
           <slot />

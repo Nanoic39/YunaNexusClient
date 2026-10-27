@@ -120,6 +120,7 @@ async function onAccountSelect(key: string): Promise<void> {
     :menu-options="userMenuOptions"
     brand-title="YunaNexus"
     brand-subtitle="用户控制台"
+    show-tabs
     brand-interactive
     @brand-click="goPortal"
     @update:value="onMenuSelect"

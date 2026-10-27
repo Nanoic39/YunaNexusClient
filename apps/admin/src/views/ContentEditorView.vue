@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { openContextMenu } from '@yuna/ui'
+import type { ContextMenuItem } from '@yuna/ui'
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
   NButton,
@@ -152,6 +154,46 @@ onMounted(async () => {
     activePageId.value = state.pages[0]?.id ?? ''
   }
 })
+
+/**
+ * 内容编辑器区域右键。
+ *
+ * 输入框里的"剪切/复制/粘贴"由全局可编辑区菜单负责，这里补的是**编辑器级别**的操作：
+ * 复制当前页配置、复制整份站点配置、重新从服务端载入（放弃本地未同步改动）。
+ */
+function editorContextMenu(): ContextMenuItem[] {
+  const page = state.pages.find((item) => item.id === activePageId.value)
+  return [
+    {
+      key: 'copy-page',
+      label: '复制当前页配置（JSON）',
+      icon: 'copy',
+      disabled: !page,
+      onSelect: () => void navigator.clipboard?.writeText(JSON.stringify(page ?? {}, null, 2)).catch(() => {}),
+    },
+    {
+      key: 'copy-site',
+      label: '复制整份站点配置（JSON）',
+      icon: 'export',
+      onSelect: () => void navigator.clipboard?.writeText(JSON.stringify(state, null, 2)).catch(() => {}),
+    },
+    {
+      key: 'reload',
+      label: '从服务端重新载入',
+      icon: 'refresh',
+      divider: true,
+      onSelect: () => void siteContent.loadAdmin(),
+    },
+  ]
+}
+
+function onEditorContextMenu(event: MouseEvent): void {
+  const target = event.target
+  // 输入框内保留浏览器/输入法自身的编辑能力，只有非输入区才弹编辑器菜单
+  if (target instanceof HTMLElement && target.closest('input, textarea, [contenteditable="true"]')) return
+  event.preventDefault()
+  openContextMenu({ x: event.clientX, y: event.clientY, items: editorContextMenu(), opener: null })
+}
 
 function addSection(page: ContentPage): void {
   page.sections.push(createSection())
@@ -441,6 +483,7 @@ function confirmReset(): void {
 
 <template>
   <page-container
+    @contextmenu="onEditorContextMenu"
     title="门户内容"
     description="维护用户端门户的站点信息与页面内容；改动会保存到后端并对所有访客生效"
   >

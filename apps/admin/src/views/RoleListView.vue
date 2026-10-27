@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { treeNodeProps, defaultTreeMenuItems } from '@yuna/ui'
+import type { TreeMenuNode } from '@yuna/ui'
 import { h, computed, onMounted, reactive, ref } from 'vue'
 import type { VNodeChild } from 'vue'
 import { useRouter } from 'vue-router'
@@ -92,6 +94,37 @@ const roleTree = computed(() => [
       .map((r) => ({ key: r.id, label: `${r.roleName} · ${r.roleCode}` })),
   },
 ])
+/**
+ * 角色树右键：分组的 key 是 'system'/'custom'，角色节点是角色 id。
+ * 菜单项按"节点是分组还是角色"给不同操作，这是同一区域不同状态的典型例子。
+ */
+function buildRoleTreeMenu(node: TreeMenuNode): ReturnType<typeof defaultTreeMenuItems> {
+  const role = rows.value.find((row) => String(row.id) === String(node.key))
+  const extra = role
+    ? [
+        {
+          key: 'edit-role',
+          label: '编辑角色',
+          icon: 'rename',
+          onSelect: () => void openEdit(role),
+        },
+        {
+          key: 'delete-role',
+          label: '删除角色',
+          icon: 'delete',
+          danger: true,
+          disabled: systemRole(role),
+          onSelect: () => confirmRemove(role),
+        },
+      ]
+    : []
+  return defaultTreeMenuItems(node, {
+    keyLabel: role ? '角色标识' : '分组标识',
+    extra,
+    onRefresh: () => void load(),
+  })
+}
+
 async function load(): Promise<void> {
   loading.value = true
   try {
@@ -406,6 +439,7 @@ onMounted(load)
             default-expand-all
             :data="roleTree"
             :selected-keys="selectedRoleId === null ? [] : [selectedRoleId]"
+            :node-props="treeNodeProps(buildRoleTreeMenu)"
             @update:selected-keys="
               (keys) => (selectedRoleId = typeof keys[0] === 'number' ? keys[0] : null)
             "

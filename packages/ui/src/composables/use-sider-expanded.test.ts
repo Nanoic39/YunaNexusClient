@@ -31,12 +31,14 @@ class MemoryStorage implements Storage {
 }
 
 ;(globalThis as unknown as { localStorage: Storage }).localStorage ??= new MemoryStorage()
+/** 断言统一走同一个 Storage 实例：多个测试文件在同一进程里共享它 */
+const storage = (globalThis as unknown as { localStorage: Storage }).localStorage
 
 const KEY = 'yuna.sider-expanded'
 
 describe('useSiderExpanded', () => {
   beforeEach(() => {
-    store.clear()
+    storage.clear()
     useSiderExpanded().__reset(null)
   })
 
@@ -49,12 +51,12 @@ describe('useSiderExpanded', () => {
   it('写入后落盘', () => {
     const api = useSiderExpanded()
     api.expandedKeys.value = ['/system', '/system/user']
-    expect(JSON.parse(store.get(KEY) as string)).toEqual(['/system', '/system/user'])
+    expect(JSON.parse(storage.getItem(KEY) as string)).toEqual(['/system', '/system/user'])
     expect(api.needsInitialExpand()).toBe(false)
   })
 
   it('从已有存储恢复（含首次标记）', () => {
-    store.set(KEY, JSON.stringify(['/system']))
+    storage.setItem(KEY, JSON.stringify(['/system']))
     const api = useSiderExpanded()
     api.__reset(['/system'])
     expect(api.expandedKeys.value).toEqual(['/system'])
@@ -80,7 +82,7 @@ describe('useSiderExpanded', () => {
     api.expandAll(['/a', '/b'])
     api.collapseAll()
     expect(api.expandedKeys.value).toEqual([])
-    expect(store.get(KEY)).toBe('[]')
+    expect(storage.getItem(KEY)).toBe('[]')
   })
 
   it('prune 清掉菜单里已不存在的分组', () => {
@@ -97,7 +99,7 @@ describe('useSiderExpanded', () => {
   })
 
   it('存储内容损坏时按"没有存储"处理，不抛错', () => {
-    store.set(KEY, '{不是 JSON')
+    storage.setItem(KEY, '{不是 JSON')
     const api = useSiderExpanded()
     api.__reset(null)
     expect(api.expandedKeys.value).toEqual([])
@@ -105,7 +107,7 @@ describe('useSiderExpanded', () => {
   })
 
   it('存储里混入非字符串项时被过滤', () => {
-    store.set(KEY, JSON.stringify(['/a', 42, null, '/b']))
+    storage.setItem(KEY, JSON.stringify(['/a', 42, null, '/b']))
     const api = useSiderExpanded()
     api.__reset(['/a', '/b'])
     expect(api.expandedKeys.value).toEqual(['/a', '/b'])

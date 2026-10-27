@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { h, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { openContextMenu } from '@yuna/ui'
+import type { ContextMenuItem } from '@yuna/ui'
 import { NButton, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import {
@@ -121,6 +123,31 @@ async function loadLists(): Promise<void> {
   }
 }
 
+/** 看板区域右键：把整块看板的一次性快照导出成 CSV，方便贴到报表里 */
+function dashboardContextMenu(): ContextMenuItem[] {
+  const rows: Array<[string, string]> = [
+    ['用户总数', String(userTotal.value ?? '')],
+    ['正常账号', String(userEnabled.value ?? '')],
+    ['禁用账号', String(userDisabled.value ?? '')],
+    ['待处理申诉', String(appealPending.value ?? '')],
+  ]
+  const csv = ['指标,数值', ...rows.map(([name, value]) => `${name},${value}`)].join('\n')
+  return [
+    {
+      key: 'export-csv',
+      label: '导出看板数据（CSV）',
+      icon: 'export',
+      onSelect: () => void navigator.clipboard?.writeText(csv).catch(() => {}),
+    },
+    { key: 'refresh', label: '刷新看板数据', icon: 'refresh', divider: true, onSelect: refresh },
+  ]
+}
+
+function onDashboardContextMenu(event: MouseEvent): void {
+  event.preventDefault()
+  openContextMenu({ x: event.clientX, y: event.clientY, items: dashboardContextMenu(), opener: null })
+}
+
 function refresh(): void {
   void loadMetrics()
   void loadLists()
@@ -135,7 +162,7 @@ onMounted(refresh)
       <n-button quaternary :loading="metricsLoading || listsLoading" @click="refresh">刷新</n-button>
     </template>
 
-    <div class="yuna-metric-grid">
+    <div class="yuna-metric-grid" @contextmenu="onDashboardContextMenu">
       <metric-card label="用户总数" :value="userTotal" unit="个" :loading="metricsLoading" />
       <metric-card label="正常账号" :value="userEnabled" unit="个" :loading="metricsLoading" />
       <metric-card label="禁用账号" :value="userDisabled" unit="个" :loading="metricsLoading" />

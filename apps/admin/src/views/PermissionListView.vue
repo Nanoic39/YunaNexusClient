@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { treeNodeProps, defaultTreeMenuItems } from '@yuna/ui'
+import type { TreeMenuNode } from '@yuna/ui'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -31,6 +33,33 @@ const expandedKeys = ref<Array<string | number>>([])
 /* ------------------------------ 列表 ------------------------------ */
 
 /** 命中节点（分组按前缀，叶子按标识/资源/描述） */
+/** 权限树右键：通用项 + 展开/折叠此节点（本页持有 expandedKeys，可控） */
+function buildTreeNodeMenu(node: TreeMenuNode): ReturnType<typeof defaultTreeMenuItems> {
+  const key = String(node.key ?? '')
+  return defaultTreeMenuItems(node, {
+    keyLabel: '权限标识',
+    extra: [
+      {
+        key: 'expand-node',
+        label: '展开此节点',
+        icon: 'expand',
+        onSelect: () => {
+          if (key && !expandedKeys.value.includes(key)) expandedKeys.value = [...expandedKeys.value, key]
+        },
+      },
+      {
+        key: 'collapse-node',
+        label: '折叠此节点',
+        icon: 'collapse',
+        onSelect: () => {
+          expandedKeys.value = expandedKeys.value.filter((item) => item !== key)
+        },
+      },
+    ],
+    onRefresh: () => void load(),
+  })
+}
+
 function hit(node: PermissionTreeNode): boolean {
   const text = keyword.value.trim().toLowerCase()
   if (!text) return true
@@ -216,6 +245,7 @@ onMounted(load)
             v-model:expanded-keys="expandedKeys"
             :selected-keys="selectedKey ? [selectedKey] : []"
             @update:selected-keys="(keys) => (selectedKey = String(keys[0] ?? ''))"
+            :node-props="treeNodeProps(buildTreeNodeMenu)"
           />
         </section>
         <section class="access-detail" v-if="selectedNode">

@@ -59,6 +59,7 @@ async function onAccountSelect(key: string): Promise<void> {
     :menu-options="adminMenuOptions"
     brand-title="YunaNexus"
     brand-subtitle="管理台"
+    show-tabs
     @update:value="onMenuSelect"
   >
     <template #header-actions>

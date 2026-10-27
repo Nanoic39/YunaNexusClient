@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { treeNodeProps, defaultTreeMenuItems } from '@yuna/ui'
+import type { TreeMenuNode } from '@yuna/ui'
 import { computed, h, onMounted, reactive, ref } from 'vue'
 import type { VNodeChild } from 'vue'
 import { useRouter } from 'vue-router'
@@ -265,6 +267,14 @@ function toPermOptions(nodes: PermissionTreeNode[]): PermOption[] {
   }))
 }
 
+/** 用户设置里的权限树是只读派生视图，右键只提供"看清/复制/刷新" */
+function buildUserTreeMenu(node: TreeMenuNode): ReturnType<typeof defaultTreeMenuItems> {
+  return defaultTreeMenuItems(node, {
+    keyLabel: '权限标识',
+    onRefresh: () => void load(),
+  })
+}
+
 const permissionOptions = computed<PermOption[]>(() => toPermOptions(permissionTree.value))
 
 function renderPermLabel({ option }: { option: TreeOption }): VNodeChild {
@@ -486,6 +496,7 @@ onMounted(() => {
                 :data="permissionOptions"
                 :render-label="renderPermLabel"
                 :default-expand-all="true"
+                :node-props="treeNodeProps(buildUserTreeMenu)"
               />
             </n-scrollbar>
           </n-tab-pane>
