@@ -125,21 +125,28 @@ function onSubmenuBack(): void {
 }
 
 onMounted(() => {
-  // 打开后默认高亮第一个可选项，键盘用户无需先按方向键
-  active.value = moveActive(props.items, -1, 1)
+  // 打开时不预置高亮：焦点应由用户产生（悬停或方向键），而不是菜单自己"抢"焦点。
+  // 键盘用户按方向键时 moveActive(items, -1, 1) 会自然落到第一个可选项。
+  active.value = -1
 })
 
 watch(
   () => props.items,
   () => {
-    active.value = moveActive(props.items, -1, 1)
+    active.value = -1
     closeSubmenu()
   },
 )
 </script>
 
 <template>
-  <div class="yuna-ctx-list" role="menu" :aria-label="level > 1 ? '子菜单' : '右键菜单'" @keydown="onKeydown">
+  <div
+    class="yuna-ctx-list"
+    role="menu"
+    :aria-label="level > 1 ? '子菜单' : '右键菜单'"
+    @keydown="onKeydown"
+    @mouseleave="active = -1"
+  >
     <template v-for="(item, index) in items" :key="item.key">
       <div v-if="item.divider" class="yuna-ctx-list__divider" role="separator" />
       <div v-if="item.header" class="yuna-ctx-list__header" role="presentation">{{ item.label }}</div>
