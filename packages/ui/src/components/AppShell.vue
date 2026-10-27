@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   NBreadcrumb,
   NBreadcrumbItem,
@@ -9,6 +9,9 @@ import {
   NMenu,
 } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
+import { useSiderExpanded } from '../composables/use-sider-expanded'
+import { openContextMenu } from '../composables/use-context-menu'
+import type { ContextMenuItem } from '../composables/use-context-menu'
 
 /**
  * 中控台布局外壳：浅色白底侧栏 + 极简顶栏 + 内容区。
@@ -31,6 +34,11 @@ interface Props {
   showBreadcrumb?: boolean
   /** 品牌区是否可点击（可点击时触发 brand-click，并呈现 hover 反馈） */
   brandInteractive?: boolean
+  /**
+   * 受控的子菜单展开态。缺省时由外壳自己持久化（localStorage），业务侧无需关心；
+   * 传值则由调用方接管（此时外壳不再落盘）。
+   */
+  expandedKeys?: string[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -40,12 +48,14 @@ const props = withDefaults(defineProps<Props>(), {
   brandSubtitle: '',
   showBreadcrumb: true,
   brandInteractive: false,
+  expandedKeys: undefined,
 })
 
 const emit = defineEmits<{
   (e: 'update:value', value: string): void
   (e: 'update:collapsed', value: boolean): void
   (e: 'brand-click'): void
+  (e: 'update:expandedKeys', value: string[]): void
 }>()
 
 interface Crumb {
@@ -97,6 +107,171 @@ function syncMobile(matches: boolean): void {
 
 function onMediaChange(event: MediaQueryListEvent): void {
   syncMobile(event.matches)
+}
+
+/** 所有含子项的分组 key（用于清理陈旧展开项与"展开全部"） */
+const groupKeys = computed(() => {
+  const keys: string[] = []
+  const walk = (list: MenuOption[]): void => {
+    for (const option of list) {
+      const children = (option as { children?: MenuOption[] }).children
+      if (children?.length) {
+        if (option.key != null) keys.push(String(option.key))
+        walk(children)
+      }
+    }
+  }
+  walk(props.menuOptions)
+  return keys
+})
+
+/** 当前路由所在的分组链（不含自身），用于导航时自动展开 */
+const activeTrail = computed(() => {
+  const trail: string[] = []
+  const walk = (list: MenuOption[], acc: string[]): boolean => {
+    for (const option of list) {
+      const key = option.key != null ? String(option.key) : ''
+      const children = (option as { children?: MenuOption[] }).children
+      if (children?.length) {
+        if (key === props.value) {
+          trail.push(...acc, key)
+          return true
+        }
+        if (walk(children, [...acc, key])) return true
+      } else if (key === props.value) {
+        trail.push(...acc)
+        return true
+      }
+    }
+    return false
+  }
+  walk(props.menuOptions, [])
+  return trail
+})
+
+const localExpanded = useSiderExpanded()
+const expandedKeys = computed<string[]>(() =>
+  props.expandedKeys !== undefined ? props.expandedKeys : localExpanded.expandedKeys.value,
+)
+
+function applyExpanded(next: string[]): void {
+  if (props.expandedKeys !== undefined) {
+    emit('update:expandedKeys', next)
+    return
+  }
+  localExpanded.expandedKeys.value = next
+}
+
+function setExpanded(next: string[]): void {
+  applyExpanded(next)
+}
+
+/** 首次进入且无历史偏好：展开当前路由链；之后只在路由变化时补齐（不动用户手动收起的） */
+onMounted(() => {
+  if (props.expandedKeys !== undefined) return
+  localExpanded.prune(groupKeys.value)
+  if (localExpanded.needsInitialExpand()) localExpanded.ensureExpanded(activeTrail.value)
+})
+
+watch(
+  () => [props.value, groupKeys.value.join('|')] as const,
+  () => {
+    if (props.expandedKeys === undefined) localExpanded.prune(groupKeys.value)
+  },
+)
+
+watch(
+  () => props.value,
+  (next, previous) => {
+    if (!next || next === previous) return
+    if (props.expandedKeys !== undefined) {
+      const missing = activeTrail.value.filter((key) => !props.expandedKeys?.includes(key))
+      if (missing.length) emit('update:expandedKeys', [...(props.expandedKeys ?? []), ...missing])
+      return
+    }
+    localExpanded.ensureExpanded(activeTrail.value)
+  },
+)
+
+/**
+ * 给每个菜单项的标签包一层带 `data-menu-key` 的 span。
+ *
+ * Naive 的菜单项 DOM 不保证暴露 key，右键时若拿不到 key 就只能退化成"分组级菜单"，
+ * 这里自己打标记，右键菜单才能精确知道用户点的是哪个入口。
+ */
+function renderMenuLabel(option: MenuOption): ReturnType<typeof h> | string {
+  const key = option.key != null ? String(option.key) : ''
+  const label = option.label
+  if (typeof label === 'function') return h('span', { 'data-menu-key': key }, [label()])
+  return h('span', { 'data-menu-key': key }, label ?? '')
+}
+
+/** 侧栏右键菜单：分组级操作始终可用，命中具体菜单项时追加该项操作 */
+function buildSiderMenu(target: Element): ContextMenuItem[] {
+  const holder = target.closest('[data-menu-key], [data-key]')
+  const rawKey =
+    holder?.getAttribute('data-menu-key') ?? holder?.getAttribute('data-key') ?? ''
+  const key = rawKey.startsWith('/') ? rawKey : ''
+  const items: ContextMenuItem[] = []
+  if (key) {
+    items.push(
+      {
+        key: 'open-tab',
+        label: '在新标签页打开',
+        icon: 'openTab',
+        onSelect: () => window.open(key, '_blank', 'noopener'),
+      },
+      {
+        key: 'open-here',
+        label: '在当前页打开',
+        icon: 'external',
+        disabled: key === props.value,
+        onSelect: () => emit('update:value', key),
+      },
+      {
+        key: 'copy-link',
+        label: '复制链接',
+        icon: 'link',
+        onSelect: () => {
+          void navigator.clipboard?.writeText(new URL(key, window.location.origin).href).catch(() => {})
+        },
+      },
+      { key: 'nav-divider', divider: true },
+    )
+  }
+  items.push(
+    {
+      key: 'expand-all',
+      label: '展开全部分组',
+      icon: 'expand',
+      disabled: groupKeys.value.every((groupKey) => expandedKeys.value.includes(groupKey)),
+      onSelect: () => setExpanded([...expandedKeys.value, ...groupKeys.value]),
+    },
+    {
+      key: 'collapse-all',
+      label: '折叠全部分组',
+      icon: 'collapse',
+      disabled: expandedKeys.value.length === 0,
+      onSelect: () => setExpanded([]),
+    },
+    {
+      key: 'refresh',
+      label: '刷新页面',
+      icon: 'refresh',
+      divider: true,
+      onSelect: () => window.location.reload(),
+    },
+  )
+  return items
+}
+
+function onSiderContextMenu(event: MouseEvent): void {
+  const target = event.target
+  if (!(target instanceof Element)) return
+  event.preventDefault()
+  event.stopPropagation()
+  const items = buildSiderMenu(target)
+  if (items.length) openContextMenu({ x: event.clientX, y: event.clientY, items, opener: null })
 }
 
 function onSelect(key: string): void {
@@ -165,12 +340,16 @@ onBeforeUnmount(() => {
           <n-menu
             :value="value"
             :options="menuOptions"
+            :expanded-keys="expandedKeys"
+            :render-label="renderMenuLabel"
             :collapsed="siderCollapsed"
             :collapsed-width="64"
             :collapsed-icon-size="18"
             :indent="18"
             :root-indent="18"
             @update:value="onSelect"
+            @update:expanded-keys="setExpanded"
+            @contextmenu="onSiderContextMenu"
           />
         </div>
 

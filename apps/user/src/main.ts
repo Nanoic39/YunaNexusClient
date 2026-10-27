@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { loadCurrentUser, readEnv, session, siteContent } from '@yuna/core'
 import '@yuna/theme/styles.css'
+import { vContextMenu } from '@yuna/ui'
 import App from './App.vue'
 import { router } from './router'
 
@@ -20,7 +21,7 @@ async function bootstrap(): Promise<void> {
   // 已登录时回填角色 / 权限 / 菜单，供「进入管理后台」入口等按需展示；
   // 401 时清理会话，瞬时故障保留既有会话。
   if (session.isAuthenticated.value) void loadCurrentUser()
-  createApp(App).use(router).mount('#app')
+  createApp(App).use(router).directive('context-menu', vContextMenu).mount('#app')
 }
 
 void bootstrap()

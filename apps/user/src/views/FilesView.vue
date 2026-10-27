@@ -30,6 +30,9 @@ import {
 } from '@yuna/core'
 import type { FileView, UploadEntry } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
+import { openContextMenu } from '@yuna/ui'
+import type { ContextMenuItem } from '@yuna/ui'
+
 const router = useRouter(),
   message = useMessage(),
   dialog = useDialog()
@@ -136,6 +139,65 @@ async function retryUploads() {
 function dropped(event: DragEvent) {
   void upload(Array.from(event.dataTransfer?.files ?? []))
 }
+/**
+ * 文件行的右键菜单。
+ *
+ * 这里体现了"同一区域不同状态给不同菜单"：命中已选中的行时补一个批量删除，
+ * 已公开的文件给出"取消公开"，未公开的给"创建公开链接"。
+ */
+function fileContextMenu(file: FileView): ContextMenuItem[] {
+  const items: ContextMenuItem[] = [
+    { key: 'download', label: '下载', icon: 'download', onSelect: () => void download(file) },
+    { key: 'rename', label: '重命名', icon: 'rename', onSelect: () => openRename(file) },
+    { key: 'share', label: '分享…', icon: 'share', onSelect: () => share(file) },
+    {
+      key: 'visibility',
+      label: file.publicAccess ? '取消公开链接' : '创建公开链接',
+      icon: 'link',
+      checked: file.publicAccess,
+      onSelect: () => changeVisibility(file),
+    },
+    { key: 'inspect', label: '详情', icon: 'info', divider: true, onSelect: () => void inspect(file) },
+  ]
+  if (file.publicUrl) {
+    items.splice(4, 0, {
+      key: 'copy-public-url',
+      label: '复制公开链接',
+      icon: 'copy',
+      onSelect: () => copy(file.publicUrl as string),
+    })
+  }
+  const selectedFiles = rows.value.filter((row) => selected.value.includes(row.fileId))
+  if (selected.value.includes(file.fileId) && selectedFiles.length > 1) {
+    items.push({
+      key: 'delete-selected',
+      label: `删除选中的 ${selectedFiles.length} 个文件`,
+      icon: 'delete',
+      danger: true,
+      divider: true,
+      onSelect: () => remove(selectedFiles),
+    })
+  } else {
+    items.push({
+      key: 'delete',
+      label: '删除',
+      icon: 'delete',
+      danger: true,
+      divider: true,
+      onSelect: () => remove([file]),
+    })
+  }
+  return items
+}
+
+function onFileContextMenu(event: MouseEvent, file: FileView): void {
+  // 右键未选中的行时先把它设为当前单选，避免"菜单对多选批量操作"的歧义
+  if (!selected.value.includes(file.fileId)) {
+    selected.value = [file.fileId]
+  }
+  openContextMenu({ x: event.clientX, y: event.clientY, items: fileContextMenu(file), opener: null })
+}
+
 async function download(file: FileView) {
   busy.value = true
   try {
@@ -356,7 +418,11 @@ onBeforeUnmount(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="file in rows" :key="file.fileId">
+                <tr
+                  v-for="file in rows"
+                  :key="file.fileId"
+                  @contextmenu.prevent.stop="onFileContextMenu($event, file)"
+                >
                   <td>
                     <n-checkbox
                       :checked="selected.includes(file.fileId)"

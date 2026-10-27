@@ -7,5 +7,7 @@
 export * from './components'
 export * from './composables/use-context-menu'
 export * from './composables/use-sider-collapsed'
+export * from './composables/use-sider-expanded'
+export * from './directives/context-menu'
 export * from './utils/format'
 export * from './utils/status'

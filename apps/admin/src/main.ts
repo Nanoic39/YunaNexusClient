@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { consumeHandoff, loadCurrentUser, readEnv, session } from '@yuna/core'
 import '@yuna/theme/styles.css'
+import { vContextMenu } from '@yuna/ui'
 import App from './App.vue'
 
 /**
@@ -24,7 +25,7 @@ async function bootstrap(): Promise<void> {
   }
   // 授权码清理和回跳完成后再创建 history，避免路由仍捕获旧的 callback 地址。
   const { router } = await import('./router')
-  createApp(App).use(router).mount('#app')
+  createApp(App).use(router).directive('context-menu', vContextMenu).mount('#app')
 }
 
 void bootstrap()
