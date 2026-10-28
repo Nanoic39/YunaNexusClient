@@ -119,6 +119,19 @@ function setSubmenuRef(target: unknown): void {
   submenuRef.value = (target as { $el?: HTMLElement } | null) ?? null
 }
 
+/**
+ * 该项是否有可渲染的主体内容。
+ *
+ * `divider: true` 在此处的语义是"在本项之前画一条分隔线"，而不是"本项就是分隔线"：
+ * 带 label 传 divider 是在分组前加线（如"刷新页面"）。真正只做分隔的项没有 label，
+ * 过去会被渲染成一个空按钮行——看着像空选项、点了没反应。
+ */
+function hasBody(item: ContextMenuItem): boolean {
+  if (item.header) return false
+  if (item.label != null && String(item.label).length > 0) return true
+  return Boolean(item.children?.length)
+}
+
 function onSubmenuBack(): void {
   closeSubmenu()
   active.value = openIndex.value >= 0 ? openIndex.value : active.value
@@ -150,7 +163,8 @@ watch(
     <template v-for="(item, index) in items" :key="item.key">
       <div v-if="item.divider" class="yuna-ctx-list__divider" role="separator" />
       <div v-if="item.header" class="yuna-ctx-list__header" role="presentation">{{ item.label }}</div>
-      <div v-else class="yuna-ctx-list__row">
+      <!-- 纯分隔项只画线，不再渲染一个没有文字、点了没反应的空按钮 -->
+      <div v-else-if="hasBody(item)" class="yuna-ctx-list__row">
         <button
           type="button"
           class="yuna-ctx-list__item"

@@ -288,7 +288,12 @@ function onTabRefresh(key: string): void {
 
 /** 侧栏右键菜单：分组级操作始终可用，命中具体菜单项时追加该项操作 */
 function buildSiderMenu(target: Element): ContextMenuItem[] {
-  const holder = target.closest('[data-menu-key], [data-key]')
+  // data-menu-key 挂在 label 的 span 上，因此点在图标/内边距/展开箭头上时拿不到。
+  // 这里先按最近的命中元素取，取不到就回退到"整行容器里找那个带 key 的 span"，
+  // 这样只要右键落在可跳转的菜单项行内任意位置，都能拿到目标路由。
+  const direct = target.closest('[data-menu-key], [data-key]')
+  const row = direct ?? target.closest('.n-menu-item-content, .n-menu-item')
+  const holder = direct ?? row?.querySelector('[data-menu-key]') ?? null
   const rawKey =
     holder?.getAttribute('data-menu-key') ?? holder?.getAttribute('data-key') ?? ''
   const key = rawKey.startsWith('/') ? rawKey : ''
