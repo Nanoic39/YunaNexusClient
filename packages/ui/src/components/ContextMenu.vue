@@ -241,7 +241,8 @@ onBeforeUnmount(() => {
   backdrop-filter: saturate(180%) blur(8px);
 }
 
-[data-theme='dark'] .yuna-ctx {
+html.dark .yuna-ctx,
+html[data-theme='dark'] .yuna-ctx {
   background: rgba(21, 27, 35, 0.72);
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow:

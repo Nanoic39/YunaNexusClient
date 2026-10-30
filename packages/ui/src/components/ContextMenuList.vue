@@ -348,4 +348,26 @@ watch(
   margin-right: 2px;
   margin-left: 0;
 }
+
+/* 暗色：菜单项文字原先固定用 gray-800/900，在深色玻璃上几乎不可见 */
+html.dark .yuna-ctx-list__item,
+html[data-theme='dark'] .yuna-ctx-list__item {
+  color: var(--ws-ink, #e6edf3);
+}
+
+html.dark .yuna-ctx-list__item:hover,
+html[data-theme='dark'] .yuna-ctx-list__item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ws-ink, #e6edf3);
+}
+
+html.dark .yuna-ctx-list__header,
+html[data-theme='dark'] .yuna-ctx-list__header {
+  color: var(--ws-muted, #9aa4b2);
+}
+
+html.dark .yuna-ctx-list__divider,
+html[data-theme='dark'] .yuna-ctx-list__divider {
+  background: rgba(255, 255, 255, 0.16);
+}
 </style>
