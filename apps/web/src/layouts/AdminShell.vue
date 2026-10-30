@@ -44,7 +44,7 @@ const { logout, busy, error } = useLogout()
     </aside>
     <header class="topbar">
       <div class="context-group">
-        <span class="workspace-context">管理工作区</span
+        <span class="workspace-context">管理工作区</span>
       </div>
       <div class="topbar-actions">
         <RouterLink to="/usr" class="workspace-button quiet"
