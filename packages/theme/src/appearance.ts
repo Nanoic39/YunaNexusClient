@@ -13,7 +13,7 @@ export interface AppearancePreferences {
 const defaults: AppearancePreferences = {
   palette: 'blue',
   font: 'system',
-  surface: 'plain',
+  surface: 'glass',
   density: 'compact',
 }
 export const paletteOptions = [

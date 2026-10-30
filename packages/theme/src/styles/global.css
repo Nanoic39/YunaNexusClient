@@ -542,7 +542,8 @@ html.dark {
   --ws-surface: #ffffff;
   --ws-soft: #f0f3f7;
   --ws-selected: #eaf3f9;
-  --ws-panel: rgba(255, 255, 255, 0.88);
+  --ws-panel: rgba(255, 255, 255, 0.78);
+  --ws-backdrop: blur(12px) saturate(180%);
   --ws-shadow: 0 8px 32px rgba(27, 45, 68, 0.045), 0 1px 4px rgba(27, 45, 68, 0.025);
   --ws-gap-1: 4px;
   --ws-gap-2: 8px;

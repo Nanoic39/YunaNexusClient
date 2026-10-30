@@ -22,9 +22,11 @@
 }
 .workspace-panel {
   padding: var(--ws-gap-6);
-  border: 1px solid var(--ws-line);
+  border: 1px solid var(--ws-border, var(--ws-line));
   border-radius: var(--ws-radius-lg);
-  background: var(--ws-surface);
+  background: var(--ws-panel);
+  -webkit-backdrop-filter: var(--ws-backdrop, none);
+  backdrop-filter: var(--ws-backdrop, none);
 }
 .workspace-actions {
   display: flex;
