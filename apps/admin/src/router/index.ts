@@ -1,22 +1,23 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 /**
- * 管理端路由（重构中）。
+ * 管理端路由。
  *
- * 旧路由已随页面一并删除；新页面完成后在此逐条登记。
- * 目前只保留一个占位路由，保证应用可启动。
+ * 旧页面已全部删除（快照见 tag legacy-frontend-before-rebuild），
+ * 新页面按后端接口重建，逐条登记在此。
  */
-const router = createRouter({
+export const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/', redirect: '/users' },
     {
-      path: '/:pathMatch(.*)*',
-      name: 'rebuild',
-      component: () => import('@/views/RebuildPlaceholder.vue'),
-      meta: { title: '重构中' },
+      path: '/users',
+      name: 'users',
+      component: () => import('@/views/user/UserListView.vue'),
+      meta: { title: '用户管理' },
     },
+    { path: '/:pathMatch(.*)*', redirect: '/users' },
   ],
 })
 
-export { router }
 export default router
