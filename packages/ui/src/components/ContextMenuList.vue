@@ -243,7 +243,9 @@ watch(
 .yuna-ctx-list__divider {
   height: 1px;
   margin: 5px 8px;
-  background: var(--yuna-glass-border);
+  /* 用墨色低透明度，玻璃浮层（半透明白）上才看得见；
+     不能用玻璃描边色，那是白色，等于隐形 */
+  background: color-mix(in srgb, var(--yuna-ink, #1f2328) 14%, transparent);
 }
 
 .yuna-ctx-list__header {
