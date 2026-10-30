@@ -192,23 +192,34 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* 半透明背景 + backdrop-filter，与通知面板 / 账号菜单统一为磨砂毛玻璃 */
+/* 浮层玻璃：比内容卡更透、模糊更强，才有"浮在内容之上"的观感 */
 .yuna-ctx {
   position: fixed;
   z-index: 9999;
   min-width: 176px;
   max-width: 320px;
-  background: var(--yuna-glass);
-  border: 1px solid var(--yuna-glass-border);
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.62);
   border-radius: 12px;
-  box-shadow: var(--yuna-glass-shadow);
-  transform-origin: top left;
-  -webkit-backdrop-filter: saturate(180%) blur(var(--yuna-glass-blur));
-  backdrop-filter: saturate(180%) blur(var(--yuna-glass-blur));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 16px 40px rgba(15, 23, 42, 0.16),
+    0 2px 6px rgba(15, 23, 42, 0.08);
+  transform-origin: var(--ctx-origin, top left);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  backdrop-filter: saturate(180%) blur(18px);
+}
+
+[data-theme='dark'] .yuna-ctx {
+  background: rgba(21, 27, 35, 0.72);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 16px 40px rgba(0, 0, 0, 0.5);
 }
 
 .yuna-ctx-enter-active {
-  animation: yuna-ctx-in 0.2s cubic-bezier(0.22, 1.2, 0.36, 1);
+  animation: yuna-ctx-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .yuna-ctx-leave-active {
@@ -218,24 +229,24 @@ onBeforeUnmount(() => {
 @keyframes yuna-ctx-in {
   from {
     opacity: 0;
-    transform: scale(0.94);
+    transform: scale(0.96) translateY(-4px);
   }
 
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 
 @keyframes yuna-ctx-out {
   from {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 
   to {
     opacity: 0;
-    transform: scale(0.96);
+    transform: scale(0.97) translateY(-2px);
   }
 }
 
