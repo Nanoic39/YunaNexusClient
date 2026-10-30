@@ -49,7 +49,7 @@ function placeMenu(): void {
   const h = el?.offsetHeight || 1
   const ox = Math.min(Math.max(state.x - left, 0), w)
   const oy = Math.min(Math.max(state.y - top, 0), h)
-  origin.value = `${(ox / w) * 100}% ${(oy / h) * 100}%`
+  origin.value = `${ox}px ${oy}px`
 }
 
 watch(
@@ -236,7 +236,7 @@ onBeforeUnmount(() => {
     0 16px 40px rgba(15, 23, 42, 0.16),
     0 2px 6px rgba(15, 23, 42, 0.08);
   transform-origin: var(--ctx-origin, top left);
-  will-change: clip-path, opacity, border-radius;
+  will-change: transform, opacity, border-radius;
   -webkit-backdrop-filter: saturate(180%) blur(8px);
   backdrop-filter: saturate(180%) blur(8px);
 }
@@ -256,18 +256,18 @@ onBeforeUnmount(() => {
 
 @keyframes yuna-ctx-in {
   from {
-    opacity: 0.55;
-    clip-path: circle(0% at var(--ctx-origin, 0% 0%));
-    border-radius: 22px;
+    opacity: 0;
+    transform: scale(0.28);
+    border-radius: 18px;
   }
 
-  60% {
+  55% {
     opacity: 1;
   }
 
   to {
     opacity: 1;
-    clip-path: circle(150% at var(--ctx-origin, 0% 0%));
+    transform: scale(1);
     border-radius: 12px;
   }
 }
