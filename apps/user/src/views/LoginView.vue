@@ -43,6 +43,81 @@ for (const field of ['username', 'password', 'captcha'] as const) {
 /** 连续失败 3 次后启用验证码，与后端风控策略一致 */
 const needCaptcha = computed(() => failCount.value >= 3)
 
+/** 邮箱验证码登录（免密码）——与密码登录并列的第二条入口 */
+const emailLogin = reactive({ email: '', code: '' })
+const emailError = ref('')
+const emailSubmitting = ref(false)
+const codeSending = ref(false)
+const codeCooldown = ref(0)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+function startCooldown(): void {
+  codeCooldown.value = 60
+  if (cooldownTimer) clearInterval(cooldownTimer)
+  cooldownTimer = setInterval(() => {
+    codeCooldown.value -= 1
+    if (codeCooldown.value <= 0 && cooldownTimer) {
+      clearInterval(cooldownTimer)
+      cooldownTimer = null
+    }
+  }, 1000)
+}
+
+async function sendLoginCode(): Promise<void> {
+  emailError.value = ''
+  const email = emailLogin.email.trim()
+  if (!email) {
+    emailError.value = '请输入邮箱'
+    return
+  }
+  codeSending.value = true
+  try {
+    const sent = await authApi.sendEmailCode(email, 'LOGIN')
+    if (!sent) {
+      emailError.value = '验证码发送失败，请稍后再试'
+      return
+    }
+    startCooldown()
+    message.success('验证码已发送，请查收邮箱')
+  } catch (error) {
+    emailError.value = toErrorMessage(error)
+  } finally {
+    codeSending.value = false
+  }
+}
+
+async function submitEmailCode(): Promise<void> {
+  if (emailSubmitting.value) return
+  emailError.value = ''
+  const email = emailLogin.email.trim()
+  if (!email || !emailLogin.code.trim()) {
+    emailError.value = '请填写邮箱与验证码'
+    return
+  }
+  emailSubmitting.value = true
+  try {
+    const result = await authApi.loginByEmailCode({
+      email,
+      emailCode: emailLogin.code.trim(),
+      clientCode: 'web',
+    })
+    session.setTokens(result, 'web')
+    session.setNickname(result.nickname || email)
+    await loadCurrentUser()
+    message.success('登录成功')
+    const redirect = resolveRedirect()
+    if (isCrossApp(redirect)) {
+      await goCrossApp(redirect)
+      return
+    }
+    await router.replace(redirect)
+  } catch (error) {
+    emailError.value = toErrorMessage(error)
+  } finally {
+    emailSubmitting.value = false
+  }
+}
+
 async function loadCaptcha(): Promise<void> {
   if (!form.username.trim()) {
     message.warning('请先输入账号')
@@ -238,6 +313,38 @@ async function submit(): Promise<void> {
       <n-button attr-type="submit" type="primary" block size="large" :loading="submitting"
         >登录</n-button
       >
+    </n-form>
+    <n-divider>或使用邮箱验证码登录</n-divider>
+    <n-alert v-if="emailError" type="error" role="alert" style="margin-bottom: 12px">{{ emailError }}</n-alert>
+    <n-form label-placement="top" :disabled="emailSubmitting" @submit.prevent="submitEmailCode">
+      <n-form-item label="邮箱" label-for="login-email">
+        <n-input
+          v-model:value="emailLogin.email"
+          :input-props="{ id: 'login-email', name: 'email' }"
+          autocomplete="email"
+          size="large"
+          placeholder="输入注册邮箱"
+          :maxlength="128"
+        />
+      </n-form-item>
+      <n-form-item label="验证码" label-for="login-email-code">
+        <n-space style="width: 100%" :wrap="false">
+          <n-input
+            v-model:value="emailLogin.code"
+            :input-props="{ id: 'login-email-code', name: 'emailCode' }"
+            autocomplete="one-time-code"
+            size="large"
+            placeholder="6 位验证码"
+            :maxlength="6"
+          />
+          <n-button size="large" :loading="codeSending" :disabled="codeCooldown > 0" @click="sendLoginCode">
+            {{ codeCooldown > 0 ? `${codeCooldown}s 后重发` : '发送验证码' }}
+          </n-button>
+        </n-space>
+      </n-form-item>
+      <n-button type="primary" block size="large" :loading="emailSubmitting" @click="submitEmailCode">
+        验证码登录
+      </n-button>
     </n-form>
     <p v-if="needCaptcha && captchaCode" class="hint">Mock 验证码：{{ captchaCode }}</p>
     <template #footer>
