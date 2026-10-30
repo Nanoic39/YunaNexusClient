@@ -25,6 +25,8 @@ const { state } = useContextMenu()
 
 const panelRef = ref<HTMLElement | null>(null)
 const pos = ref({ left: 0, top: 0 })
+/** 面板展开原点：跟随光标在面板内的位置，使动画"从点击处生长" */
+const origin = ref('top left')
 const placed = ref(false)
 
 const visible = computed(() => state.visible)
@@ -41,6 +43,10 @@ function placeMenu(): void {
     if (top + height + margin > window.innerHeight) top = Math.max(margin, window.innerHeight - height - margin)
   }
   pos.value = { left, top }
+  // 光标相对面板的位置：贴边翻转后可能落在面板右/下侧，原点随之翻转
+  const ox = Math.min(Math.max(state.x - left, 0), el?.offsetWidth ?? 0)
+  const oy = Math.min(Math.max(state.y - top, 0), el?.offsetHeight ?? 0)
+  origin.value = `${oy}px ${ox}px`
 }
 
 watch(
@@ -182,6 +188,7 @@ onBeforeUnmount(() => {
           left: `${pos.left}px`,
           top: `${pos.top}px`,
           visibility: placed ? 'visible' : 'hidden',
+          '--ctx-origin': origin,
         }"
         @contextmenu.prevent
       >
@@ -206,8 +213,8 @@ onBeforeUnmount(() => {
     0 16px 40px rgba(15, 23, 42, 0.16),
     0 2px 6px rgba(15, 23, 42, 0.08);
   transform-origin: var(--ctx-origin, top left);
-  -webkit-backdrop-filter: saturate(180%) blur(18px);
-  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(8px);
+  backdrop-filter: saturate(180%) blur(8px);
 }
 
 [data-theme='dark'] .yuna-ctx {
