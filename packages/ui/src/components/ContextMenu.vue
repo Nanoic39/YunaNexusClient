@@ -28,6 +28,7 @@ const pos = ref({ left: 0, top: 0 })
 /** 面板展开原点：跟随光标在面板内的位置，使动画"从点击处生长" */
 const origin = ref('top left')
 const placed = ref(false)
+const opening = ref(false)
 
 const visible = computed(() => state.visible)
 
@@ -56,9 +57,14 @@ watch(
   async ([open]) => {
     if (!open) return
     placed.value = false
+    opening.value = false
     await nextTick()
     placeMenu()
     placed.value = true
+    // 下一帧才加动画类：避免元素还在 visibility:hidden 时动画已经跑完
+    requestAnimationFrame(() => {
+      opening.value = true
+    })
     // 焦点进入面板，键盘用户可以直接用方向键
     panelRef.value?.querySelector<HTMLElement>('.yuna-ctx-list__item')?.focus({ preventScroll: true })
   },
@@ -181,11 +187,11 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <Transition name="yuna-ctx">
-      <div
+    <div
         v-if="visible"
         ref="panelRef"
         class="yuna-ctx"
+        :class="{ 'is-opening': opening }"
         :style="{
           left: `${pos.left}px`,
           top: `${pos.top}px`,
@@ -195,13 +201,12 @@ onBeforeUnmount(() => {
         @contextmenu.prevent
       >
         <ContextMenuList :items="state.items" :level="1" @select="select" />
-      </div>
-    </Transition>
+    </div>
   </Teleport>
 </template>
 
 <style scoped>
-.yuna-ctx-enter-active :deep(.yuna-ctx-list) {
+.yuna-ctx.is-opening :deep(.yuna-ctx-list) {
   animation: yuna-ctx-content 0.18s ease-out 0.08s both;
 }
 
@@ -244,13 +249,10 @@ onBeforeUnmount(() => {
     0 16px 40px rgba(0, 0, 0, 0.5);
 }
 
-.yuna-ctx-enter-active {
+.yuna-ctx.is-opening {
   animation: yuna-ctx-in 0.26s cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 
-.yuna-ctx-leave-active {
-  animation: yuna-ctx-out 0.14s ease-in both;
-}
 
 @keyframes yuna-ctx-in {
   from {
@@ -270,21 +272,9 @@ onBeforeUnmount(() => {
   }
 }
 
-@keyframes yuna-ctx-out {
-  from {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: scale(0.97) translateY(-2px);
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
-  .yuna-ctx-enter-active,
-  .yuna-ctx-leave-active {
+  .yuna-ctx.is-opening {
     animation-duration: 0.01ms;
   }
 }
