@@ -1,20 +1,20 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { session } from '@yuna/core'
+import { buildSsoLoginUrl, consumeHandoff, session } from '@yuna/core'
 
 /**
- * 管理端路由。
+ * 管理端路由与鉴权。
  *
- * 旧页面已全部删除（快照见 tag legacy-frontend-before-rebuild），
- * 新页面按后端接口重建，逐条登记在此。
+ * 认证模型：全平台只在用户端登录一次，管理端通过 SSO 复用会话，
+ * 不做独立的账号密码登录。管理端只判断"是否具备后台权限"。
  */
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
-      path: '/login',
-      name: 'login',
-      component: () => import('@/views/LoginView.vue'),
-      meta: { public: true, title: '登录' },
+      path: '/forbidden',
+      name: 'forbidden',
+      component: () => import('@/views/ForbiddenView.vue'),
+      meta: { public: true, title: '无访问权限' },
     },
     {
       path: '/',
@@ -33,12 +33,24 @@ export const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
-  const authed = Boolean(session.state.accessToken)
-  if (!to.meta.public && !authed) {
-    return { path: '/login', query: { redirect: to.fullPath } }
+router.beforeEach(async (to) => {
+  if (to.meta.public) return true
+
+  // SSO 回调：以 HttpOnly Cookie 换取一次性授权码并落 token
+  if (!session.isAuthenticated.value) {
+    await consumeHandoff()
   }
-  if (to.path === '/login' && authed) return { path: '/users' }
+
+  if (!session.isAuthenticated.value) {
+    const url = buildSsoLoginUrl(to.fullPath)
+    if (url) {
+      window.location.href = url
+      return false
+    }
+    return { name: 'forbidden' }
+  }
+
+  if (!session.canAccessAdmin.value) return { name: 'forbidden' }
   return true
 })
 

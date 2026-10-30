@@ -10,6 +10,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Icon } from '@yuna/ui'
+import { authApi, session } from '@yuna/core'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,6 +42,15 @@ function toggleTheme(): void {
   theme.value = theme.value === 'dark' ? 'light' : 'dark'
   localStorage.setItem(THEME_KEY, theme.value)
   applyTheme()
+}
+
+async function logout(): Promise<void> {
+  try {
+    await authApi.logout()
+  } finally {
+    session.clearAll()
+    window.location.href = '/forbidden'
+  }
 }
 
 function toggleCollapse(): void {
@@ -89,10 +99,10 @@ onMounted(() => {
         <Icon name="theme" />
       </button>
       <button class="icon-btn" type="button" title="通知"><Icon name="bell" /></button>
-      <div class="who">
+      <button class="who" type="button" title="退出登录（全平台）" @click="logout">
         <span class="avatar">A</span>
-        <span>admin</span>
-      </div>
+        <span>退出</span>
+      </button>
     </header>
 
     <main class="content">
