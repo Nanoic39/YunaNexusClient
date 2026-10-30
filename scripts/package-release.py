@@ -14,9 +14,10 @@ with tarfile.open(archive,'w:gz',compresslevel=1) as tar:
     if any('application-local' in n or n.endswith(('.pem','.key')) for n in z.namelist()):raise SystemExit('Private/local resource in artifact')
    tar.add(jar,arcname=jar.parent.parent.name+'.jar')
  else:
+  # 统一应用：用户端与管理端已合并为 apps/web，同一份产物同时对外提供两个入口
+  dist=r/'apps'/'web'/'dist'
+  if not (dist/'index.html').is_file():raise SystemExit('Missing frontend build')
   for app in ['admin','user']:
-   dist=r/'apps'/app/'dist'
-   if not (dist/'index.html').is_file():raise SystemExit('Missing frontend build')
    for f in sorted(dist.rglob('*')):
     if f.is_file() and f.name!='mockServiceWorker.js':tar.add(f,arcname=app+'/'+f.relative_to(dist).as_posix())
 sha=hashlib.file_digest(archive.open('rb'),'sha256').hexdigest()
