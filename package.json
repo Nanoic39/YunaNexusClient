@@ -10,7 +10,7 @@
   "scripts": {
     "build": "pnpm --filter @yuna/web build",
     "typecheck": "pnpm -r typecheck",
-    "msw:init": "pnpm --filter @yuna/core exec msw init ../../apps/admin/public --save && pnpm --filter @yuna/core exec msw init ../../apps/user/public --save",
+    "msw:init": "pnpm --filter @yuna/core exec msw init ../../apps/web/public --save",
     "format": "prettier --write \"**/*.{ts,vue,css,json}\"",
     "format:check": "prettier --check \"**/*.{ts,vue,css,json}\"",
     "test": "vitest run",

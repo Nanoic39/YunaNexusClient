@@ -68,6 +68,10 @@ export interface PermissionSavePayload {
 
 /** 菜单记录（perm_menu，扁平结构；树由前端组装） */
 export interface MenuView {
+  resourceType?: 'MENU' | 'PAGE' | 'LINK'
+  accessMode?: 'PUBLIC' | 'AUTHENTICATED' | 'ROLE'
+  navigationVisible?: boolean
+
   id: number
   menuCode: string
   menuName: string
@@ -82,6 +86,10 @@ export interface MenuView {
 
 /** 菜单保存请求体 */
 export interface MenuSavePayload {
+  resourceType?: 'MENU' | 'PAGE' | 'LINK'
+  accessMode?: 'PUBLIC' | 'AUTHENTICATED' | 'ROLE'
+  navigationVisible?: boolean
+
   menuCode: string
   menuName: string
   /** 父菜单 ID（0=根；更新时忽略） */
@@ -93,6 +101,10 @@ export interface MenuSavePayload {
 
 /** 菜单树节点 */
 export interface MenuTreeNode {
+  resourceType?: 'MENU' | 'PAGE' | 'LINK'
+  accessMode?: 'PUBLIC' | 'AUTHENTICATED' | 'ROLE'
+  navigationVisible?: boolean
+
   id: number
   menuCode: string
   menuName: string

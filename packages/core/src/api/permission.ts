@@ -1,4 +1,4 @@
-import { adminHttp, userHttp } from '../http/client'
+import { adminHttp, userHttp, http } from '../http/client'
 import { ApiError } from '../http/errors'
 import { session } from '../http/session'
 import type {
@@ -156,4 +156,14 @@ export const grantApi = {
 /** 权限中心 · 字段级权限规则 */
 export const fieldRuleApi = {
   list: () => adminHttp.request<FieldRuleView[]>(`${BASE}/fields`),
+}
+
+
+/** Resource catalog: navigation visibility and direct URL authorization are independent. */
+export const resourceAccessApi = {
+  publicResources: () => http.request<MenuTreeNode[]>('/api/v1/permission/resources/public'),
+  myResources: () => userHttp.request<MenuTreeNode[]>('/api/v1/permission/resources/me'),
+  check: (code: string) => userHttp.request<boolean>('/api/v1/permission/resources/check', {
+    query: { code },
+  }),
 }

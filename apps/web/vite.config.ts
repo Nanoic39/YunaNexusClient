@@ -25,11 +25,13 @@ export default defineConfig(({ command, mode }) => {
     },
     server: {
       port: 5173,
+      strictPort: true,
       // 关闭 Mock 时把 /api 转发到本地网关，规避开发期跨域
       proxy: {
         '/api': { target: 'http://localhost:8010', changeOrigin: true },
       },
     },
+    preview: { port: 5173, strictPort: true },
     build: {
       outDir: 'dist',
       sourcemap: false,

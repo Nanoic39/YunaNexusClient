@@ -29,7 +29,7 @@ const ORDER: ThemeMode[] = ['auto', 'light', 'dark']
 
 const mode = themeMode.mode
 const label = computed(() => LABELS[mode.value])
-const title = computed(() => `主题：${label.value}（左键切换，右键选择）`)
+const title = computed(() => `日夜：${label.value}（左键切换，右键选择）`)
 
 type ViewTransition = { finished: Promise<void> }
 type ViewTransitionDocument = Document & {
@@ -176,7 +176,9 @@ function openMenu(event: MouseEvent): void {
   background: transparent;
   border: none;
   border-radius: var(--yuna-radius-md);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .theme-toggle:hover {

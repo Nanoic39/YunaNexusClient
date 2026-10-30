@@ -6,7 +6,6 @@ import DayNightToggle from '../app/components/DayNightToggle.vue'
 import WorkspaceBrand from '../app/components/WorkspaceBrand.vue'
 import { adminNavigation } from '../config/navigation'
 import { useLogout } from '../features/auth/composables/useLogout'
-const preview = import.meta.env.DEV && import.meta.env.VITE_ENABLE_MOCK === 'true'
 const collapsed = ref(false)
 const displayName = computed(() => session.state.nickname || '当前账户')
 const initial = computed(() => displayName.value.slice(0, 1).toUpperCase())
@@ -46,7 +45,6 @@ const { logout, busy, error } = useLogout()
     <header class="topbar">
       <div class="context-group">
         <span class="workspace-context">管理工作区</span
-        ><span v-if="preview" class="preview-label">演示数据</span>
       </div>
       <div class="topbar-actions">
         <RouterLink to="/usr" class="workspace-button quiet"
@@ -169,13 +167,6 @@ const { logout, busy, error } = useLogout()
   display: flex;
   align-items: center;
   gap: var(--ws-gap-3);
-}
-.preview-label {
-  font-size: var(--ws-font-caption);
-  color: var(--ws-muted);
-  border: 1px solid var(--ws-line);
-  border-radius: var(--yuna-radius-sm);
-  padding-inline: var(--ws-gap-2);
 }
 .workspace-context {
   color: var(--ws-muted);
