@@ -96,7 +96,7 @@ onMounted(() => {
     </header>
 
     <main class="content">
-      <slot />
+      <router-view />
     </main>
   </div>
 </template>
