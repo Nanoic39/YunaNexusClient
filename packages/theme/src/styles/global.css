@@ -472,7 +472,9 @@ html.theme-anim *::after {
   border-radius: var(--yuna-radius-card);
   backdrop-filter: blur(var(--yuna-glass-blur)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--yuna-glass-blur)) saturate(180%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), var(--yuna-elev-card);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    var(--yuna-elev-card);
 }
 
 /* 玻璃浮层：下拉 / 右键菜单 / 抽屉，比卡片更实以保证可读 */
@@ -486,10 +488,134 @@ html.theme-anim *::after {
 }
 
 /* 暗色适配 */
-html[data-theme='dark'] {
+html[data-theme='dark'],
+html.dark {
   --yuna-glass-surface: rgba(21, 27, 35, 0.78);
   --yuna-glass-surface-strong: rgba(21, 27, 35, 0.9);
   --yuna-glass-border: rgba(255, 255, 255, 0.14);
   --yuna-elev-card: 0 6px 20px rgba(0, 0, 0, 0.35);
   --yuna-elev-pop: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+/* 统一工作区布局 token（B端优先迁移） */
+:root {
+  --yuna-text: var(--yuna-gray-900);
+  --yuna-text-secondary: var(--yuna-gray-600);
+  --yuna-space-1: 2px;
+  --yuna-space-2: 4px;
+  --yuna-space-3: 8px;
+  --yuna-space-4: 12px;
+  --yuna-space-6: 24px;
+  --yuna-control-height: 34px;
+  --yuna-workspace-sidebar: 236px;
+  --yuna-workspace-header: 56px;
+  --yuna-status-code-size: 12px;
+  --yuna-auth-card-width: 440px;
+  --yuna-focus-ring: 2px solid var(--yuna-primary);
+}
+
+html.dark {
+  --yuna-text: var(--yuna-gray-100);
+  --yuna-text-secondary: var(--yuna-gray-400);
+}
+
+:root {
+  --yuna-search-width: 240px;
+  --yuna-avatar-size: 30px;
+  --yuna-radius-pill: 999px;
+  --yuna-font-size-sm: 12px;
+}
+
+/* 统一应用视觉基线：正文14 / 控件13 / 辅助12 / 页面20 / 状态24。
+   状态页按 Carbon 信息层级与 Ant Result 结构设计；不以巨型状态码替代标题。 */
+:root {
+  --ws-font-body: 14px;
+  --ws-font-control: 13px;
+  --ws-font-caption: 12px;
+  --ws-font-page: 20px;
+  --ws-font-title: 24px;
+  --ws-ink: #202a36;
+  --ws-muted: #727d8d;
+  --ws-faint: #939dac;
+  --ws-line: #e6eaf0;
+  --ws-canvas: #f7f9fc;
+  --ws-surface: #ffffff;
+  --ws-soft: #f0f3f7;
+  --ws-selected: #eaf3f9;
+  --ws-panel: rgba(255, 255, 255, 0.88);
+  --ws-shadow: 0 8px 32px rgba(27, 45, 68, 0.045), 0 1px 4px rgba(27, 45, 68, 0.025);
+  --ws-gap-1: 4px;
+  --ws-gap-2: 8px;
+  --ws-gap-3: 12px;
+  --ws-gap-4: 16px;
+  --ws-gap-5: 20px;
+  --ws-gap-6: 24px;
+  --ws-gap-8: 32px;
+  --ws-gap-10: 40px;
+  --ws-gap-12: 48px;
+  --ws-radius: 8px;
+  --ws-radius-lg: 12px;
+  --ws-control: 34px;
+  --ws-auth-control: 40px;
+  --ws-brand-size: 28px;
+  --ws-icon-button: 30px;
+  --ws-auth-width: 400px;
+  --ws-auth-padding: 32px;
+  --ws-sidebar-width: 216px;
+  --ws-header-height: 56px;
+  --ws-status-max-width: 520px;
+  --ws-status-symbol-size: 80px;
+}
+html.dark {
+  --ws-ink: #e4e9f0;
+  --ws-muted: #a1adbe;
+  --ws-faint: #8290a3;
+  --ws-line: #2b3543;
+  --ws-canvas: #141a23;
+  --ws-surface: #1b2330;
+  --ws-soft: #252e3c;
+  --ws-selected: #213b4e;
+  --ws-panel: rgba(27, 35, 48, 0.94);
+  --ws-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+:root {
+  --ws-table-min-width: 760px;
+}
+
+/* 旧共享组件与统一应用消费同一套颜色，避免暗色下回落到亮色常量。 */
+:root {
+  --yuna-ink: var(--ws-ink);
+  --yuna-ink-2: var(--ws-muted);
+  --yuna-ink-3: var(--ws-muted);
+  --yuna-line: var(--ws-line);
+}
+
+:root {
+  --ws-public-width: 1120px;
+  --ws-public-header: 64px;
+  --ws-article-width: 680px;
+  --ws-font-hero: 32px;
+  --ws-row-height: 56px;
+}
+
+:root {
+  --ws-swatch-blue: #226f9b;
+  --ws-swatch-green: #237563;
+  --ws-swatch-indigo: #5b5caf;
+}
+html[data-density='comfortable'] {
+  --yuna-control-height: 38px;
+  --ws-control: 38px;
+  --ws-row-height: 64px;
+  --ws-sidebar-width: 236px;
+  --ws-gap-6: 28px;
+}
+html[data-surface='glass'] {
+  --ws-panel: color-mix(in srgb, var(--ws-surface) 86%, transparent);
+  --ws-backdrop: blur(12px);
+}
+html[data-surface='plain'] {
+  --ws-panel: var(--ws-surface);
+  --ws-backdrop: none;
 }

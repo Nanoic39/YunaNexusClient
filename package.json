@@ -8,18 +8,16 @@
     "node": ">=18"
   },
   "scripts": {
-    "dev:admin": "pnpm --filter @yuna/admin dev",
-    "dev:user": "pnpm --filter @yuna/user dev",
-    "build": "pnpm --filter @yuna/admin build && pnpm --filter @yuna/user build",
-    "build:admin": "pnpm --filter @yuna/admin build",
-    "build:user": "pnpm --filter @yuna/user build",
-    "preview:admin": "pnpm --filter @yuna/admin preview",
-    "preview:user": "pnpm --filter @yuna/user preview",
+    "build": "pnpm --filter @yuna/web build",
     "typecheck": "pnpm -r typecheck",
     "msw:init": "pnpm --filter @yuna/core exec msw init ../../apps/admin/public --save && pnpm --filter @yuna/core exec msw init ../../apps/user/public --save",
     "format": "prettier --write \"**/*.{ts,vue,css,json}\"",
     "format:check": "prettier --check \"**/*.{ts,vue,css,json}\"",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev": "pnpm --filter @yuna/web dev",
+    "build:web": "pnpm --filter @yuna/web build",
+    "preview": "pnpm --filter @yuna/web preview",
+    "package:web": "pnpm build && node scripts/package-web.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

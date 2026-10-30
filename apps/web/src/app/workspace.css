@@ -1,0 +1,176 @@
+/* 只影响统一应用；所有值来自 theme 的语义 token。 */
+.workspace-root {
+  min-height: 100%;
+  color: var(--ws-ink);
+  font-size: var(--ws-font-body);
+  font-family: var(--yuna-font-family);
+  line-height: 1.6;
+}
+.workspace-root h1,
+.workspace-root h2,
+.workspace-root h3 {
+  color: var(--ws-ink);
+  font-weight: 600;
+}
+.workspace-root h1 {
+  font-size: var(--ws-font-page);
+  line-height: 1.4;
+  letter-spacing: -0.3px;
+}
+.workspace-root p {
+  margin: 0;
+}
+.workspace-panel {
+  padding: var(--ws-gap-6);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-surface);
+}
+.workspace-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-gap-2);
+  flex-wrap: wrap;
+}
+.workspace-error {
+  color: var(--yuna-danger);
+  font-size: var(--ws-font-caption);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.workspace-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ws-gap-2);
+  height: var(--ws-control);
+  padding: 0 var(--ws-gap-3);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius);
+  background: var(--ws-surface);
+  color: var(--ws-ink);
+  cursor: pointer;
+  font-size: var(--ws-font-control);
+  line-height: 1;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.workspace-button:hover {
+  border-color: var(--yuna-primary);
+  color: var(--yuna-primary);
+}
+.workspace-button.primary {
+  background: var(--yuna-primary);
+  color: var(--yuna-on-primary);
+  border-color: var(--yuna-primary);
+}
+.workspace-button.primary:hover {
+  background: var(--yuna-primary-hover);
+  border-color: var(--yuna-primary-hover);
+}
+.workspace-button.quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ws-muted);
+}
+.workspace-button.quiet:hover {
+  background: var(--ws-soft);
+  color: var(--ws-ink);
+}
+.workspace-button.danger {
+  color: var(--yuna-danger);
+}
+.workspace-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.workspace-button:focus-visible,
+.workspace-input:focus-visible {
+  outline: var(--yuna-focus-ring);
+  outline-offset: var(--ws-gap-1);
+}
+.workspace-input {
+  width: 100%;
+  height: var(--ws-control);
+  padding: 0 var(--ws-gap-3);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius);
+  background: var(--ws-surface);
+  color: var(--ws-ink);
+  font-size: var(--ws-font-control);
+  min-width: 0;
+  transition: border-color 0.15s;
+}
+.workspace-input::placeholder {
+  color: var(--ws-faint);
+}
+.workspace-input:hover {
+  border-color: var(--ws-faint);
+}
+.workspace-input:focus {
+  border-color: var(--yuna-primary);
+  outline: none;
+}
+.workspace-icon-button {
+  width: var(--ws-icon-button);
+  height: var(--ws-icon-button);
+  padding: 0;
+}
+.workspace-root .yuna-page-header {
+  margin-bottom: 0;
+}
+.workspace-root .yuna-page-header h1 {
+  font-size: var(--ws-font-page);
+  color: var(--ws-ink);
+}
+.workspace-root .yuna-page-header p {
+  font-size: var(--ws-font-control);
+  color: var(--ws-muted);
+  margin-top: var(--ws-gap-1);
+}
+.workspace-root .yuna-surface:is(.is-card, .is-pop) {
+  background: var(--ws-panel);
+  border: 1px solid var(--ws-line);
+  box-shadow: none;
+}
+.workspace-root .yuna-dt {
+  font-size: var(--ws-font-control);
+}
+.workspace-root .yuna-dt .yuna-dt__head {
+  background: var(--ws-canvas);
+  color: var(--ws-muted);
+  border-color: var(--ws-line);
+}
+.workspace-root .yuna-dt .yuna-dt__row {
+  color: var(--ws-ink);
+  border-color: var(--ws-line);
+}
+.workspace-root .yuna-dt .yuna-dt__row:hover {
+  background: var(--ws-canvas);
+}
+.workspace-root .yuna-dt__state,
+.workspace-root .yuna-dt__foot {
+  color: var(--ws-muted);
+  border-color: var(--ws-line);
+}
+.workspace-root .yuna-dt__foot select,
+.workspace-root .pager button {
+  border-color: var(--ws-line);
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-root * {
+    transition: none !important;
+  }
+}
+
+.workspace-root .workspace-panel,
+.workspace-root .yuna-surface {
+  backdrop-filter: var(--ws-backdrop, none);
+}
+.workspace-root .yuna-dt .yuna-dt__row {
+  height: var(--ws-row-height);
+}

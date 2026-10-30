@@ -1,7 +1,7 @@
 import { computed, ref, watch } from 'vue'
 
 /**
- * 主题模式（自动 / 日间 / 夜间）状态。
+ * 日夜显示模式（自动 / 日间 / 夜间）状态。
  *
  * - `auto` 跟随系统 `prefers-color-scheme`；
  * - `light` / `dark` 为用户显式选择；
@@ -66,7 +66,7 @@ function persist(): void {
 }
 
 /**
- * 切换主题模式。
+ * 切换日夜显示模式。
  *
  * 同步写入状态与 DOM，便于在 View Transition 的回调中立即截帧；
  * 传入相同模式时不做任何事。
@@ -86,6 +86,7 @@ function cycle(): void {
   setMode(ORDER[(index + 1) % ORDER.length])
 }
 
+/** 兼容旧调用名；新应用使用 displayMode。此对象只控制日夜显示。 */
 export const themeMode = {
   /** 用户选择的模式 */
   mode,
