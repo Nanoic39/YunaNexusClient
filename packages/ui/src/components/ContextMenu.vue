@@ -44,9 +44,11 @@ function placeMenu(): void {
   }
   pos.value = { left, top }
   // 光标相对面板的位置：贴边翻转后可能落在面板右/下侧，原点随之翻转
-  const ox = Math.min(Math.max(state.x - left, 0), el?.offsetWidth ?? 0)
-  const oy = Math.min(Math.max(state.y - top, 0), el?.offsetHeight ?? 0)
-  origin.value = `${oy}px ${ox}px`
+  const w = el?.offsetWidth || 1
+  const h = el?.offsetHeight || 1
+  const ox = Math.min(Math.max(state.x - left, 0), w)
+  const oy = Math.min(Math.max(state.y - top, 0), h)
+  origin.value = `${(ox / w) * 100}% ${(oy / h) * 100}%`
 }
 
 watch(
@@ -199,6 +201,22 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.yuna-ctx-enter-active :deep(.yuna-ctx-list) {
+  animation: yuna-ctx-content 0.18s ease-out 0.08s both;
+}
+
+@keyframes yuna-ctx-content {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* 浮层玻璃：比内容卡更透、模糊更强，才有"浮在内容之上"的观感 */
 .yuna-ctx {
   position: fixed;
@@ -213,6 +231,7 @@ onBeforeUnmount(() => {
     0 16px 40px rgba(15, 23, 42, 0.16),
     0 2px 6px rgba(15, 23, 42, 0.08);
   transform-origin: var(--ctx-origin, top left);
+  will-change: clip-path, opacity, border-radius;
   -webkit-backdrop-filter: saturate(180%) blur(8px);
   backdrop-filter: saturate(180%) blur(8px);
 }
@@ -226,7 +245,7 @@ onBeforeUnmount(() => {
 }
 
 .yuna-ctx-enter-active {
-  animation: yuna-ctx-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: yuna-ctx-in 0.26s cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 
 .yuna-ctx-leave-active {
@@ -235,13 +254,19 @@ onBeforeUnmount(() => {
 
 @keyframes yuna-ctx-in {
   from {
-    opacity: 0;
-    transform: scale(0.96) translateY(-4px);
+    opacity: 0.55;
+    clip-path: circle(0% at var(--ctx-origin, 0% 0%));
+    border-radius: 22px;
+  }
+
+  60% {
+    opacity: 1;
   }
 
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    clip-path: circle(150% at var(--ctx-origin, 0% 0%));
+    border-radius: 12px;
   }
 }
 
