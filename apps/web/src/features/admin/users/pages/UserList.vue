@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { DataTable, PageHeader, Surface, Icon, type Column } from '@yuna/ui'
+import { onUnmounted } from 'vue'
+import {
+  DataTable,
+  PageHeader,
+  Surface,
+  Icon,
+  registerContextMenuProvider,
+  type Column,
+  type ContextMenuItem,
+} from '@yuna/ui'
 import type { AdminUserView } from '@yuna/core/types'
 import { useUserList } from '../composables/useUserList'
 const {
@@ -30,6 +39,20 @@ const columns: Column[] = [
   { key: 'failCount', title: '失败次数', width: '100px', align: 'right' },
   { key: 'ops', title: '操作', width: '150px', align: 'right' },
 ]
+
+// 用户行右键菜单由本页面自己决定，不进入全局默认菜单
+const offRowMenu = registerContextMenuProvider('admin-user-row', (context) => {
+  const row = context.payload as AdminUserView | undefined
+  if (!row) return null
+  const items: ContextMenuItem[] = [
+    { key: 'edit', label: '编辑', onSelect: () => undefined },
+    { key: 'unlock', label: '解锁', onSelect: () => unlock(row) },
+    { key: 'sep', divider: true },
+    { key: 'disable', label: '禁用账号', danger: true, onSelect: () => disable(row) },
+  ]
+  return items
+})
+onUnmounted(offRowMenu)
 </script>
 
 <template>
@@ -70,6 +93,7 @@ const columns: Column[] = [
 
       <div class="table-viewport">
         <DataTable
+          row-context-kind="admin-user-row"
           :selectable="false"
           :columns="columns"
           :rows="rows"

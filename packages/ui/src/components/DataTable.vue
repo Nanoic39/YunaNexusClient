@@ -11,6 +11,7 @@
  */
 import { computed } from 'vue'
 import Icon from './Icon.vue'
+import { vContextMenu } from '../directives/context-menu'
 
 export interface Column {
   /** 字段名或标识 */
@@ -41,6 +42,8 @@ const props = withDefaults(
     pageSize?: number
     total?: number
     pageSizes?: number[]
+    /** 行右键菜单的区域名；不传则不接管右键 */
+    rowContextKind?: string
   }>(),
   {
     loading: false,
@@ -153,6 +156,7 @@ function go(p: number): void {
         v-for="row in rows"
         v-else
         :key="keyOf(row)"
+        v-context-menu="rowContextKind ? { kind: rowContextKind, payload: row } : { kind: '' }"
         class="yuna-dt__row"
         :style="{ gridTemplateColumns: gridTemplate }"
       >
