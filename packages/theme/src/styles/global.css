@@ -434,3 +434,62 @@ html.theme-anim *::after {
     transform: none;
   }
 }
+
+/* ===== 管理端外壳与玻璃表面（新增，向后兼容） =====
+   用途：统一后台的容器材质与骨架间距。现有组件不引用这些类，故不影响既有页面；
+   后续页面重构时按类名挂载即可。 */
+:root {
+  /* 玻璃表面：0.78 不透明度 + 14px 模糊，管理端与登录页共用 */
+  --yuna-glass-surface: rgba(255, 255, 255, 0.78);
+  --yuna-glass-surface-strong: rgba(255, 255, 255, 0.88);
+  --yuna-glass-border: rgba(255, 255, 255, 0.75);
+  --yuna-glass-blur: 14px;
+  /* 层次阴影：仅用于卡片与浮层，不用于行/按钮/输入框 */
+  --yuna-elev-card: 0 6px 20px rgba(15, 23, 42, 0.05);
+  --yuna-elev-pop: 0 10px 30px rgba(15, 23, 42, 0.1);
+  /* 后台骨架尺寸 */
+  --yuna-sider-w: 236px;
+  --yuna-sider-w-collapsed: 64px;
+  --yuna-header-h: 56px;
+  --yuna-radius-card: 8px;
+  --yuna-radius-control: 6px;
+}
+
+/* 画布：浅色渐变，玻璃需要背景有结构才可辨识 */
+.yuna-canvas {
+  background:
+    radial-gradient(900px 560px at 6% 4%, #dceffa 0%, transparent 58%),
+    radial-gradient(760px 520px at 94% 10%, #cfeaf7 0%, transparent 55%),
+    radial-gradient(820px 600px at 80% 94%, #d9f7e8 0%, transparent 58%),
+    linear-gradient(165deg, #f7f9fc, #eef3f8 60%, #f6f8fb);
+  background-attachment: fixed;
+}
+
+/* 玻璃卡片：内容区容器 */
+.yuna-surface {
+  background: var(--yuna-glass-surface);
+  border: 1px solid var(--yuna-glass-border);
+  border-radius: var(--yuna-radius-card);
+  backdrop-filter: blur(var(--yuna-glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--yuna-glass-blur)) saturate(180%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75), var(--yuna-elev-card);
+}
+
+/* 玻璃浮层：下拉 / 右键菜单 / 抽屉，比卡片更实以保证可读 */
+.yuna-surface-pop {
+  background: var(--yuna-glass-surface-strong);
+  border: 1px solid var(--yuna-glass-border);
+  border-radius: var(--yuna-radius-card);
+  backdrop-filter: blur(7px) saturate(150%);
+  -webkit-backdrop-filter: blur(7px) saturate(150%);
+  box-shadow: var(--yuna-elev-pop);
+}
+
+/* 暗色适配 */
+html[data-theme='dark'] {
+  --yuna-glass-surface: rgba(21, 27, 35, 0.78);
+  --yuna-glass-surface-strong: rgba(21, 27, 35, 0.9);
+  --yuna-glass-border: rgba(255, 255, 255, 0.14);
+  --yuna-elev-card: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --yuna-elev-pop: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
