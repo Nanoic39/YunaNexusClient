@@ -454,7 +454,7 @@ onMounted(() => {
 }
 
 .notice-send__preview {
-  border: 1px solid var(--yuna-border-color, rgba(128, 128, 128, 0.2));
+  border: 1px solid var(--yuna-gray-200);
   border-radius: 8px;
   padding: 16px;
 }

@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NAlert,
   NButton,
+  NDropdown,
+  NEmpty,
+  NSkeleton,
   NInput,
   NSelect,
   NModal,
@@ -11,12 +14,10 @@ import {
   NRadioGroup,
   NTabPane,
   NTabs,
-  NTag,
   useDialog,
   useMessage,
 } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
-import { DataTable, PageContainer, StatusTag, formatDateTime, oauthAppStatusMeta } from '@yuna/ui'
+import { PageContainer, StatusTag, formatDateTime, oauthAppStatusMeta } from '@yuna/ui'
 import {
   session,
   OAUTH_SCOPE_LABELS,
@@ -63,9 +64,31 @@ async function classify() {
 const rows = ref<OAuthApplicationView[]>([])
 const loading = ref(false)
 const activeTab = ref<'pending' | 'all'>('pending')
+const keyword = ref('')
+const loadError = ref('')
+const statusFilter = ref<number | null>(null)
+const statusOptions = [
+  { label: '待审核', value: 0 },
+  { label: '已通过', value: 1 },
+  { label: '已驳回', value: 2 },
+  { label: '已停用', value: 3 },
+]
 
 const pendingRows = computed(() => rows.value.filter((row) => row.status === 0))
-const displayRows = computed(() => (activeTab.value === 'pending' ? pendingRows.value : rows.value))
+const displayRows = computed(() => {
+  const text = keyword.value.trim().toLowerCase()
+  const source = activeTab.value === 'pending' ? pendingRows.value : rows.value
+  return source.filter(
+    (row) =>
+      (activeTab.value === 'pending' ||
+        statusFilter.value === null ||
+        row.status === statusFilter.value) &&
+      (!text ||
+        [row.appName, row.ownerName, row.clientId ?? ''].some((value) =>
+          value.toLowerCase().includes(text),
+        )),
+  )
+})
 
 function scopeText(app: OAuthApplicationView): string {
   return app.scopes.map((scope) => OAUTH_SCOPE_LABELS[scope] ?? scope).join('、')
@@ -73,96 +96,36 @@ function scopeText(app: OAuthApplicationView): string {
 
 /* ------------------------------ 列表 ------------------------------ */
 
-function actionButton(
-  label: string,
-  onClick: () => void,
-  type: 'default' | 'error' | 'primary' = 'default',
-) {
-  return h(NButton, { size: 'small', secondary: true, type, onClick }, { default: () => label })
-}
-
-function renderActions(row: OAuthApplicationView) {
-  const buttons = [actionButton('详情', () => openDetail(row))]
+function appActions(row: OAuthApplicationView) {
+  const options = []
   if (canClassify.value && (row.status === 1 || row.status === 3))
-    buttons.push(actionButton('应用分类', () => openClassification(row)))
-  if (row.status === 0) buttons.push(actionButton('审核', () => openReview(row), 'primary'))
-  if (row.status === 1) buttons.push(actionButton('停用', () => confirmToggle(row, 3)))
-  if (row.status === 3) buttons.push(actionButton('启用', () => confirmToggle(row, 1)))
-  buttons.push(actionButton('删除', () => confirmRemove(row), 'error'))
-  return h('div', { class: 'yuna-cell-actions', style: { gap: '6px' } }, buttons)
+    options.push({ label: '应用分类', key: 'classify' })
+  if (row.status === 1) options.push({ label: '停用应用', key: 'disable' })
+  if (row.status === 3) options.push({ label: '启用应用', key: 'enable' })
+  options.push({ label: '删除应用', key: 'remove' })
+  return options
+}
+function onAppAction(key: string | number, row: OAuthApplicationView): void {
+  if (key === 'classify') openClassification(row)
+  if (key === 'disable') confirmToggle(row, 3)
+  if (key === 'enable') confirmToggle(row, 1)
+  if (key === 'remove') confirmRemove(row)
 }
 
-const columns: DataTableColumns<OAuthApplicationView> = [
-  {
-    title: '应用',
-    key: 'appName',
-    minWidth: 220,
-    render: (row) =>
-      h('div', { class: 'yuna-cell' }, [
-        h('span', null, row.appName),
-        h('span', { class: 'yuna-cell__sub' }, row.clientId ?? '未分配 Client ID'),
-      ]),
-  },
-  {
-    title: '申请人',
-    key: 'ownerName',
-    width: 130,
-    render: (row) => row.ownerName || `#${row.ownerUserId}`,
-  },
-  {
-    title: '权限范围',
-    key: 'scopes',
-    minWidth: 220,
-    render: (row) =>
-      h(
-        'div',
-        { class: 'yuna-cell-actions', style: { gap: '6px', flexWrap: 'wrap' } },
-        row.scopes.map((scope) =>
-          h(
-            NTag,
-            { size: 'small', bordered: false },
-            { default: () => OAUTH_SCOPE_LABELS[scope] ?? scope },
-          ),
-        ),
-      ),
-  },
-  {
-    title: '回调地址',
-    key: 'redirectUris',
-    minWidth: 220,
-    ellipsis: { tooltip: true },
-    render: (row) => row.redirectUris.join('、'),
-  },
-  {
-    title: '状态',
-    key: 'status',
-    width: 110,
-    render: (row) => h(StatusTag, { meta: oauthAppStatusMeta(row.status) }),
-  },
-  {
-    title: '提交时间',
-    key: 'createTime',
-    width: 172,
-    render: (row) => formatDateTime(row.createTime),
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 250,
-    fixed: 'right',
-    render: renderActions,
-  },
-]
-
+let loadSequence = 0
 async function load(): Promise<void> {
   if (!oauthAppRegistrationEnabled) return
+  const sequence = ++loadSequence
   loading.value = true
+  loadError.value = ''
   try {
-    rows.value = await oauthAppAdminApi.list()
+    const result = await oauthAppAdminApi.list()
+    if (sequence !== loadSequence) return
+    rows.value = result
   } catch (error) {
-    message.error(handleApiError(error, router))
+    if (sequence === loadSequence) loadError.value = handleApiError(error, router)
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) loading.value = false
   }
 }
 
@@ -260,10 +223,7 @@ onMounted(load)
 </script>
 
 <template>
-  <page-container
-    title="应用管理"
-    description="审核用户提交的 OAuth 接入申请，并管理已接入应用的启用、停用与删除"
-  >
+  <page-container title="应用管理" description="先核实申请的权限与回调地址，再决定是否允许接入。">
     <template #extra>
       <n-button :loading="loading" :disabled="!oauthAppRegistrationEnabled" @click="load"
         >刷新</n-button
@@ -281,15 +241,94 @@ onMounted(load)
       <n-tab-pane name="all" :tab="`全部应用（${rows.length}）`" />
     </n-tabs>
 
-    <data-table
-      v-if="oauthAppRegistrationEnabled"
-      :columns="columns"
-      :data="displayRows"
-      :loading="loading"
-      :row-key="(row: OAuthApplicationView) => row.id"
-      :scroll-x="1400"
-      :show-pagination="false"
-    />
+    <template v-if="oauthAppRegistrationEnabled">
+      <div class="app-tools">
+        <n-input
+          v-model:value="keyword"
+          placeholder="搜索应用、申请人或 Client ID"
+          clearable
+          class="app-search"
+          aria-label="搜索接入应用"
+        />
+        <n-select
+          v-if="activeTab === 'all'"
+          v-model:value="statusFilter"
+          :options="statusOptions"
+          placeholder="全部状态"
+          clearable
+          class="app-status"
+          aria-label="应用状态"
+        />
+        <span class="result-count"
+          >{{ displayRows.length }} 个{{ activeTab === 'pending' ? '待审核申请' : '应用' }}</span
+        >
+      </div>
+      <n-alert v-if="loadError" type="error" title="应用加载失败"
+        >{{ loadError }}
+        <div class="error-actions">
+          <n-button size="small" @click="load">重试</n-button>
+        </div></n-alert
+      >
+      <div v-else-if="loading" class="app-loading" aria-label="正在加载应用">
+        <n-skeleton v-for="item in 4" :key="item" height="120px" />
+      </div>
+      <n-empty
+        v-else-if="!displayRows.length"
+        class="empty-state"
+        :description="
+          keyword.trim() || statusFilter !== null
+            ? '没有匹配的应用，请调整筛选条件'
+            : activeTab === 'pending'
+              ? '暂无待审核申请'
+              : '暂无接入应用'
+        "
+      />
+      <div v-else class="application-list">
+        <article v-for="row in displayRows" :key="row.id" class="application-item">
+          <div class="application-heading">
+            <div>
+              <h2>{{ row.appName }}</h2>
+              <code>{{ row.clientId || '审核通过后分配 Client ID' }}</code>
+            </div>
+            <status-tag :meta="oauthAppStatusMeta(row.status)" />
+          </div>
+          <p v-if="row.description" class="application-description">{{ row.description }}</p>
+          <div class="application-facts">
+            <div>
+              <span>申请人</span><strong>{{ row.ownerName || `#${row.ownerUserId}` }}</strong>
+            </div>
+            <div>
+              <span>申请权限</span><strong>{{ scopeText(row) || '未申请权限' }}</strong>
+            </div>
+            <div>
+              <span>回调地址</span
+              ><strong
+                >{{ row.redirectUris[0] || '未填写'
+                }}<template v-if="row.redirectUris.length > 1">
+                  等 {{ row.redirectUris.length }} 个</template
+                ></strong
+              >
+            </div>
+          </div>
+          <footer class="application-footer">
+            <time>提交于 {{ formatDateTime(row.createTime) }}</time>
+            <div>
+              <n-button v-if="row.status === 0" size="small" type="primary" @click="openReview(row)"
+                >审核申请</n-button
+              ><n-button size="small" @click="openDetail(row)">查看详情</n-button
+              ><n-dropdown
+                trigger="click"
+                :options="appActions(row)"
+                @select="onAppAction($event, row)"
+                ><n-button size="small" quaternary :aria-label="`${row.appName}的更多操作`"
+                  >更多</n-button
+                ></n-dropdown
+              >
+            </div>
+          </footer>
+        </article>
+      </div>
+    </template>
 
     <!-- 审核 -->
     <n-modal
@@ -312,7 +351,12 @@ onMounted(load)
           </p>
         </div>
 
-        <n-radio-group v-model:value="reviewApproved" style="margin: 16px 0">
+        <n-radio-group
+          v-model:value="reviewApproved"
+          name="review-decision"
+          aria-label="审核决定"
+          style="margin: 16px 0"
+        >
           <n-radio :value="true">通过</n-radio>
           <n-radio :value="false">驳回</n-radio>
         </n-radio-group>
@@ -322,6 +366,7 @@ onMounted(load)
           type="textarea"
           :autosize="{ minRows: 3, maxRows: 6 }"
           maxlength="500"
+          aria-label="审核备注"
           :placeholder="reviewApproved ? '审核备注（选填）' : '请填写驳回原因'"
         />
 
@@ -353,6 +398,7 @@ onMounted(load)
         v-model:value="category"
         :options="categoryOptions"
         :disabled="classificationSaving"
+        aria-label="应用信任分类"
       />
       <template #footer
         ><div class="modal-footer">
@@ -402,6 +448,182 @@ onMounted(load)
 </template>
 
 <style scoped>
+.error-actions {
+  margin-top: 12px;
+}
+.app-tools {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.app-search {
+  width: 340px;
+  max-width: 100%;
+}
+.app-status {
+  width: 150px;
+}
+.result-count {
+  color: var(--yuna-gray-600);
+  font-size: 13px;
+  margin-left: auto;
+}
+.application-list,
+.app-loading {
+  display: grid;
+  gap: 12px;
+}
+.application-item {
+  padding: 20px;
+  min-width: 0;
+  background: var(--yuna-card-bg);
+  border: var(--yuna-card-border);
+  border-radius: var(--yuna-radius-card);
+}
+.application-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.application-heading > div {
+  min-width: 0;
+}
+.application-heading h2 {
+  margin: 0 0 4px;
+  color: var(--yuna-gray-900);
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.application-heading code {
+  font-size: 12px;
+  color: var(--yuna-gray-600);
+  overflow-wrap: anywhere;
+}
+.application-description {
+  margin: 12px 0 0;
+  color: var(--yuna-gray-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.application-facts {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.6fr) minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 20px;
+  margin: 16px 0;
+}
+.application-facts > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.application-facts span {
+  color: var(--yuna-gray-600);
+  font-size: 12px;
+}
+.application-facts strong {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--yuna-gray-900);
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.application-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--yuna-gray-200);
+}
+.application-footer time {
+  color: var(--yuna-gray-600);
+  font-size: 12px;
+}
+.application-footer > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.empty-state {
+  padding: 60px 16px;
+  background: var(--yuna-card-bg);
+  border: var(--yuna-card-border);
+  border-radius: var(--yuna-radius-card);
+}
+@media (min-width: 1100px) {
+  .application-item {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.3fr) minmax(180px, auto);
+    gap: 4px 20px;
+    padding: 16px 20px;
+    align-items: center;
+  }
+  .application-heading {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+  }
+  .application-heading h2 {
+    font-size: 14px;
+  }
+  .application-description {
+    grid-column: 1;
+    grid-row: 2;
+    margin: 0;
+    font-size: 12px;
+    align-self: start;
+  }
+  .application-facts {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    margin: 0;
+  }
+  .application-facts > div {
+    grid-template-columns: 60px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .application-footer {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    max-width: 230px;
+  }
+}
+@media (max-width: 700px) {
+  .application-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .application-facts > div {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .application-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .application-footer > div {
+    align-self: flex-end;
+  }
+  .application-item {
+    padding: 16px;
+  }
+  .result-count {
+    margin-left: 0;
+  }
+}
 .review-summary,
 .detail-body {
   display: grid;

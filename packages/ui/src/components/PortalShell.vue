@@ -69,13 +69,14 @@ function isActive(path: string): boolean {
           </span>
         </button>
 
-        <nav class="yuna-portal__nav">
+        <nav class="yuna-portal__nav" aria-label="站点导航">
           <button
             v-for="item in navItems"
             :key="item.path"
             type="button"
             class="yuna-portal__nav-item"
             :class="{ 'is-active': isActive(item.path) }"
+            :aria-current="isActive(item.path) ? 'page' : undefined"
             @click="emit('navigate', item.path)"
           >
             {{ item.label }}
@@ -118,10 +119,8 @@ function isActive(path: string): boolean {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--yuna-glass);
+  background: var(--yuna-surface);
   border-bottom: 1px solid var(--yuna-gray-200);
-  -webkit-backdrop-filter: saturate(180%) blur(var(--yuna-glass-blur));
-  backdrop-filter: saturate(180%) blur(var(--yuna-glass-blur));
 }
 
 .yuna-portal__bar {
@@ -151,8 +150,8 @@ function isActive(path: string): boolean {
   height: 30px;
   font-size: 15px;
   font-weight: 700;
-  color: var(--yuna-blue-800);
-  background: linear-gradient(135deg, var(--yuna-brand), var(--yuna-mint));
+  color: var(--yuna-on-primary);
+  background: var(--yuna-primary);
   border-radius: var(--yuna-radius-md);
 }
 
@@ -192,7 +191,9 @@ function isActive(path: string): boolean {
   background: transparent;
   border: none;
   border-radius: var(--yuna-radius-md);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .yuna-portal__nav-item:hover {
@@ -201,7 +202,7 @@ function isActive(path: string): boolean {
 }
 
 .yuna-portal__nav-item.is-active {
-  color: var(--yuna-blue-700);
+  color: var(--yuna-primary);
   font-weight: 500;
   background: var(--yuna-blue-50);
 }
@@ -217,7 +218,7 @@ function isActive(path: string): boolean {
 
 .yuna-portal__main {
   flex: 1 1 auto;
-  background: linear-gradient(180deg, var(--yuna-blue-50) 0%, var(--yuna-surface) 320px);
+  background: var(--yuna-bg);
 }
 
 .yuna-portal__footer {

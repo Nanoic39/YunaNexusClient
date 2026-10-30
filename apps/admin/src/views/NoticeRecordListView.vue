@@ -65,7 +65,7 @@ const filters = ref<{ templateCode: string; receiver: string; status: number | n
 function renderActions(row: NoticeRecordView) {
   return h(
     NButton,
-    { size: 'small', secondary: true, type: 'primary', onClick: () => openDetail(row) },
+    { size: 'small', secondary: true, onClick: () => openDetail(row) },
     { default: () => '详情' },
   )
 }
@@ -195,23 +195,26 @@ onMounted(load)
       <n-input
         v-model:value="filters.templateCode"
         placeholder="模板编码"
+        aria-label="模板编码"
         clearable
-        style="width: 200px"
+        style="width: 200px; max-width: 100%"
         @keyup.enter="search"
       />
       <n-input
         v-model:value="filters.receiver"
         placeholder="接收方"
+        aria-label="接收方"
         clearable
-        style="width: 200px"
+        style="width: 200px; max-width: 100%"
         @keyup.enter="search"
       />
       <n-select
         v-model:value="filters.status"
         :options="statusOptions"
         placeholder="全部状态"
+        aria-label="投递状态"
         clearable
-        style="width: 160px"
+        style="width: 160px; max-width: 100%"
       />
     </filter-bar>
 

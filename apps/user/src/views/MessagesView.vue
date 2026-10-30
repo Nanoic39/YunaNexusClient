@@ -11,14 +11,7 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
-import {
-  PageContainer,
-  PageEmpty,
-  SectionCard,
-  StatusTag,
-  formatRelative,
-  noticeStatusMeta,
-} from '@yuna/ui'
+import { PageContainer, PageEmpty, SectionCard, formatRelative } from '@yuna/ui'
 import { noticeApi, noticeRevision, session } from '@yuna/core'
 import type { NoticeRecordView } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
@@ -154,10 +147,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <page-container
-    title="站内信"
-    description="系统通知与安全提醒；按全部记录筛选，已读状态与顶栏同步"
-  >
+  <page-container title="站内信" description="系统通知与安全提醒；查看系统通知与安全提醒">
     <template #extra>
       <n-button
         secondary
@@ -195,15 +185,13 @@ onBeforeUnmount(() => {
             :key="item.id"
             class="msg"
             :class="{ 'is-unread': item.status === 1 }"
-            role="button"
-            tabindex="0"
-            @click="openDetail(item)"
-            @keydown.enter="openDetail(item)"
           >
             <div class="msg__main">
               <div class="msg__head">
-                <span class="msg__title">{{ item.title || '（无标题）' }}</span>
-                <status-tag :meta="noticeStatusMeta(item.status)" />
+                <button class="msg__title" @click="openDetail(item)">
+                  {{ item.title || '（无标题）' }}
+                </button>
+                <span class="msg__status">{{ item.status === 1 ? '未读' : '已读' }}</span>
               </div>
               <p class="msg__content">{{ item.content || '（无正文）' }}</p>
               <div class="msg__foot">
@@ -212,10 +200,9 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <n-button
-              text
-              type="primary"
+              v-if="item.status === 1"
               size="small"
-              :disabled="loading || item.status === 3 || markingAll || readingId !== null"
+              :disabled="loading || markingAll || readingId !== null"
               :loading="readingId === item.id"
               @click.stop="markRead(item)"
             >
@@ -252,7 +239,6 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
-  cursor: pointer;
   border-bottom: 1px solid var(--yuna-gray-200);
   transition: background-color 0.15s ease;
 }
@@ -261,10 +247,9 @@ onBeforeUnmount(() => {
   background: var(--yuna-gray-50);
 }
 
-.msg:focus-visible {
-  background: var(--yuna-gray-50);
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--yuna-blue-100);
+.msg__title:focus-visible {
+  outline: 2px solid var(--yuna-primary);
+  outline-offset: 3px;
 }
 
 .msg:last-child {
@@ -285,11 +270,26 @@ onBeforeUnmount(() => {
 }
 
 .msg__title {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  overflow-wrap: anywhere;
   font-size: 14px;
   font-weight: 500;
   color: var(--yuna-gray-900);
 }
 
+.msg__title:hover {
+  color: var(--yuna-primary);
+}
+.msg__status {
+  color: var(--yuna-gray-700);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .msg.is-unread .msg__title {
   font-weight: 600;
 }
@@ -309,7 +309,7 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 12px;
   font-size: 12px;
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
 }
 
 .msg-pager {

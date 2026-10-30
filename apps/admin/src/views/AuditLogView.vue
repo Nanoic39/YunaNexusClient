@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import {
   NAlert,
   NButton,
+  NDropdown,
   NDatePicker,
   NInput,
   NSelect,
@@ -11,7 +12,7 @@ import {
   NTag,
   useMessage,
 } from 'naive-ui'
-import { PageContainer, DataTable, formatDateTime } from '@yuna/ui'
+import { PageContainer, DataTable, FilterBar, formatDateTime } from '@yuna/ui'
 import { auditApi, type AuditChainReport, type AuditQueryFilter } from '@yuna/core'
 import type { AuditLogView } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
@@ -72,6 +73,11 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false
   }
+}
+
+function search(): void {
+  page.value = 1
+  void load()
 }
 
 function reset(): void {
@@ -137,16 +143,25 @@ async function verifyAnchors(): Promise<void> {
 }
 
 const columns = [
-  { title: '时间', key: 'createTime', width: 170, render: (r: AuditLogView) => formatDateTime(r.createTime) },
-  { title: '操作人', key: 'username', width: 130, render: (r: AuditLogView) => r.username || `#${r.userId ?? 0}` },
+  {
+    title: '时间',
+    key: 'createTime',
+    width: 170,
+    render: (r: AuditLogView) => formatDateTime(r.createTime),
+  },
+  {
+    title: '操作人',
+    key: 'username',
+    width: 130,
+    render: (r: AuditLogView) => r.username || `#${r.userId ?? 0}`,
+  },
   { title: '服务', key: 'service', width: 150 },
   { title: '模块', key: 'module', width: 110, render: (r: AuditLogView) => r.module || '-' },
   {
     title: '动作',
     key: 'action',
     width: 150,
-    render: (r: AuditLogView) =>
-      h(NTag, { size: 'small', type: r.action === 'HTTP' ? 'default' : 'info' }, () => r.action),
+    render: (r: AuditLogView) => r.action || '—',
   },
   { title: 'URI', key: 'uri', ellipsis: { tooltip: true } },
   {
@@ -155,9 +170,15 @@ const columns = [
     width: 80,
     render: (r: AuditLogView) =>
       h(NTag, { size: 'small', type: r.status === 1 ? 'success' : 'error' }, () =>
-        r.status === 1 ? '成功' : '失败'),
+        r.status === 1 ? '成功' : '失败',
+      ),
   },
-  { title: '耗时', key: 'durationMs', width: 90, render: (r: AuditLogView) => (r.durationMs == null ? '-' : `${r.durationMs} ms`) },
+  {
+    title: '耗时',
+    key: 'durationMs',
+    width: 90,
+    render: (r: AuditLogView) => (r.durationMs == null ? '-' : `${r.durationMs} ms`),
+  },
   { title: 'IP', key: 'ip', width: 130 },
 ]
 
@@ -171,11 +192,17 @@ onMounted(load)
   >
     <template #extra>
       <n-space>
-        <n-button :loading="loading" @click="load">查询</n-button>
-        <n-button quaternary @click="reset">重置</n-button>
         <n-button @click="exportCsv">导出 CSV</n-button>
-        <n-button @click="verifyChain">校验证据链</n-button>
-        <n-button @click="verifyAnchors">比对锚定</n-button>
+        <n-dropdown
+          trigger="click"
+          :options="[
+            { label: '校验证据链', key: 'chain' },
+            { label: '比对外部锚定', key: 'anchors' },
+          ]"
+          @select="(key) => (key === 'chain' ? verifyChain() : verifyAnchors())"
+        >
+          <n-button>校验工具</n-button>
+        </n-dropdown>
       </n-space>
     </template>
 
@@ -201,21 +228,65 @@ onMounted(load)
       <div v-for="item in anchorBreaks" :key="item">{{ item }}</div>
     </n-alert>
 
-    <n-space style="margin-bottom: 12px">
-      <n-input v-model:value="username" placeholder="操作人" clearable style="width: 140px" />
-      <n-input v-model:value="module" placeholder="模块" clearable style="width: 120px" />
-      <n-input v-model:value="action" placeholder="动作" clearable style="width: 140px" />
-      <n-input v-model:value="service" placeholder="服务" clearable style="width: 150px" />
-      <n-input v-model:value="keyword" placeholder="关键字（URI/参数/错误）" clearable style="width: 220px" />
+    <filter-bar :loading="loading" @search="search" @reset="reset">
+      <n-input
+        v-model:value="username"
+        placeholder="操作人"
+        aria-label="操作人"
+        clearable
+        class="audit-field"
+        @keyup.enter="search"
+      />
+      <n-input
+        v-model:value="module"
+        placeholder="模块"
+        aria-label="模块"
+        clearable
+        class="audit-field"
+        @keyup.enter="search"
+      />
+      <n-input
+        v-model:value="action"
+        placeholder="动作"
+        aria-label="动作"
+        clearable
+        class="audit-field"
+        @keyup.enter="search"
+      />
+      <n-input
+        v-model:value="service"
+        placeholder="服务"
+        aria-label="服务"
+        clearable
+        class="audit-field"
+        @keyup.enter="search"
+      />
+      <n-input
+        v-model:value="keyword"
+        placeholder="URI / 参数 / 错误"
+        aria-label="审计关键字"
+        clearable
+        class="audit-keyword"
+        @keyup.enter="search"
+      />
       <n-select
         v-model:value="status"
         :options="statusOptions"
-        style="width: 130px"
-        placeholder="结果"
+        placeholder="全部结果"
+        aria-label="执行结果"
         clearable
+        class="audit-field"
       />
-      <n-date-picker v-model:value="range" type="datetimerange" clearable style="width: 340px" />
-    </n-space>
+      <n-date-picker
+        v-model:value="range"
+        type="datetimerange"
+        clearable
+        class="audit-date"
+        start-placeholder="开始时间"
+        end-placeholder="结束时间"
+        aria-label="操作时间范围"
+      />
+    </filter-bar>
 
     <data-table
       :data="rows"
@@ -223,12 +294,30 @@ onMounted(load)
       :loading="loading"
       :row-key="(r: AuditLogView) => r.id"
       :show-pagination="false"
+      :scroll-x="1280"
     />
 
     <n-space justify="end" style="margin-top: 12px" align="center">
       <span>共 {{ total }} 条 · 第 {{ page }} / {{ pageCount }} 页</span>
-      <n-button size="small" :disabled="page <= 1" @click="turn(-1)">上一页</n-button>
-      <n-button size="small" :disabled="page >= pageCount" @click="turn(1)">下一页</n-button>
+      <n-button size="small" :disabled="loading || page <= 1" @click="turn(-1)">上一页</n-button>
+      <n-button size="small" :disabled="loading || page >= pageCount" @click="turn(1)"
+        >下一页</n-button
+      >
     </n-space>
   </page-container>
 </template>
+
+<style scoped>
+.audit-field {
+  width: 160px;
+  max-width: 100%;
+}
+.audit-keyword {
+  width: 240px;
+  max-width: 100%;
+}
+.audit-date {
+  width: 340px;
+  max-width: 100%;
+}
+</style>

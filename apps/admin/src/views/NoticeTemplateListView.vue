@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
+  NAlert,
   NButton,
+  NDropdown,
+  NEmpty,
+  NPagination,
+  NSkeleton,
   NForm,
   NFormItem,
   NInput,
@@ -11,16 +16,8 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
-import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
-import {
-  DataTable,
-  FilterBar,
-  PageContainer,
-  StatusTag,
-  enabledStatusMeta,
-  formatDateTime,
-  noticeChannelText,
-} from '@yuna/ui'
+import type { FormInst, FormRules } from 'naive-ui'
+import { FilterBar, PageContainer, formatDateTime, noticeChannelText } from '@yuna/ui'
 import { noticeAdminApi } from '@yuna/core'
 import type { NoticeChannel, NoticeTemplateSavePayload, NoticeTemplateView } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
@@ -35,10 +32,8 @@ const total = ref(0)
 const page = ref(1)
 const size = ref(20)
 const keyword = ref('')
-const filteredRows = computed(() => {
-  const text = keyword.value.trim().toLowerCase()
-  return rows.value.filter(row => !text || row.templateName.toLowerCase().includes(text) || row.templateCode.toLowerCase().includes(text))
-})
+const loadError = ref('')
+const busyId = ref<number | null>(null)
 
 const channelOptions = [
   { label: '站内信', value: 1 },
@@ -46,86 +41,47 @@ const channelOptions = [
   { label: '短信', value: 3 },
 ]
 
-function actionButton(
-  label: string,
-  onClick: () => void,
-  type: 'default' | 'primary' = 'default',
-) {
-  return h(NButton, { size: 'small', secondary: true, type, onClick }, { default: () => label })
+function templateActions(row: NoticeTemplateView) {
+  return [
+    { label: row.status === 1 ? '停用模板' : '启用模板', key: 'toggle' },
+    { label: '删除模板', key: 'remove' },
+  ]
 }
 
-function renderActions(row: NoticeTemplateView) {
-  return h('div', { class: 'yuna-cell-actions', style: { gap: '6px' } }, [
-    actionButton('编辑', () => openEdit(row), 'primary'),
-    actionButton(row.status === 1 ? '停用' : '启用', () =>
-      runToggle(row, row.status === 1 ? 0 : 1),
-    ),
-    actionButton('删除', () => confirmRemove(row)),
-  ])
+function onTemplateAction(key: string | number, row: NoticeTemplateView): void {
+  if (key === 'toggle') void runToggle(row, row.status === 1 ? 0 : 1)
+  if (key === 'remove') confirmRemove(row)
 }
 
-const columns: DataTableColumns<NoticeTemplateView> = [
-  {
-    title: '模板',
-    key: 'templateName',
-    minWidth: 220,
-    render: (row) =>
-      h('div', { class: 'yuna-cell' }, [
-        h('span', null, row.templateName),
-        h('span', { class: 'yuna-cell__sub' }, row.templateCode),
-      ]),
-  },
-  {
-    title: '通道',
-    key: 'channel',
-    width: 110,
-    render: (row) => row.channelLabel || noticeChannelText(row.channel),
-  },
-  {
-    title: '标题模板',
-    key: 'title',
-    minWidth: 240,
-    ellipsis: { tooltip: true },
-    render: (row) => row.title || '—',
-  },
-  {
-    title: '状态',
-    key: 'status',
-    width: 110,
-    render: (row) => h(StatusTag, { meta: enabledStatusMeta(row.status) }),
-  },
-  {
-    title: '更新时间',
-    key: 'updateTime',
-    width: 172,
-    render: (row) => formatDateTime(row.updateTime),
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 220,
-    fixed: 'right',
-    render: renderActions,
-  },
-]
-
+let loadSequence = 0
 async function load(): Promise<void> {
+  const sequence = ++loadSequence
   loading.value = true
+  loadError.value = ''
   try {
     const result = await noticeAdminApi.listTemplates({
       page: page.value,
       size: size.value,
+      keyword: keyword.value.trim() || undefined,
     })
+    if (sequence !== loadSequence) return
+    const lastPage = Math.max(1, Math.ceil(result.total / size.value))
+    if (page.value > lastPage) {
+      page.value = lastPage
+      await load()
+      return
+    }
     rows.value = result.records
     total.value = result.total
   } catch (error) {
-    message.error(handleApiError(error, router))
+    if (sequence === loadSequence) loadError.value = handleApiError(error, router)
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) loading.value = false
   }
 }
 
 function search(): void {
+  page.value = 1
   void load()
 }
 
@@ -179,7 +135,9 @@ const editRules: FormRules = {
     },
   ],
   templateName: [{ required: true, message: '请输入模板名称', trigger: ['input', 'blur'] }],
-  channel: [{ required: true, type: 'number', message: '请选择通知通道', trigger: ['change', 'blur'] }],
+  channel: [
+    { required: true, type: 'number', message: '请选择通知通道', trigger: ['change', 'blur'] },
+  ],
   title: [{ required: true, message: '请输入标题模板', trigger: ['input', 'blur'] }],
   content: [{ required: true, message: '请输入正文模板', trigger: ['input', 'blur'] }],
 }
@@ -247,12 +205,16 @@ async function submitEdit(): Promise<void> {
 }
 
 async function runToggle(row: NoticeTemplateView, status: number): Promise<void> {
+  if (busyId.value !== null) return
+  busyId.value = row.id
   try {
     await noticeAdminApi.toggleTemplateStatus(row.id, status)
     message.success(status === 1 ? '模板已启用' : '模板已停用')
     await load()
   } catch (error) {
     message.error(handleApiError(error, router))
+  } finally {
+    busyId.value = null
   }
 }
 
@@ -278,7 +240,10 @@ onMounted(load)
 </script>
 
 <template>
-  <page-container title="通知模板" description="维护通知模板，标题与正文支持 ${占位符} 动态渲染">
+  <page-container
+    title="通知模板"
+    description="按用途查找模板，预览内容后编辑。标题与正文支持 ${占位符}。"
+  >
     <template #extra>
       <n-button type="primary" @click="openCreate">新建模板</n-button>
     </template>
@@ -286,25 +251,86 @@ onMounted(load)
     <filter-bar :loading="loading" @search="search" @reset="reset">
       <n-input
         v-model:value="keyword"
-        placeholder="筛选当前页：名称 / 编码"
+        placeholder="搜索全部模板：名称 / 编码"
         clearable
-        style="width: 240px"
+        class="template-search"
+        aria-label="模板名称或编码"
         @keyup.enter="search"
       />
     </filter-bar>
 
-    <data-table
-      :columns="columns"
-      :data="filteredRows"
-      :loading="loading"
-      :total="total"
-      :page="page"
-      :size="size"
-      :row-key="(row: NoticeTemplateView) => row.id"
-      :scroll-x="1100"
-      @update:page="onPageChange"
-      @update:size="onSizeChange"
-    />
+    <n-alert v-if="loadError" type="error" title="模板加载失败"
+      >{{ loadError }}
+      <div class="error-actions"><n-button size="small" @click="load">重试</n-button></div></n-alert
+    >
+    <div v-else :aria-busy="loading">
+      <p class="library-summary">
+        共 {{ total }} 个模板<span v-if="keyword.trim()"> · 搜索名称与编码</span>
+      </p>
+      <div v-if="loading" class="template-grid">
+        <n-skeleton v-for="item in 4" :key="item" height="220px" />
+      </div>
+      <n-empty
+        v-else-if="!rows.length"
+        class="empty-state"
+        :description="keyword.trim() ? '没有匹配的模板，请更换关键词' : '还没有通知模板'"
+      >
+        <template #extra
+          ><n-button v-if="!keyword.trim()" @click="openCreate">新建第一个模板</n-button
+          ><n-button v-else @click="reset">清空搜索</n-button></template
+        >
+      </n-empty>
+      <div v-else class="template-grid">
+        <article v-for="row in rows" :key="row.id" class="template-card">
+          <div class="template-heading">
+            <div>
+              <h2>{{ row.templateName }}</h2>
+              <code>{{ row.templateCode }}</code>
+            </div>
+            <span class="template-status">{{ row.status === 1 ? '已启用' : '已停用' }}</span>
+          </div>
+          <div class="template-preview">
+            <span class="channel-label">{{
+              row.channelLabel || noticeChannelText(row.channel)
+            }}</span>
+            <h3>{{ row.title || '无标题' }}</h3>
+            <p>{{ row.content || '无正文' }}</p>
+          </div>
+          <footer class="template-footer">
+            <span>更新于 {{ formatDateTime(row.updateTime) }}</span>
+            <div>
+              <n-button size="small" :disabled="busyId === row.id" @click="openEdit(row)"
+                >编辑模板</n-button
+              ><n-dropdown
+                trigger="click"
+                :options="templateActions(row)"
+                @select="onTemplateAction($event, row)"
+                ><n-button
+                  size="small"
+                  quaternary
+                  :loading="busyId === row.id"
+                  :aria-label="`${row.templateName}的更多操作`"
+                  >更多</n-button
+                ></n-dropdown
+              >
+            </div>
+          </footer>
+        </article>
+      </div>
+      <div v-if="total" class="pagination">
+        <n-pagination
+          :page="page"
+          :page-size="size"
+          :item-count="total"
+          :page-sizes="[10, 20, 50]"
+          :page-slot="5"
+          show-size-picker
+          :disabled="loading"
+          @update:page="onPageChange"
+          @update:page-size="onSizeChange"
+        />
+      </div>
+    </div>
 
     <n-modal
       v-model:show="editVisible"
@@ -364,6 +390,118 @@ onMounted(load)
 </template>
 
 <style scoped>
+.error-actions {
+  margin-top: 12px;
+}
+.template-search {
+  width: 300px;
+  max-width: 100%;
+}
+.library-summary {
+  margin: 0 0 12px;
+  color: var(--yuna-gray-600);
+  font-size: 13px;
+}
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 16px;
+}
+.template-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 20px;
+  background: var(--yuna-card-bg);
+  border: var(--yuna-card-border);
+  border-radius: var(--yuna-radius-card);
+}
+.template-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.template-heading > div {
+  min-width: 0;
+}
+.template-heading h2 {
+  margin: 0 0 4px;
+  color: var(--yuna-gray-900);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.template-heading code {
+  color: var(--yuna-gray-600);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.template-status {
+  font-size: 12px;
+  color: var(--yuna-gray-600);
+  flex-shrink: 0;
+}
+.template-preview {
+  flex: 1;
+  margin: 18px 0;
+  padding: 14px;
+  border-radius: var(--yuna-radius-md);
+  background: var(--yuna-gray-50);
+  overflow-wrap: anywhere;
+}
+.channel-label {
+  color: var(--yuna-gray-600);
+  font-size: 12px;
+}
+.template-preview h3 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--yuna-gray-900);
+  margin: 6px 0;
+}
+.template-preview p {
+  margin: 0;
+  line-height: 1.7;
+  color: var(--yuna-gray-700);
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.template-footer {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.template-footer > span {
+  color: var(--yuna-gray-600);
+  font-size: 12px;
+}
+.template-footer > div {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.empty-state {
+  padding: 60px 16px;
+  background: var(--yuna-card-bg);
+  border: var(--yuna-card-border);
+  border-radius: var(--yuna-radius-card);
+}
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  overflow-x: auto;
+  padding: 20px 0 0;
+}
+@media (max-width: 600px) {
+  .template-card {
+    padding: 16px;
+  }
+}
 .modal-footer {
   display: flex;
   justify-content: flex-end;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
+import { NAlert, NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
 import { AuthLayout } from '@yuna/ui'
 import {
   ApiError,
@@ -28,6 +28,17 @@ const captchaCode = ref<string | null>(null)
 const captchaImage = ref<string | null>(null)
 const failCount = ref(0)
 const submitting = ref(false)
+const requestError = ref('')
+const errors = reactive({ username: '', password: '', captcha: '' })
+for (const field of ['username', 'password', 'captcha'] as const) {
+  watch(
+    () => form[field],
+    () => {
+      errors[field] = ''
+      requestError.value = ''
+    },
+  )
+}
 
 /** 连续失败 3 次后启用验证码，与后端风控策略一致 */
 const needCaptcha = computed(() => failCount.value >= 3)
@@ -103,16 +114,18 @@ onMounted(async () => {
 })
 
 async function submit(): Promise<void> {
+  if (submitting.value) return
   const username = form.username.trim()
-  if (!username || !form.password) {
-    message.warning('请输入账号与密码')
-    return
-  }
-  if (needCaptcha.value && !form.captcha.trim()) {
-    message.warning('请输入验证码')
+  errors.username = username ? '' : '请输入账号或邮箱'
+  errors.password = form.password ? '' : '请输入密码'
+  errors.captcha = needCaptcha.value && !form.captcha.trim() ? '请输入图形验证码' : ''
+  const invalid = (['username', 'password', 'captcha'] as const).find((field) => errors[field])
+  if (invalid) {
+    document.getElementById(`login-${invalid}`)?.focus()
     return
   }
 
+  requestError.value = ''
   submitting.value = true
   try {
     const result = await authApi.login({
@@ -140,7 +153,7 @@ async function submit(): Promise<void> {
       failCount.value = Math.max(3, failCount.value)
       void loadCaptcha()
     }
-    message.error(toErrorMessage(error))
+    requestError.value = toErrorMessage(error)
   } finally {
     submitting.value = false
   }
@@ -148,96 +161,120 @@ async function submit(): Promise<void> {
 </script>
 
 <template>
-  <AuthLayout
-    heading="登录用户端"
-    subheading="使用账号密码登录，进入你的个人控制台"
+  <auth-layout
+    heading="登录"
+    subheading="使用账号或邮箱登录你的个人控制台。"
     brand-title="YunaNexus"
-    brand-tagline="统一中控台，集中管理用户、权限与审计。"
-    brand-description="未来所有业务平台的统一底座。登录后可访问个人控制台，查看账号信息与站内消息。"
+    brand-tagline="一个账号，连接你的工作空间。"
+    brand-description="管理文件、接收通知和查看应用授权。"
   >
-    <template #brand>
-      <ul class="yuna-points">
-        <li>统一身份认证，一处登录全线通行</li>
-        <li>站内信与安全提醒实时触达</li>
-        <li>个人中心集中查看账号与会话</li>
-      </ul>
-    </template>
-
-    <n-form :show-label="false" @submit.prevent="submit">
-      <n-form-item :show-label="false">
+    <n-alert v-if="requestError" type="error" class="login-error" role="alert">{{
+      requestError
+    }}</n-alert>
+    <n-form novalidate label-placement="top" :disabled="submitting" @submit.prevent="submit">
+      <n-form-item
+        required
+        label="账号或邮箱"
+        label-for="login-username"
+        :validation-status="errors.username ? 'error' : undefined"
+        :feedback="errors.username"
+      >
         <n-input
           v-model:value="form.username"
+          :input-props="{ id: 'login-username', name: 'username' }"
+          autocomplete="username"
           size="large"
-          placeholder="用户名 / 邮箱 / 手机号"
-          @keyup.enter="submit"
+          placeholder="输入账号或绑定邮箱"
+          :maxlength="128"
         />
       </n-form-item>
-      <n-form-item :show-label="false">
+      <n-form-item
+        required
+        label="密码"
+        label-for="login-password"
+        :validation-status="errors.password ? 'error' : undefined"
+        :feedback="errors.password"
+      >
         <n-input
           v-model:value="form.password"
+          :input-props="{ id: 'login-password', name: 'password' }"
+          autocomplete="current-password"
           type="password"
           show-password-on="click"
           size="large"
-          placeholder="密码"
-          @keyup.enter="submit"
+          placeholder="输入密码"
+          :maxlength="64"
         />
       </n-form-item>
-      <n-form-item v-if="needCaptcha" :show-label="false">
+      <n-form-item
+        v-if="needCaptcha"
+        required
+        label="图形验证码"
+        label-for="login-captcha"
+        :validation-status="errors.captcha ? 'error' : undefined"
+        :feedback="errors.captcha"
+      >
         <div class="captcha">
           <n-input
             v-model:value="form.captcha"
+            :input-props="{ id: 'login-captcha', name: 'captcha' }"
+            autocomplete="off"
             size="large"
-            placeholder="验证码"
-            @keyup.enter="submit"
+            placeholder="输入图片中的字符"
           />
           <button
             v-if="captchaImage"
             type="button"
             class="captcha-image"
-            aria-label="刷新验证码"
+            :disabled="submitting"
+            aria-label="刷新图形验证码"
             @click="loadCaptcha"
           >
-            <img :src="captchaImage" alt="图形验证码" />
+            <img :src="captchaImage" alt="图形验证码，点击可刷新" />
           </button>
-          <n-button v-else size="large" quaternary @click="loadCaptcha">获取验证码</n-button>
+          <n-button v-else size="large" @click="loadCaptcha">获取验证码</n-button>
         </div>
       </n-form-item>
-      <n-button type="primary" block size="large" :loading="submitting" @click="submit">
-        登录
-      </n-button>
+      <n-button attr-type="submit" type="primary" block size="large" :loading="submitting"
+        >登录</n-button
+      >
     </n-form>
-
     <p v-if="needCaptcha && captchaCode" class="hint">Mock 验证码：{{ captchaCode }}</p>
-
     <template #footer>
       <div class="auth-links">
-        <router-link to="/password-reset">忘记密码？</router-link><span>·</span>
-        <router-link
-          :to="{
-            name: 'register',
-            query: { redirect: safeLocalRedirect(route.query.redirect, '/console/dashboard') },
-          }"
-          >注册账号</router-link
-        >
-        <span class="auth-links__sep">·</span>
-        <router-link :to="{ name: 'unlock-appeal' }">账号被锁定？提交解锁申诉</router-link>
+        <div class="account-links">
+          <span>还没有账号？</span
+          ><router-link
+            :to="{
+              name: 'register',
+              query: { redirect: safeLocalRedirect(route.query.redirect, '/console/dashboard') },
+            }"
+            >创建账号</router-link
+          >
+        </div>
+        <nav class="recovery-links" aria-label="登录帮助">
+          <router-link to="/password-reset">找回密码</router-link
+          ><router-link :to="{ name: 'unlock-appeal' }">账号解锁申诉</router-link>
+        </nav>
       </div>
-      <p v-if="mockEnabled">
+      <p v-if="mockEnabled" class="hint">
         当前为 <strong>Mock 模式</strong>，任意账号均可登录；密码输入
         <code>wrong</code> 可模拟登录失败。
       </p>
-      <p v-else>尚无账号？可注册后登录用户门户。</p>
     </template>
-  </AuthLayout>
+  </auth-layout>
 </template>
 
 <style scoped>
+.login-error {
+  margin-bottom: 18px;
+}
 .captcha {
   display: flex;
   gap: 8px;
   width: 100%;
+  align-items: center;
 }
-
 .captcha-image {
   border: 0;
   padding: 0;
@@ -250,33 +287,39 @@ async function submit(): Promise<void> {
   width: 136px;
   height: 40px;
 }
-
 .captcha .n-input {
+  min-width: 0;
   flex: 1 1 auto;
 }
-
 .hint {
   font-size: 12px;
-  color: var(--yuna-gray-600);
+  line-height: 1.7;
+  color: var(--yuna-gray-700);
 }
-
 .auth-links {
+  display: grid;
+  gap: 14px;
+}
+.account-links,
+.recovery-links {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.account-links {
   gap: 8px;
-  margin-bottom: 10px;
 }
-
-.auth-links__sep {
-  color: var(--yuna-gray-400);
-}
-
 .auth-links a {
-  color: var(--yuna-brand);
+  color: var(--yuna-primary);
   text-decoration: none;
 }
-
 .auth-links a:hover {
   text-decoration: underline;
+}
+.auth-links a:focus-visible,
+.captcha-image:focus-visible {
+  outline: 2px solid var(--yuna-primary);
+  outline-offset: 3px;
 }
 </style>

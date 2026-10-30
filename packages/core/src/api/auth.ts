@@ -7,6 +7,7 @@ import type {
   AppealView,
   CaptchaResult,
   CsrfResult,
+  EmailCodeLoginPayload,
   IdentityResult,
   LoginPayload,
   PageResult,
@@ -22,6 +23,14 @@ export const authApi = {
   /** 登录 */
   login: (payload: LoginPayload) =>
     http.request<TokenResult>(`${BASE}/login`, { method: 'POST', body: payload }),
+
+  /** 邮箱验证码登录（免密码） */
+  loginByEmailCode: (payload: EmailCodeLoginPayload) =>
+    http.request<TokenResult>(`${BASE}/login/email-code`, { method: 'POST', body: payload }),
+
+  /** 发送邮箱验证码；purpose: REGISTER / LOGIN */
+  sendEmailCode: (email: string, purpose: 'REGISTER' | 'LOGIN' = 'REGISTER') =>
+    http.request<boolean>(`${BASE}/email-code`, { method: 'POST', body: { email, purpose } }),
 
   /** 登出（吊销当前会话） */
   logout: () => userHttp.request<void>(`${BASE}/logout`, { method: 'POST' }),
@@ -70,6 +79,13 @@ export const authApi = {
   /** 注册 */
   register: (payload: RegisterPayload) =>
     http.request<string>(`${BASE}/register`, { method: 'POST', body: payload }),
+
+  /** 发送注册邮箱验证码；仅成功返回 true 后开始重发冷却。 */
+  sendRegistrationCode: (email: string) =>
+    http.request<boolean>(`${BASE}/email-code`, {
+      method: 'POST',
+      body: { email, purpose: 'REGISTER' },
+    }),
 
   /** 提交解锁申诉 */
   unlockAppeal: (payload: UnlockAppealPayload) =>

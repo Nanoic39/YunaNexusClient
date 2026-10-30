@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import {
   NAlert,
   NButton,
+  NDropdown,
   NForm,
   NFormItem,
   NInput,
@@ -62,15 +63,35 @@ const filteredRows = computed(() => {
   )
 })
 
-function actionButton(label: string, onClick: () => void, type: 'default' | 'primary' = 'default') {
-  return h(NButton, { size: 'small', secondary: true, type, onClick }, { default: () => label })
-}
-
 function renderActions(row: BadgeDefinitionView) {
-  return h('div', { class: 'yuna-cell-actions', style: { gap: '6px' } }, [
-    actionButton('编辑', () => openEdit(row), 'primary'),
-    actionButton('发放', () => void openGrant(row), 'primary'),
-    actionButton('删除', () => confirmRemove(row)),
+  return h('div', { class: 'yuna-cell-actions' }, [
+    h(
+      NButton,
+      { size: 'small', secondary: true, onClick: () => openEdit(row) },
+      { default: () => '编辑' },
+    ),
+    h(
+      NDropdown,
+      {
+        trigger: 'click',
+        options: [
+          { label: '发放徽章', key: 'grant' },
+          { label: '删除徽章', key: 'remove' },
+        ],
+        onSelect: (key: string | number) => {
+          if (key === 'grant') void openGrant(row)
+          if (key === 'remove') confirmRemove(row)
+        },
+      },
+      {
+        default: () =>
+          h(
+            NButton,
+            { size: 'small', quaternary: true, 'aria-label': `${row.badgeName}的更多操作` },
+            { default: () => '更多' },
+          ),
+      },
+    ),
   ])
 }
 
@@ -120,7 +141,7 @@ const columns: DataTableColumns<BadgeDefinitionView> = [
   {
     title: '操作',
     key: 'actions',
-    width: 220,
+    width: 160,
     fixed: 'right',
     render: renderActions,
   },
@@ -363,7 +384,7 @@ onMounted(load)
 </script>
 
 <template>
-  <page-container title="徽章管理" description="维护徽章定义，支持条件自动发放与手动发放给指定用户">
+  <page-container title="徽章管理" description="维护徽章定义，向指定用户发放徽章并查询记录。">
     <template #extra>
       <n-button secondary @click="openRecords">发放记录</n-button>
       <n-button type="primary" @click="openCreate">新建徽章</n-button>
@@ -373,8 +394,9 @@ onMounted(load)
       <n-input
         v-model:value="keyword"
         placeholder="徽章名称 / 编码"
+        aria-label="搜索徽章名称或编码"
         clearable
-        style="width: 240px"
+        style="width: 240px; max-width: 100%"
       />
     </filter-bar>
 
@@ -383,7 +405,7 @@ onMounted(load)
       :data="filteredRows"
       :loading="loading"
       :row-key="(row: BadgeDefinitionView) => row.id"
-      :scroll-x="1180"
+      :scroll-x="1120"
       :show-pagination="false"
     />
 

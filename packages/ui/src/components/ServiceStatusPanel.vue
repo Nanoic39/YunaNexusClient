@@ -80,7 +80,6 @@ function availability(item: ContentItem): string {
   <section class="status-panel" aria-label="服务运行状态">
     <header class="status-heading">
       <div>
-        <span class="eyebrow">LIVE SYSTEM HEALTH</span>
         <h3><i class="status-dot" :class="`is-${overall}`" />{{ titles[overall] }}</h3>
         <p>最近 {{ windowLabel }} · 每格 {{ bucketLabel }} · 每分钟自动采样（末格进行中）</p>
       </div>
@@ -151,7 +150,7 @@ function availability(item: ContentItem): string {
 <style scoped>
 .status-panel {
   border: 1px solid var(--yuna-gray-100);
-  border-radius: 16px;
+  border-radius: var(--yuna-radius-md);
   background: var(--yuna-surface);
   overflow: hidden;
 }
@@ -160,22 +159,22 @@ function availability(item: ContentItem): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 24px 28px;
+  gap: 12px;
+  padding: 14px 16px;
   background: var(--yuna-gray-50);
 }
 .eyebrow {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1.6px;
-  color: var(--yuna-gray-500);
+  color: var(--yuna-gray-600);
 }
 h3 {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 8px 0;
-  font-size: 20px;
+  margin: 0 0 4px;
+  font-size: 16px;
   color: var(--yuna-gray-900);
 }
 .status-heading > div {
@@ -185,13 +184,13 @@ h3 {
 .service-description {
   margin: 0;
   font-size: 12px;
-  color: var(--yuna-gray-500);
+  color: var(--yuna-gray-600);
 }
 .refresh {
   border: 1px solid var(--yuna-gray-200);
   background: var(--yuna-surface);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   color: var(--yuna-gray-700);
   cursor: pointer;
   white-space: nowrap;
@@ -205,7 +204,7 @@ h3 {
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  padding: 14px 28px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--yuna-gray-100);
   font-size: 12px;
   color: var(--yuna-gray-600);
@@ -231,14 +230,14 @@ h3 {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .status-row {
   min-width: 0;
-  padding: 22px 28px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--yuna-gray-100);
 }
-.status-row:nth-child(odd) {
+.status-row:not(:nth-child(3n)) {
   border-right: 1px solid var(--yuna-gray-100);
 }
 .service-heading {
@@ -274,15 +273,15 @@ h3 {
 .availability small {
   display: block;
   font-size: 10px;
-  color: var(--yuna-gray-500);
+  color: var(--yuna-gray-600);
   margin-top: 2px;
 }
 .status-bars {
   display: grid;
   grid-template-columns: repeat(48, minmax(0, 1fr));
   gap: 3px;
-  margin-top: 18px;
-  height: 28px;
+  margin-top: 12px;
+  height: 16px;
 }
 .status-bar {
   min-width: 0;
@@ -327,7 +326,7 @@ h3 {
   justify-content: space-between;
   margin-top: 7px;
   font-size: 10px;
-  color: var(--yuna-gray-500);
+  color: var(--yuna-gray-600);
 }
 .period-detail {
   margin: 12px 0 0;
@@ -340,25 +339,28 @@ h3 {
 .checked-at {
   margin: 3px 0 0;
   font-size: 10px;
-  color: var(--yuna-gray-500);
+  color: var(--yuna-gray-600);
 }
 .status-error {
   margin: 16px 28px;
   color: var(--yuna-warning);
   font-size: 12px;
 }
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
   .status-list {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .status-row:nth-child(odd) {
+  .status-row:not(:nth-child(3n)) {
     border-right: 0;
   }
 }
-@media (max-width: 600px) {
+@media (max-width: 640px) {
+  .status-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .status-heading,
   .status-row {
-    padding: 18px 16px;
+    padding: 14px;
   }
   .status-legend {
     padding: 12px 16px;
@@ -369,7 +371,7 @@ h3 {
   }
   .status-bars {
     gap: 2px;
-    height: 24px;
+    height: 18px;
   }
   .status-legend small {
     margin-left: 0;

@@ -263,9 +263,7 @@ onBeforeUnmount(() => {
                 <div class="security-data">
                   <h3>
                     {{ key.name }}
-                    <n-tag size="small" :type="status(key) === '有效' ? 'success' : 'default'">{{
-                      status(key)
-                    }}</n-tag>
+                    <n-tag size="small">{{ status(key) }}</n-tag>
                   </h3>
                   <code>{{ key.prefix }}••••••••</code>
                   <div class="key-scopes">
@@ -284,8 +282,6 @@ onBeforeUnmount(() => {
                 </div>
                 <n-button
                   size="small"
-                  type="error"
-                  secondary
                   :disabled="key.revoked"
                   :loading="busy === key.id"
                   @click="revokeKey(key)"
@@ -303,7 +299,7 @@ onBeforeUnmount(() => {
                 <div class="security-data">
                   <h3>
                     {{ grant.clientName }}
-                    <n-tag size="small" :type="grant.status === 1 ? 'success' : 'default'">{{
+                    <n-tag size="small">{{
                       grant.status === 1 ? '已授权' : grant.status === 2 ? '已停用' : '已撤销'
                     }}</n-tag>
                   </h3>
@@ -316,8 +312,6 @@ onBeforeUnmount(() => {
                 </div>
                 <n-button
                   size="small"
-                  :type="grant.essential ? 'default' : 'error'"
-                  secondary
                   :disabled="grant.essential || grant.status !== 1"
                   :loading="busy === grant.clientCode"
                   @click="revokeGrant(grant)"
@@ -424,18 +418,18 @@ onBeforeUnmount(() => {
 <style scoped>
 .security-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
+  grid-template-columns: minmax(0, 1fr) 260px;
   gap: 20px;
   align-items: start;
 }
 .security-aside {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 .security-aside p {
   font-size: 12px;
   line-height: 1.9;
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
   margin-bottom: 14px;
 }
 .security-aside pre {
@@ -449,9 +443,9 @@ onBeforeUnmount(() => {
 .security-row {
   display: flex;
   align-items: flex-start;
-  gap: 18px;
-  border-bottom: 1px solid var(--yuna-gray-100);
-  padding: 22px 0;
+  gap: 14px;
+  border-bottom: 1px solid var(--yuna-gray-200);
+  padding: 16px 0;
 }
 .security-row:first-child {
   padding-top: 0;
@@ -475,20 +469,20 @@ onBeforeUnmount(() => {
 }
 .security-data p {
   font-size: 12px;
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
   margin: 5px 0;
   overflow-wrap: anywhere;
 }
 .security-data code {
   font-size: 12px;
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
 }
 .security-icon {
   width: 44px;
   height: 44px;
   border-radius: 12px;
   background: var(--yuna-gray-100);
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
   display: grid;
   place-items: center;
   font-size: 10px;
@@ -502,14 +496,14 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  margin: 14px 0;
+  margin: 10px 0;
 }
 .security-dates {
   display: flex;
   gap: 8px 24px;
   flex-wrap: wrap;
   font-size: 11px;
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
   margin-top: 12px;
 }
 .scope-options {

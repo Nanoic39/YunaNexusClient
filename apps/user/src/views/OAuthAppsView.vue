@@ -7,6 +7,7 @@ import {
   NCheckbox,
   NCheckboxGroup,
   NEmpty,
+  NDropdown,
   NForm,
   NFormItem,
   NInput,
@@ -58,6 +59,20 @@ function canEdit(app: OAuthApplicationView): boolean {
 }
 function canResetSecret(app: OAuthApplicationView): boolean {
   return app.status === 1
+}
+
+function moreOptions(app: OAuthApplicationView) {
+  return [
+    ...(app.status === 1 && canEdit(app) ? [{ label: '修改应用资料', key: 'edit' }] : []),
+    ...(canResetSecret(app) ? [{ label: '重置密钥', key: 'reset' }] : []),
+    { label: '撤回应用', key: 'remove' },
+  ]
+}
+function moreAction(key: string, app: OAuthApplicationView) {
+  if (busy.value !== null) return
+  if (key === 'edit') openEdit(app)
+  else if (key === 'reset') confirmReset(app)
+  else if (key === 'remove') confirmRemove(app)
 }
 
 /* ------------------------------ 申请 / 修改 ------------------------------ */
@@ -373,37 +388,30 @@ onBeforeUnmount(() => {
                 <n-button
                   v-if="app.status === 1"
                   size="small"
-                  secondary
+                  :disabled="busy !== null"
                   @click="router.push(`/console/oauth-apps/${app.id}/access`)"
                   >业务权限</n-button
                 >
                 <n-button
-                  v-if="canEdit(app)"
+                  v-else-if="canEdit(app)"
                   size="small"
-                  secondary
-                  :loading="busy === app.id"
+                  :disabled="busy !== null"
                   @click="openEdit(app)"
+                  >修改</n-button
                 >
-                  修改
-                </n-button>
-                <n-button
-                  v-if="canResetSecret(app)"
-                  size="small"
-                  secondary
-                  :loading="busy === app.id"
-                  @click="confirmReset(app)"
+                <n-dropdown
+                  trigger="click"
+                  placement="bottom-end"
+                  :options="moreOptions(app)"
+                  @select="(key) => moreAction(String(key), app)"
+                  ><n-button
+                    size="small"
+                    :loading="busy === app.id"
+                    :disabled="busy !== null && busy !== app.id"
+                    :aria-label="`${app.appName} 的更多操作`"
+                    >更多</n-button
+                  ></n-dropdown
                 >
-                  重置密钥
-                </n-button>
-                <n-button
-                  size="small"
-                  type="error"
-                  secondary
-                  :loading="busy === app.id"
-                  @click="confirmRemove(app)"
-                >
-                  撤回
-                </n-button>
               </div>
             </article>
             <n-empty
@@ -525,26 +533,26 @@ onBeforeUnmount(() => {
 <style scoped>
 .oauth-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
+  grid-template-columns: minmax(0, 1fr) 260px;
   gap: 20px;
   align-items: start;
 }
 .oauth-aside {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 .oauth-aside p {
   font-size: 12px;
   line-height: 1.9;
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
   margin-bottom: 14px;
 }
 .oauth-row {
   display: flex;
   align-items: flex-start;
-  gap: 18px;
-  border-bottom: 1px solid var(--yuna-gray-100);
-  padding: 22px 0;
+  gap: 14px;
+  border-bottom: 1px solid var(--yuna-gray-200);
+  padding: 16px 0;
 }
 .oauth-row:first-child {
   padding-top: 0;
@@ -558,7 +566,7 @@ onBeforeUnmount(() => {
   height: 44px;
   border-radius: 12px;
   background: var(--yuna-gray-100);
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
   display: grid;
   place-items: center;
   font-size: 21px;
@@ -580,7 +588,7 @@ onBeforeUnmount(() => {
 }
 .oauth-data p {
   font-size: 12px;
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
   margin: 5px 0;
   overflow-wrap: anywhere;
 }
@@ -602,12 +610,12 @@ onBeforeUnmount(() => {
   gap: 8px 24px;
   flex-wrap: wrap;
   font-size: 11px;
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
   margin-top: 12px;
 }
 .oauth-actions {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 8px;
   flex-shrink: 0;
 }

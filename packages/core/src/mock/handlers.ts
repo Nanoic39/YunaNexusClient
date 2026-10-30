@@ -74,6 +74,9 @@ import {
 
 const LATENCY = 260
 
+const registrationChallenges = new Map<string, { expires: number; purpose: string }>()
+const emailCodeCooldown = new Map<string, number>()
+
 function ok<T>(data: T, msg = '操作成功'): Result<T> {
   return { code: 200, msg, tips: null, data, traceId: trace(), timestamp: Date.now() }
 }
@@ -369,12 +372,27 @@ export const handlers = [
     )
   }),
 
+  mswHttp.post('/api/v1/auth/email-code', async ({ request }) => {
+    await delay(LATENCY)
+    const body = (await request.json()) as { email?: string; purpose?: string }
+    const purpose = body.purpose === undefined ? 'REGISTER' : body.purpose
+    if (purpose !== 'REGISTER' && purpose !== 'LOGIN') return fail(400, '验证码用途无效', 400)
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+    if (email.length > 128 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+      return HttpResponse.json(ok(false))
+    if ((emailCodeCooldown.get(email) ?? 0) > Date.now()) return HttpResponse.json(ok(false))
+    emailCodeCooldown.set(email, Date.now() + 60000)
+    registrationChallenges.set(`${purpose}:${email}`, { expires: Date.now() + 600000, purpose })
+    return HttpResponse.json(ok(true))
+  }),
+
   mswHttp.post('/api/v1/auth/register', async ({ request }) => {
     await delay(LATENCY)
     const body = (await request.json()) as {
       username?: string
       password?: string
       email?: string
+      emailCode?: string
       mobile?: string
       mobileCountry?: string
     }
@@ -382,7 +400,15 @@ export const handlers = [
     if (body.mobile || body.mobileCountry) return fail(30404, '手机号功能暂未开放', 400)
     const username = (body.username ?? '').trim()
     if (!username || !body.password) return fail(30403, '注册失败，请稍后重试', 503)
-    if (mockUsers.some((u) => u.username === username)) return fail(30401, '账号已存在', 409)
+    const email = (body.email ?? '').trim().toLowerCase()
+    if (email.length > 128 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+      return fail(400, '请输入有效邮箱', 400)
+    if (mockUsers.some((u) => u.username === username || u.email?.toLowerCase() === email))
+      return fail(30401, '账号或邮箱已存在', 409)
+    const challenge = registrationChallenges.get(`REGISTER:${email}`)
+    if (!challenge || challenge.expires <= Date.now() || body.emailCode !== '123456')
+      return fail(400, '验证码无效或已过期', 400)
+    registrationChallenges.delete(`REGISTER:${email}`)
 
     const externalId = `mock-ext-${Math.random().toString(36).slice(2, 12)}`
     const userId = Math.max(...mockUsers.map((u) => u.userId)) + 1
@@ -390,7 +416,7 @@ export const handlers = [
       userId,
       externalId,
       username,
-      email: body.email?.trim() || null,
+      email,
       mobileCountry: null,
       mobile: null,
       status: 1,

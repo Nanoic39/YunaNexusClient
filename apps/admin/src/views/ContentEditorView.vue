@@ -1125,9 +1125,7 @@ function confirmReset(): void {
   background: var(--yuna-surface);
   border: 1px solid var(--yuna-blue-300);
   border-radius: var(--yuna-radius-lg);
-  box-shadow:
-    0 18px 44px rgba(15, 23, 42, 0.22),
-    0 2px 8px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--yuna-shadow-md);
   transform: rotate(1.2deg) scale(1.01);
   transform-origin: center;
   transition: none;

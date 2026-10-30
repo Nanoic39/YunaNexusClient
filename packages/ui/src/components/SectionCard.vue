@@ -36,7 +36,7 @@ withDefaults(defineProps<Props>(), {
 
 <style scoped>
 .yuna-section {
-  overflow: hidden;
+  min-width: 0;
   background: var(--yuna-card-bg);
   border: var(--yuna-card-border);
   border-radius: var(--yuna-radius-card);
@@ -48,7 +48,7 @@ withDefaults(defineProps<Props>(), {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 24px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--yuna-gray-100);
 }
 
@@ -79,10 +79,20 @@ withDefaults(defineProps<Props>(), {
 }
 
 .yuna-section__body {
-  padding: 24px;
+  padding: 16px;
 }
 
 .yuna-section__body.is-flush {
   padding: 0;
+}
+
+@media (max-width: 640px) {
+  .yuna-section__head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .yuna-section__extra {
+    flex-wrap: wrap;
+  }
 }
 </style>

@@ -1,6 +1,15 @@
 import type { PageQuery } from './result'
 
 /** 登录请求（POST /api/v1/auth/login） */
+export interface EmailCodeLoginPayload {
+  /** 邮箱（同时也是账号定位凭证） */
+  email: string
+  /** 邮箱验证码 */
+  emailCode: string
+  /** 客户端标识 */
+  clientCode?: string
+}
+
 export interface LoginPayload {
   /** 支持 username / email / mobile */
   username: string
@@ -50,7 +59,9 @@ export interface CsrfResult {
 export interface RegisterPayload {
   username: string
   password: string
-  email?: string
+  email: string
+  /** 邮箱收到的 6 位注册验证码 */
+  emailCode: string
   mobile?: string
   mobileCountry?: string
 }

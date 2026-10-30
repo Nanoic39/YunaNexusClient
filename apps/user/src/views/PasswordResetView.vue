@@ -30,7 +30,7 @@ onBeforeUnmount(() => {
 async function send() {
   if (busy.value || remaining.value) return
   if (!form.username.trim() || !form.email.includes('@')) {
-    message.warning('请输入用户名和绑定邮箱')
+    message.warning('请输入账号和绑定邮箱')
     return
   }
   busy.value = true
@@ -90,28 +90,33 @@ async function complete() {
       >邮箱验证成功，密码已重置为临时值。请在5分钟内设置新密码；临时密码不能直接进入账号。</n-alert
     >
     <template v-if="step < 2"
-      ><n-form-item label="用户名"
+      ><n-form-item label="账号" label-for="reset-username"
         ><n-input
           v-model:value="form.username"
-          aria-label="找回密码的用户名"
+          aria-label="找回密码的账号"
+          :input-props="{ id: 'reset-username', name: 'username' }"
+          placeholder="注册时设置的账号"
           :disabled="busy"
           autocomplete="username"
           maxlength="64" /></n-form-item
-      ><n-form-item label="绑定邮箱"
+      ><n-form-item label="绑定邮箱" label-for="reset-email"
         ><n-input
           v-model:value="form.email"
           aria-label="账号绑定邮箱"
+          :input-props="{ id: 'reset-email', name: 'email', inputmode: 'email' }"
+          placeholder="注册或之后绑定的邮箱"
           :disabled="busy"
           autocomplete="email"
-          maxlength="254" /></n-form-item
+          maxlength="128" /></n-form-item
       ><n-button :loading="busy" :disabled="remaining > 0" @click="send">{{
         remaining ? `${remaining}秒后重发` : '发送验证码'
       }}</n-button
       ><template v-if="step === 1"
-        ><n-form-item label="邮箱验证码" style="margin-top: 20px"
+        ><n-form-item label="邮箱验证码" label-for="reset-code" style="margin-top: 20px"
           ><n-input
             v-model:value="form.code"
             aria-label="邮箱验证码"
+            :input-props="{ id: 'reset-code', name: 'code', inputmode: 'numeric' }"
             maxlength="6"
             autocomplete="one-time-code"
             @keyup.enter="verify" /></n-form-item
@@ -121,18 +126,20 @@ async function complete() {
       ></template
     >
     <template v-else
-      ><n-form-item label="新密码"
+      ><n-form-item label="新密码" label-for="reset-password"
         ><n-input
           v-model:value="form.password"
           aria-label="设置新登录密码"
+          :input-props="{ id: 'reset-password', name: 'newPassword' }"
           type="password"
           autocomplete="new-password"
           show-password-on="click"
           maxlength="64" /></n-form-item
-      ><n-form-item label="确认新密码"
+      ><n-form-item label="确认新密码" label-for="reset-confirm"
         ><n-input
           v-model:value="form.confirm"
           aria-label="再次确认新密码"
+          :input-props="{ id: 'reset-confirm', name: 'confirmPassword' }"
           type="password"
           autocomplete="new-password"
           maxlength="64"

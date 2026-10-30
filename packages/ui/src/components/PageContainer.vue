@@ -41,12 +41,12 @@ defineProps<Props>()
 <style scoped>
 .yuna-page {
   width: 100%;
-  max-width: 1600px;
+  max-width: var(--yuna-page-max-width);
   margin-inline: auto;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 24px 28px 40px;
+  gap: 14px;
+  padding: 18px 20px 28px;
 }
 
 .yuna-page__head {
@@ -64,7 +64,7 @@ defineProps<Props>()
 }
 
 .yuna-page__title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
   line-height: 1.35;
   color: var(--yuna-gray-900);
@@ -73,7 +73,7 @@ defineProps<Props>()
 .yuna-page__desc {
   font-size: 13px;
   line-height: 1.5;
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
 }
 
 .yuna-page__extra {
@@ -90,7 +90,7 @@ defineProps<Props>()
 .yuna-page__body {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
   min-width: 0;
 }
 

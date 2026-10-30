@@ -50,7 +50,8 @@ const emit = defineEmits<{
   align-items: center;
   justify-content: space-between;
   gap: 12px 16px;
-  padding: 14px 16px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
   background: var(--yuna-card-bg);
   border: var(--yuna-card-border);
   border-radius: var(--yuna-radius-card);
@@ -77,5 +78,19 @@ const emit = defineEmits<{
 .yuna-filter__fields :deep(.n-input),
 .yuna-filter__fields :deep(.n-base-selection) {
   min-width: 180px;
+}
+
+@media (max-width: 640px) {
+  .yuna-filter__fields {
+    flex-basis: 100%;
+  }
+  .yuna-filter__fields :deep(.n-input),
+  .yuna-filter__fields :deep(.n-base-selection) {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .yuna-filter__actions {
+    flex-wrap: wrap;
+  }
 }
 </style>

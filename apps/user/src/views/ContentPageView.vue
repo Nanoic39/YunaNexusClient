@@ -16,6 +16,23 @@ const router = useRouter()
 
 const page = computed(() => siteContent.findPage(route.path))
 
+// The global header owns sign-in/console navigation. Do not repeat it in the home hero.
+const sections = computed(() =>
+  (page.value?.sections ?? []).map((section) => ({
+    ...section,
+    elements: section.elements.map((element) =>
+      element.type === 'hero' && route.path === '/'
+        ? {
+            ...element,
+            items: element.items.filter(
+              (item) => !/^\/(?:console(?:\/|$)|login(?:[/?]|$))/.test(item.link ?? ''),
+            ),
+          }
+        : element,
+    ),
+  })),
+)
+
 function navigate(path: string): void {
   if (path !== route.path) void router.push(path)
 }
@@ -24,7 +41,7 @@ function navigate(path: string): void {
 <template>
   <div v-if="page" class="content-page yuna-container">
     <content-renderer
-      v-for="section in page.sections"
+      v-for="section in sections"
       :key="section.id"
       :section="section"
       @navigate="navigate"
@@ -44,8 +61,8 @@ function navigate(path: string): void {
 .content-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 32px 24px 56px;
+  gap: 18px;
+  padding: 24px 24px 40px;
 }
 
 .content-page--empty {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NInput, NTag, NAlert, NEmpty, NSpin, useDialog, useMessage } from 'naive-ui'
+import { NButton, NInput, NAlert, NEmpty, NSpin, useDialog, useMessage } from 'naive-ui'
 import { PageContainer, SectionCard, formatDateTime } from '@yuna/ui'
 import { workspaceApi, shareUrl, copyText } from '@yuna/core'
 import type { FileShare } from '@yuna/core'
@@ -110,9 +110,7 @@ onBeforeUnmount(() => {
             <div class="share-main">
               <h3>
                 {{ s.fileName }}
-                <n-tag size="small" :type="state(s) === '分享中' ? 'success' : 'default'">{{
-                  state(s)
-                }}</n-tag>
+                <span class="share-state">{{ state(s) }}</span>
               </h3>
               <p>
                 {{ s.protectedByCode ? '提取码保护' : '持有链接可访问' }} · 创建于
@@ -127,8 +125,6 @@ onBeforeUnmount(() => {
                 >复制链接</n-button
               ><n-button
                 size="small"
-                type="error"
-                secondary
                 :disabled="s.revoked"
                 :loading="busy === s.shareId"
                 @click="revoke(s)"
@@ -139,7 +135,7 @@ onBeforeUnmount(() => {
         </div>
         <n-empty
           v-if="!filtered.length && !error"
-          description="暂无分享记录"
+          :description="query ? '没有找到匹配的分享' : '暂无分享记录，可从我的文件创建'"
           style="padding: 48px 0" /></n-spin
     ></section-card>
   </page-container>
@@ -153,7 +149,7 @@ onBeforeUnmount(() => {
 .share-summary > div {
   background: var(--yuna-card-bg);
   border-radius: 12px;
-  padding: 20px 24px;
+  padding: 16px 20px;
   display: flex;
   align-items: baseline;
   gap: 12px;
@@ -167,14 +163,14 @@ onBeforeUnmount(() => {
 .share-row p,
 .share-expiry small {
   font-size: 12px;
-  color: var(--yuna-gray-600);
+  color: var(--yuna-gray-700);
 }
 .share-row {
   display: flex;
   gap: 24px;
   align-items: center;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--yuna-gray-100);
+  padding: 16px 0;
+  border-bottom: 1px solid var(--yuna-gray-200);
 }
 .share-main {
   flex: 1;
@@ -187,6 +183,14 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+.share-state {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--yuna-gray-700);
+  border: 1px solid var(--yuna-gray-200);
+  border-radius: 4px;
+  padding: 1px 6px;
 }
 .share-main p {
   margin-top: 8px;

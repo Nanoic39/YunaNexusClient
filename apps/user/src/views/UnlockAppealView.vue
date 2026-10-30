@@ -26,6 +26,7 @@ function validate(): string | null {
 }
 
 async function submit(): Promise<void> {
+  if (submitting.value) return
   const invalid = validate()
   if (invalid) {
     message.warning(invalid)
@@ -43,7 +44,8 @@ async function submit(): Promise<void> {
     message.success('申诉已提交，请等待管理员审核')
     await router.replace({ name: 'login' })
   } catch (error) {
-    if (error instanceof ApiError && error.code === 30301) message.error('该账号已有待处理的申诉，请勿重复提交')
+    if (error instanceof ApiError && error.code === 30301)
+      message.error('该账号已有待处理的申诉，请勿重复提交')
     else message.error(toErrorMessage(error))
   } finally {
     submitting.value = false
@@ -67,47 +69,50 @@ async function submit(): Promise<void> {
       </ul>
     </template>
 
-    <n-form :show-label="false" @submit.prevent="submit">
-      <n-form-item :show-label="false">
+    <n-form label-placement="top" :disabled="submitting" @submit.prevent="submit">
+      <n-form-item required label="账号" label-for="appeal-username">
         <n-input
           v-model:value="form.username"
           size="large"
-          placeholder="被锁定的账号"
+          placeholder="输入被锁定的账号"
+          autocomplete="username"
+          :input-props="{ id: 'appeal-username', name: 'username' }"
           :maxlength="64"
-          @keyup.enter="submit"
         />
       </n-form-item>
-      <n-form-item :show-label="false">
+      <n-form-item required label="密码" label-for="appeal-password">
         <n-input
           v-model:value="form.password"
           type="password"
           show-password-on="click"
           size="large"
-          placeholder="账号密码（用于验证归属）"
+          placeholder="输入账号密码以验证归属"
+          autocomplete="current-password"
+          :input-props="{ id: 'appeal-password', name: 'password' }"
           :maxlength="64"
-          @keyup.enter="submit"
         />
       </n-form-item>
-      <n-form-item :show-label="false">
+      <n-form-item label="申诉说明（选填）" label-for="appeal-reason">
         <n-input
           v-model:value="form.appealReason"
           type="textarea"
           size="large"
-          placeholder="申诉说明（选填，如锁定原因、情况说明）"
+          placeholder="说明锁定原因或相关情况"
+          :input-props="{ id: 'appeal-reason', name: 'appealReason' }"
           :maxlength="500"
           :autosize="{ minRows: 3, maxRows: 6 }"
         />
       </n-form-item>
-      <n-form-item :show-label="false">
+      <n-form-item label="联系方式（选填）" label-for="appeal-contact">
         <n-input
           v-model:value="form.contact"
           size="large"
-          placeholder="联系方式（选填，便于管理员联系核实）"
+          placeholder="便于管理员联系核实"
+          :input-props="{ id: 'appeal-contact', name: 'contact' }"
           :maxlength="128"
-          @keyup.enter="submit"
         />
       </n-form-item>
-      <n-button type="primary" block size="large" :loading="submitting" @click="submit">
+      <n-button attr-type="submit" type="primary" block size="large" :loading="submitting">
         提交申诉
       </n-button>
     </n-form>

@@ -52,9 +52,27 @@ function onCardContextMenu(event: MouseEvent): void {
     y: event.clientY,
     opener: null,
     items: [
-      { key: 'copy-line', label: '复制「名称: 数值」', icon: 'copy', disabled: !name || !value, onSelect: () => void navigator.clipboard?.writeText(line).catch(() => {}) },
-      { key: 'copy-value', label: '只复制数值', icon: 'export', disabled: !value, onSelect: () => void navigator.clipboard?.writeText(value).catch(() => {}) },
-      { key: 'copy-name', label: '只复制指标名', icon: 'link', disabled: !name, onSelect: () => void navigator.clipboard?.writeText(name).catch(() => {}) },
+      {
+        key: 'copy-line',
+        label: '复制「名称: 数值」',
+        icon: 'copy',
+        disabled: !name || !value,
+        onSelect: () => void navigator.clipboard?.writeText(line).catch(() => {}),
+      },
+      {
+        key: 'copy-value',
+        label: '只复制数值',
+        icon: 'export',
+        disabled: !value,
+        onSelect: () => void navigator.clipboard?.writeText(value).catch(() => {}),
+      },
+      {
+        key: 'copy-name',
+        label: '只复制指标名',
+        icon: 'link',
+        disabled: !name,
+        onSelect: () => void navigator.clipboard?.writeText(name).catch(() => {}),
+      },
     ],
   })
 }
@@ -73,7 +91,7 @@ function onCardContextMenu(event: MouseEvent): void {
       <span v-if="unit" class="yuna-metric__unit">{{ unit }}</span>
     </div>
 
-    <div class="yuna-metric__foot">
+    <div v-if="$slots.footer || hasTrend" class="yuna-metric__foot">
       <slot name="footer">
         <template v-if="hasTrend">
           <span class="yuna-metric__trend" :class="trendUp ? 'is-up' : 'is-down'">
@@ -90,8 +108,8 @@ function onCardContextMenu(event: MouseEvent): void {
 .yuna-metric {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px 22px;
+  gap: 8px;
+  padding: 14px 16px;
   background: var(--yuna-card-bg);
   border: var(--yuna-card-border);
   border-radius: var(--yuna-radius-card);
@@ -117,7 +135,7 @@ function onCardContextMenu(event: MouseEvent): void {
 }
 
 .yuna-metric__number {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 600;
   line-height: 1.2;
   color: var(--yuna-gray-900);

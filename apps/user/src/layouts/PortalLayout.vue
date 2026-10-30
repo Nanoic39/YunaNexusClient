@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
-import { PortalShell } from '@yuna/ui'
+import { PortalShell, ThemeToggle } from '@yuna/ui'
 import { session, siteContent } from '@yuna/core'
 
 /**
@@ -45,6 +45,7 @@ function goConsole(): void {
     @navigate="navigate"
   >
     <template #actions>
+      <ThemeToggle />
       <n-button v-if="!authed" type="primary" @click="navigate('/login')">登录</n-button>
       <n-button v-else type="primary" secondary @click="goConsole">进入控制台</n-button>
     </template>

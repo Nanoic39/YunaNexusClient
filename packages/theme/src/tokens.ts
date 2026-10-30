@@ -48,7 +48,7 @@ export const gray = {
   300: '#D7DAE0',
   400: '#C9CDD4',
   500: '#A9AEB8',
-  600: '#86909C',
+  600: '#667085',
   700: '#4E5969',
   800: '#272E3B',
   900: '#1D2129',
@@ -56,10 +56,10 @@ export const gray = {
 
 /** 语义色 */
 export const semantic = {
-  success: '#1FA971',
-  warning: '#E8A33D',
-  danger: '#E5484D',
-  info: blue[600],
+  success: '#16794F',
+  warning: '#946200',
+  danger: '#C3313A',
+  info: blue[700],
 } as const
 
 /** 圆角：中控台偏克制，默认 6px */
@@ -107,9 +107,9 @@ export const space = {
 export const layout = {
   siderWidth: '216px',
   siderCollapsedWidth: '64px',
-  headerHeight: '56px',
+  headerHeight: '52px',
   contentPadding: '16px 20px',
-  pageMaxWidth: '1440px',
+  pageMaxWidth: '1680px',
 } as const
 
 /** 字体族：优先系统字体，中英文兼顾 */

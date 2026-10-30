@@ -79,7 +79,9 @@ function cellText(target: Element): string {
  * `n-data-table` 不对外暴露行属性，只能按结构定位：表格主体内第 N 个 `tr` 对应
  * `data[N]`。这里做了三层兜底，任何一层拿不到就退化为"无行上下文"，绝不抛错。
  */
-function resolveRow(target: Element): { row: T; cell: { key: string; title: string; text: string } } | null {
+function resolveRow(
+  target: Element,
+): { row: T; cell: { key: string; title: string; text: string } } | null {
   const table = target.closest('.n-data-table') as HTMLElement | null
   const rowElement = target.closest('.n-data-table-tr')
   if (!table || !rowElement) return null
@@ -98,7 +100,10 @@ function resolveRow(target: Element): { row: T; cell: { key: string; title: stri
   }
 }
 
-function genericRowItems(row: T, cell: { key: string; title: string; text: string }): ContextMenuItem[] {
+function genericRowItems(
+  row: T,
+  cell: { key: string; title: string; text: string },
+): ContextMenuItem[] {
   const items: ContextMenuItem[] = []
   if (cell.text) {
     items.push({
@@ -182,8 +187,7 @@ function onSizeChange(nextSize: number): void {
       :single-line="false"
       :remote="true"
       :pagination="false"
-      striped
-      size="medium"
+      size="small"
     >
       <template #empty>
         <n-empty class="yuna-table__empty" :description="emptyDescription" />
@@ -196,7 +200,7 @@ function onSizeChange(nextSize: number): void {
         :page-size="size"
         :item-count="total"
         :page-sizes="pageSizes"
-        :page-slot="7"
+        :page-slot="5"
         show-size-picker
         @update:page="onPageChange"
         @update:page-size="onSizeChange"
@@ -207,6 +211,7 @@ function onSizeChange(nextSize: number): void {
 
 <style scoped>
 .yuna-table {
+  min-width: 0;
   overflow: hidden;
   background: var(--yuna-card-bg);
   border: var(--yuna-card-border);
@@ -223,5 +228,13 @@ function onSizeChange(nextSize: number): void {
   justify-content: flex-end;
   padding: 12px 16px;
   border-top: 1px solid var(--yuna-gray-200);
+}
+
+@media (max-width: 640px) {
+  .yuna-table__footer {
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding: 10px;
+  }
 }
 </style>

@@ -26,7 +26,7 @@
   --yuna-gray-300: #d7dae0;
   --yuna-gray-400: #c9cdd4;
   --yuna-gray-500: #a9aeb8;
-  --yuna-gray-600: #86909c;
+  --yuna-gray-600: #667085;
   --yuna-gray-700: #4e5969;
   --yuna-gray-800: #272e3b;
   --yuna-gray-900: #1d2129;
@@ -43,15 +43,21 @@
      注意：带 backdrop-filter 的元素会成为「backdrop root」，其内部后代元素的
      backdrop-filter 只能采样到该元素自身 —— 故顶栏的模糊必须放在 ::before 伪元素上，
      否则嵌在顶栏里的通知面板 / 账号菜单将完全看不到模糊。 */
-  --yuna-glass: rgba(255, 255, 255, 0.26);
+  --yuna-glass: rgba(255, 255, 255, 0.98);
   --yuna-glass-blur: 8px;
   --yuna-glass-border: rgba(120, 132, 156, 0.22);
   --yuna-glass-shadow: 0 16px 40px rgba(29, 33, 41, 0.16), 0 2px 8px rgba(29, 33, 41, 0.08);
 
-  --yuna-success: #1fa971;
-  --yuna-warning: #e8a33d;
-  --yuna-danger: #e5484d;
-  --yuna-primary: var(--yuna-blue-600);
+  --yuna-success: #16794f;
+  --yuna-warning: #946200;
+  --yuna-danger: #c3313a;
+  --yuna-primary: var(--yuna-blue-700);
+  --yuna-primary-hover: var(--yuna-blue-800);
+  --yuna-on-primary: #ffffff;
+  --yuna-primary-soft: var(--yuna-blue-50);
+  --yuna-success-soft: color-mix(in srgb, var(--yuna-success) 10%, var(--yuna-surface));
+  --yuna-warning-soft: color-mix(in srgb, var(--yuna-warning) 10%, var(--yuna-surface));
+  --yuna-danger-soft: color-mix(in srgb, var(--yuna-danger) 10%, var(--yuna-surface));
 
   /* 圆角 / 阴影 */
   --yuna-radius-sm: 4px;
@@ -63,24 +69,25 @@
 
   /* 卡片表面：现代 SaaS 观感 —— 去描边、以弱阴影把卡片托在画布之上。
      暗色下阴影几乎不可见，改由极淡描边勾边，保证卡片边界仍然成立。 */
-  --yuna-radius-card: 10px;
+  --yuna-radius-card: 8px;
   --yuna-card-bg: var(--yuna-surface);
-  --yuna-card-border: 1px solid transparent;
-  --yuna-card-shadow: 0 1px 2px rgba(29, 33, 41, 0.04), 0 6px 20px rgba(29, 33, 41, 0.06);
+  --yuna-card-border: 1px solid var(--yuna-gray-200);
+  --yuna-card-shadow: none;
 
   /* 内容区画布：顶部极浅提亮、向下快速归到底色，让卡片与画布之间产生层次 */
-  --yuna-canvas: linear-gradient(180deg, #fafbfd 0%, #f5f6f8 300px);
+  --yuna-canvas: var(--yuna-bg);
 
   /* 骨架尺寸 */
   --yuna-sider-width: 216px;
   --yuna-sider-collapsed-width: 64px;
-  --yuna-header-height: 56px;
-  --yuna-page-max-width: 1440px;
+  --yuna-header-height: 52px;
+  --yuna-page-max-width: 1680px;
 
-  --yuna-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
-    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
-  --yuna-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
-    monospace;
+  --yuna-font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --yuna-font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
 /*
@@ -91,9 +98,16 @@
 html.dark {
   color-scheme: dark;
 
+  --yuna-primary: var(--yuna-blue-400);
+  --yuna-primary-hover: var(--yuna-blue-300);
+  --yuna-primary-soft: #1c3446;
+  --yuna-on-primary: #111827;
+  --yuna-success: #5dd4a3;
+  --yuna-warning: #eab86b;
+  --yuna-danger: #f18e93;
   --yuna-bg: #14171d;
   --yuna-surface: #1b1f27;
-  --yuna-glass: rgba(24, 28, 35, 0.3);
+  --yuna-glass: rgba(27, 31, 39, 0.98);
   --yuna-glass-blur: 8px;
   --yuna-glass-border: rgba(255, 255, 255, 0.12);
   --yuna-glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
@@ -118,9 +132,9 @@ html.dark {
   --yuna-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.44), 0 1px 2px rgba(0, 0, 0, 0.4);
   --yuna-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
 
-  --yuna-card-border: 1px solid rgba(255, 255, 255, 0.06);
-  --yuna-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.3);
-  --yuna-canvas: linear-gradient(180deg, #171b22 0%, #14171d 300px);
+  --yuna-card-border: 1px solid var(--yuna-gray-200);
+  --yuna-card-shadow: none;
+  --yuna-canvas: var(--yuna-bg);
 }
 
 * {
@@ -156,21 +170,34 @@ a {
 }
 
 a:hover {
-  color: var(--yuna-blue-500);
+  color: var(--yuna-primary-hover);
 }
 
-/* 无描边焦点：移除默认 outline，交由组件的边框态表达聚焦 */
-:focus,
+/* Keep keyboard location visible for both native and component controls. */
 :focus-visible {
-  outline: none;
+  outline: 2px solid var(--yuna-primary);
+  outline-offset: 2px;
 }
 
-/* 键盘可达性：仅对纯链接类元素保留极弱的可见提示，不影响表单控件 */
-a:focus-visible,
-[role='button']:focus-visible {
-  outline: none;
-  border-radius: var(--yuna-radius-sm);
-  box-shadow: 0 0 0 2px var(--yuna-blue-100);
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+::selection {
+  background: var(--yuna-primary-soft);
+  color: var(--yuna-gray-900);
 }
 
 h1,
@@ -221,7 +248,7 @@ p {
 .yuna-metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  gap: 12px;
 }
 
 /* 表格「主标题 + 副信息」单元格 */
@@ -363,11 +390,15 @@ html.theme-anim *::after {
 
 /* 与 `AppShell` / `PortalShell` 内容区的 <Transition name="yuna-page"> 配套 */
 .yuna-page-enter-active {
-  transition: opacity 0.3s ease, transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    opacity 0.3s ease,
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .yuna-page-leave-active {
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
 }
 
 .yuna-page-enter-from {

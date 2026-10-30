@@ -102,6 +102,7 @@ const MOBILE_QUERY = '(max-width: 768px)'
 const mobileQuery = window.matchMedia(MOBILE_QUERY)
 const isMobile = ref(mobileQuery.matches)
 const drawerOpen = ref(false)
+const navigationToggle = ref<HTMLButtonElement | null>(null)
 /** 抽屉态下侧栏始终保持展开，图标与文字齐全 */
 const siderCollapsed = computed(() => (isMobile.value ? false : props.collapsed))
 
@@ -294,8 +295,7 @@ function buildSiderMenu(target: Element): ContextMenuItem[] {
   const direct = target.closest('[data-menu-key], [data-key]')
   const row = direct ?? target.closest('.n-menu-item-content, .n-menu-item')
   const holder = direct ?? row?.querySelector('[data-menu-key]') ?? null
-  const rawKey =
-    holder?.getAttribute('data-menu-key') ?? holder?.getAttribute('data-key') ?? ''
+  const rawKey = holder?.getAttribute('data-menu-key') ?? holder?.getAttribute('data-key') ?? ''
   const key = rawKey.startsWith('/') ? rawKey : ''
   const items: ContextMenuItem[] = []
   if (key) {
@@ -320,7 +320,9 @@ function buildSiderMenu(target: Element): ContextMenuItem[] {
         label: '复制链接',
         icon: 'link',
         onSelect: () => {
-          void navigator.clipboard?.writeText(new URL(key, window.location.origin).href).catch(() => {})
+          void navigator.clipboard
+            ?.writeText(new URL(key, window.location.origin).href)
+            .catch(() => {})
         },
       },
       { key: 'nav-divider', divider: true },
@@ -379,16 +381,25 @@ function closeDrawer(): void {
   drawerOpen.value = false
 }
 
+function onEscape(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && drawerOpen.value) {
+    closeDrawer()
+    navigationToggle.value?.focus()
+  }
+}
+
 function onBrandClick(): void {
   if (props.brandInteractive) emit('brand-click')
 }
 
 onMounted(() => {
   mobileQuery.addEventListener('change', onMediaChange)
+  window.addEventListener('keydown', onEscape)
 })
 
 onBeforeUnmount(() => {
   mobileQuery.removeEventListener('change', onMediaChange)
+  window.removeEventListener('keydown', onEscape)
 })
 </script>
 
@@ -399,6 +410,10 @@ onBeforeUnmount(() => {
     :class="{ 'is-mobile': isMobile, 'is-drawer-open': drawerOpen }"
   >
     <n-layout-sider
+      id="yuna-primary-navigation"
+      :inert="isMobile && !drawerOpen ? true : undefined"
+      role="navigation"
+      aria-label="主导航"
       collapse-mode="width"
       :collapsed-width="64"
       :width="216"
@@ -451,13 +466,17 @@ onBeforeUnmount(() => {
       <div v-if="isMobile && drawerOpen" class="yuna-shell__mask" @click="closeDrawer" />
     </Transition>
 
-    <n-layout class="yuna-shell__main">
+    <div class="yuna-shell__main">
       <header class="yuna-shell__header">
         <div class="yuna-shell__header-left">
           <button
+            ref="navigationToggle"
             type="button"
             class="yuna-shell__toggle"
             :title="isMobile ? '打开导航' : collapsed ? '展开导航' : '收起导航'"
+            :aria-label="isMobile ? '打开导航' : collapsed ? '展开导航' : '收起导航'"
+            :aria-expanded="isMobile ? drawerOpen : !collapsed"
+            aria-controls="yuna-primary-navigation"
             @click="toggleCollapsed"
           >
             <!-- 移动端：抽屉入口用汉堡图标 -->
@@ -497,7 +516,7 @@ onBeforeUnmount(() => {
           </button>
 
           <slot name="header-left">
-            <n-breadcrumb v-if="showBreadcrumb && crumbs.length" class="yuna-shell__crumbs">
+            <n-breadcrumb v-if="showBreadcrumb && crumbs.length > 1" class="yuna-shell__crumbs">
               <n-breadcrumb-item v-for="crumb in crumbs" :key="crumb.key">
                 {{ crumb.label }}
               </n-breadcrumb-item>
@@ -529,13 +548,14 @@ onBeforeUnmount(() => {
           <slot />
         </div>
       </n-layout-content>
-    </n-layout>
+    </div>
   </n-layout>
 </template>
 
 <style scoped>
 .yuna-shell {
   height: 100vh;
+  height: 100dvh;
 }
 
 /* 浅色白底侧栏：与顶栏、内容区同一套表面色，菜单走 Naive 主题默认配色 */
@@ -604,8 +624,8 @@ onBeforeUnmount(() => {
   height: 28px;
   font-size: 15px;
   font-weight: 700;
-  color: #ffffff;
-  background: linear-gradient(140deg, var(--yuna-blue-500) 0%, var(--yuna-blue-600) 100%);
+  color: var(--yuna-on-primary);
+  background: var(--yuna-primary);
   border: none;
   border-radius: var(--yuna-radius-md);
 }
@@ -635,28 +655,16 @@ onBeforeUnmount(() => {
    账号菜单）的 backdrop-filter 只能采样到该元素自身，导致面板完全看不到模糊。
    伪元素以 z-index:-1 铺底，header 自身背景透明，面板因此可采样到顶栏背后的页面。 */
 .yuna-shell__header {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
+  position: relative;
   z-index: 15;
   display: flex;
+  flex: 0 0 var(--yuna-header-height);
   align-items: center;
   justify-content: space-between;
   height: var(--yuna-header-height);
   padding: 0 16px 0 12px;
-  background: transparent;
-  border-bottom: 1px solid var(--yuna-glass-border);
-}
-
-.yuna-shell__header::before {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  content: '';
-  background: var(--yuna-glass);
-  -webkit-backdrop-filter: saturate(180%) blur(var(--yuna-glass-blur));
-  backdrop-filter: saturate(180%) blur(var(--yuna-glass-blur));
+  background: var(--yuna-surface);
+  border-bottom: 1px solid var(--yuna-gray-200);
 }
 
 .yuna-shell__header-left,
@@ -682,7 +690,9 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   border-radius: var(--yuna-radius-md);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .yuna-shell__toggle:hover {
@@ -701,16 +711,26 @@ onBeforeUnmount(() => {
 /* 主区为顶栏绝对定位提供锚点 */
 .yuna-shell__main {
   position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* 内容区占满视口：页面顶部预留顶栏高度，滚动时内容穿过顶栏下方透出磨砂 */
 .yuna-shell__content {
-  height: 100vh;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  background: var(--yuna-bg);
 }
 
 .yuna-shell__page {
   min-height: 100%;
-  padding-top: var(--yuna-header-height);
+  min-width: 0;
   background: var(--yuna-canvas);
 }
 

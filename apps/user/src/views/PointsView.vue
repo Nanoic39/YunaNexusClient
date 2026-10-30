@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NAlert, NEmpty, NSpin, NTag, useMessage } from 'naive-ui'
+import { NButton, NAlert, NEmpty, NSpin, useMessage } from 'naive-ui'
 import { PageContainer, SectionCard, formatDateTime } from '@yuna/ui'
 import { pointsApi, type PointsAccount, type PointsEntry } from '@yuna/core'
 import { handleApiError } from '@/utils/handle-error'
@@ -76,78 +76,73 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <page-container title="积分与签到" description="一个积分账户，跨应用使用；每天签到积累更多奖励">
+  <page-container title="积分与签到" description="查看积分余额与交易记录，完成每日签到。">
     <template #extra
       ><n-button :loading="loading" :disabled="signing || moreLoading" @click="load"
         >刷新</n-button
       ></template
     >
-    <n-alert v-if="error" type="error" class="notice"
+    <n-alert v-if="error" type="error" class="notice" role="alert"
       >{{ error }} <n-button text @click="load">重试</n-button></n-alert
     >
     <n-spin :show="loading">
       <div v-if="account" class="points-summary">
         <section-card title="可用积分"
           ><strong class="balance">{{ account.balance.toLocaleString() }}</strong>
-          <p>各应用共享余额，扣减后即时更新</p></section-card
+          <p class="summary-note">各应用共享余额，积分变动后即时更新。</p></section-card
         >
         <section-card title="每日签到"
           ><div class="check-row">
-            <strong>{{ account.checkedInToday ? '今日已签到' : '今天还未签到' }}</strong
-            ><n-tag :type="account.checkedInToday ? 'success' : 'default'">{{
-              account.today
-            }}</n-tag>
+            <div>
+              <strong>{{
+                account.checkedInToday ? '今日已签到' : `今日可领取 ${account.nextReward} 积分`
+              }}</strong>
+              <p class="summary-note">连续签到 {{ account.streak }} 天 · {{ account.today }}</p>
+            </div>
+            <n-button
+              type="primary"
+              :loading="signing"
+              :disabled="loading || account.checkedInToday"
+              @click="sign"
+              >{{ account.checkedInToday ? '已签到' : '签到领积分' }}</n-button
+            >
           </div>
-          <p>最近连续 {{ account.streak }} 天 · 每日基础 10 分</p>
-          <n-button
-            type="primary"
-            :loading="signing"
-            :disabled="loading || account.checkedInToday"
-            @click="sign"
-            >{{ account.checkedInToday ? '明天再来' : '立即签到' }}</n-button
-          ></section-card
-        >
-        <section-card title="连签奖励"
-          ><strong class="balance">最高 22 <small>分 / 天</small></strong>
-          <p>
-            连续每天额外增加 2 分，额外奖励最高 12 分；断签重新累计。按北京时间自然日结算。
-          </p></section-card
+          <details class="reward-rules">
+            <summary>查看签到规则</summary>
+            <p>
+              每日基础 10 分，连续每天额外增加 2 分，额外奖励最高 12
+              分。断签后重新累计，按北京时间自然日结算。
+            </p>
+          </details></section-card
         >
       </div>
-      <section-card title="积分明细" description="签到奖励及各应用积分变更记录">
+      <section-card title="积分明细" description="签到奖励及各应用的积分变动，按时间倒序显示。">
         <n-empty
           v-if="!entries.length && !loading"
-          description="还没有积分记录，先完成今天的签到吧"
+          description="暂无积分记录"
+          class="ledger-empty"
         />
-        <div v-else class="ledger-scroll">
-          <table>
-            <caption class="sr-only">
-              本人积分变更流水
-            </caption>
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>变动</th>
-                <th>变动后余额</th>
-                <th>来源</th>
-                <th>原因</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in entries" :key="row.id">
-                <td>{{ formatDateTime(row.createdAt) }}</td>
-                <td>
-                  <n-tag :type="row.delta > 0 ? 'success' : 'warning'"
-                    >{{ row.delta > 0 ? '+' : '' }}{{ row.delta }}</n-tag
-                  >
-                </td>
-                <td>{{ row.balance.toLocaleString() }}</td>
-                <td>{{ row.clientCode === '__checkin' ? '每日签到' : row.clientCode }}</td>
-                <td>{{ row.reason }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <ol v-else class="ledger-list" aria-label="积分交易记录">
+          <li v-for="row in entries" :key="row.id" class="ledger-entry">
+            <div class="entry-marker" aria-hidden="true">
+              {{ row.delta > 0 ? '+' : row.delta < 0 ? '−' : '·' }}
+            </div>
+            <div class="entry-main">
+              <strong>{{
+                row.reason || (row.clientCode === '__checkin' ? '每日签到' : '积分变动')
+              }}</strong>
+              <p>
+                <span>{{ row.clientCode === '__checkin' ? '每日签到' : row.clientCode }}</span
+                ><time>{{ formatDateTime(row.createdAt) }}</time>
+              </p>
+            </div>
+            <div class="entry-value">
+              <strong :class="{ 'is-credit': row.delta > 0 }"
+                >{{ row.delta > 0 ? '+' : '' }}{{ row.delta.toLocaleString() }}</strong
+              ><small>余额 {{ row.balance.toLocaleString() }}</small>
+            </div>
+          </li>
+        </ol>
         <div v-if="hasMore" class="more">
           <n-button :loading="moreLoading" :disabled="loading" @click="more">加载更早记录</n-button>
         </div>
@@ -158,80 +153,134 @@ onBeforeUnmount(() => {
 <style scoped>
 .points-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-  margin-bottom: 20px;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr);
+  gap: 16px;
+  margin-bottom: 16px;
 }
 .balance {
-  font-size: 36px;
-  line-height: 1.6;
+  font-size: 32px;
+  line-height: 1.4;
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
-.balance small {
-  font-size: 14px;
-  font-weight: 400;
-}
-.points-summary p {
-  color: var(--text-color-3, #767c87);
-  line-height: 1.8;
-  margin: 8px 0 16px;
+.summary-note {
+  color: var(--yuna-gray-700);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 8px 0 0;
 }
 .check-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
+  justify-content: space-between;
   align-items: center;
 }
-.ledger-scroll {
-  overflow-x: auto;
+.check-row > div {
+  min-width: 0;
 }
-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 650px;
-  text-align: left;
+.check-row strong {
+  font-size: 16px;
+  font-weight: 600;
 }
-th,
-td {
-  padding: 14px 12px;
-  border-bottom: 1px solid var(--border-color, #e9ebef);
+.reward-rules {
+  color: var(--yuna-gray-700);
+  font-size: 12px;
+  line-height: 1.7;
+  margin-top: 14px;
 }
-td:last-child {
-  max-width: 360px;
+.reward-rules summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.reward-rules p {
+  margin-bottom: 0;
+}
+.ledger-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ledger-entry {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--yuna-gray-200);
+}
+.ledger-entry:last-child {
+  border-bottom: 0;
+}
+.entry-marker {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--yuna-gray-200);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--yuna-gray-700);
+  font-size: 18px;
+}
+.entry-main {
+  min-width: 0;
+  flex: 1;
+}
+.entry-main strong {
+  font-size: 14px;
+  font-weight: 500;
   overflow-wrap: anywhere;
+}
+.entry-main p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  color: var(--yuna-gray-700);
+  font-size: 12px;
+  margin: 5px 0 0;
+}
+.entry-value {
+  display: grid;
+  text-align: right;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.entry-value strong {
+  font-size: 16px;
+  font-weight: 600;
+}
+.entry-value .is-credit {
+  color: var(--yuna-success);
+}
+.entry-value small {
+  color: var(--yuna-gray-700);
+  font-size: 12px;
 }
 .more {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 16px;
 }
 .notice {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+.ledger-empty {
+  padding: 32px 0;
 }
-@media (max-width: 1100px) {
-  .points-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .points-summary > :last-child {
-    grid-column: 1/-1;
-  }
-}
-@media (max-width: 640px) {
+@media (max-width: 850px) {
   .points-summary {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 500px) {
+  .check-row {
+    align-items: flex-start;
+    flex-direction: column;
     gap: 12px;
   }
-  .points-summary > :last-child {
-    grid-column: auto;
+  .entry-marker {
+    display: none;
   }
-  .balance {
-    font-size: 30px;
+  .ledger-entry {
+    gap: 10px;
   }
 }
 </style>

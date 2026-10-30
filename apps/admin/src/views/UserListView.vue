@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 import {
   NAlert,
   NButton,
+  NDropdown,
   NInput,
   NModal,
   NScrollbar,
@@ -105,22 +106,39 @@ function renderStatus(row: AdminUserView) {
   return h('div', { class: 'yuna-cell-actions' }, tags)
 }
 
-function actionButton(label: string, onClick: () => void, type: 'default' | 'primary' = 'default') {
-  return h(NButton, { size: 'small', secondary: true, type, onClick }, { default: () => label })
-}
-
 function renderActions(row: AdminUserView) {
-  const nodes = [
-    row.externalId === session.state.externalId
-      ? h(NButton, { size: 'small', disabled: true }, { default: () => '当前账号' })
-      : row.status === 1
-        ? actionButton('禁用', () => confirmAction(row, 'disable'))
-        : actionButton('启用', () => confirmAction(row, 'enable'), 'primary'),
+  const options: Array<{ label: string; key: UserAction; disabled?: boolean }> = [
+    {
+      label: row.status === 1 ? '禁用账号' : '启用账号',
+      key: row.status === 1 ? 'disable' : 'enable',
+      disabled: row.externalId === session.state.externalId,
+    },
   ]
-  if (hasLock(row)) nodes.push(actionButton('解锁', () => confirmAction(row, 'unlock'), 'primary'))
-  nodes.push(actionButton('踢下线', () => confirmAction(row, 'kick')))
-  nodes.push(actionButton('设置', () => void openSettings(row), 'primary'))
-  return h('div', { class: 'yuna-cell-actions', style: { gap: '6px' } }, nodes)
+  if (hasLock(row)) options.push({ label: '解锁账号', key: 'unlock' })
+  options.push({ label: '踢下线', key: 'kick' })
+  return h('div', { class: 'yuna-cell-actions' }, [
+    h(
+      NButton,
+      { size: 'small', secondary: true, onClick: () => void openSettings(row) },
+      { default: () => '账号设置' },
+    ),
+    h(
+      NDropdown,
+      {
+        trigger: 'click',
+        options,
+        onSelect: (key: string | number) => confirmAction(row, key as UserAction),
+      },
+      {
+        default: () =>
+          h(
+            NButton,
+            { size: 'small', quaternary: true, 'aria-label': `${row.username}的更多操作` },
+            { default: () => '更多' },
+          ),
+      },
+    ),
+  ])
 }
 
 const columns: DataTableColumns<AdminUserView> = [
@@ -173,7 +191,7 @@ const columns: DataTableColumns<AdminUserView> = [
   {
     title: '操作',
     key: 'actions',
-    width: 280,
+    width: 176,
     fixed: 'right',
     render: renderActions,
   },
@@ -413,16 +431,18 @@ onMounted(() => {
       <n-input
         v-model:value="filters.keyword"
         placeholder="用户名 / 邮箱 / 手机号"
+        aria-label="搜索用户名、邮箱或手机号"
         clearable
-        style="width: 240px"
+        style="width: 240px; max-width: 100%"
         @keyup.enter="search"
       />
       <n-select
         v-model:value="filters.status"
         :options="statusOptions"
         placeholder="全部状态"
+        aria-label="账号状态"
         clearable
-        style="width: 150px"
+        style="width: 150px; max-width: 100%"
       />
       <n-select
         v-model:value="filters.roleId"
@@ -431,7 +451,7 @@ onMounted(() => {
         aria-label="按角色筛选"
         filterable
         clearable
-        style="width: 180px"
+        style="width: 180px; max-width: 100%"
       />
       <n-select
         v-model:value="filters.permissionId"
@@ -440,7 +460,7 @@ onMounted(() => {
         aria-label="按权限筛选"
         filterable
         clearable
-        style="width: 220px"
+        style="width: 220px; max-width: 100%"
       />
     </filter-bar>
 
@@ -452,7 +472,7 @@ onMounted(() => {
       :page="page"
       :size="size"
       :row-key="(row: AdminUserView) => row.userId"
-      :scroll-x="1380"
+      :scroll-x="1280"
       @update:page="onPageChange"
       @update:size="onSizeChange"
     />

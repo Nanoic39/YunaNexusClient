@@ -82,7 +82,7 @@ function elementHeading(el: ContentElement): boolean {
                 v-for="(item, index) in el.items"
                 :key="item.id"
                 size="large"
-                :type="index === 0 ? 'primary' : 'default'"
+                :type="index === 0 && item.link !== '/about' ? 'primary' : 'default'"
                 :secondary="index !== 0"
                 @click="onItemClick(item)"
               >
@@ -106,11 +106,9 @@ function elementHeading(el: ContentElement): boolean {
               <dt class="el-list__title">{{ item.title }}</dt>
               <dd class="el-list__text">
                 <span>{{ item.text }}</span>
-                <span
-                  v-if="item.status"
-                  class="el-badge"
-                  :class="`is-${item.status}`"
-                >{{ statusText(item.status) }}</span>
+                <span v-if="item.status" class="el-badge" :class="`is-${item.status}`">{{
+                  statusText(item.status)
+                }}</span>
               </dd>
             </div>
           </dl>
@@ -139,15 +137,17 @@ function elementHeading(el: ContentElement): boolean {
               :key="item.id"
               class="el-card"
               :class="{ 'is-clickable': hasLink(item) }"
+              :role="hasLink(item) ? 'link' : undefined"
+              :tabindex="hasLink(item) ? 0 : undefined"
               @click="onItemClick(item)"
+              @keydown.enter.prevent="onItemClick(item)"
+              @keydown.space.prevent="onItemClick(item)"
             >
               <div class="el-card__top">
                 <h3 class="el-card__title">{{ item.title }}</h3>
-                <span
-                  v-if="item.status"
-                  class="el-badge"
-                  :class="`is-${item.status}`"
-                >{{ statusText(item.status) }}</span>
+                <span v-if="item.status" class="el-badge" :class="`is-${item.status}`">{{
+                  statusText(item.status)
+                }}</span>
               </div>
               <p v-if="item.text" class="el-card__text">{{ item.text }}</p>
               <div v-if="item.tags?.length" class="el-card__tags">
@@ -191,11 +191,9 @@ function elementHeading(el: ContentElement): boolean {
               <div class="el-timeline__main">
                 <div class="el-timeline__row">
                   <span class="el-timeline__title">{{ item.title }}</span>
-                  <span
-                    v-if="item.status"
-                    class="el-badge"
-                    :class="`is-${item.status}`"
-                  >{{ statusText(item.status) }}</span>
+                  <span v-if="item.status" class="el-badge" :class="`is-${item.status}`">{{
+                    statusText(item.status)
+                  }}</span>
                 </div>
                 <p v-if="item.text" class="el-timeline__text">{{ item.text }}</p>
               </div>
@@ -219,8 +217,8 @@ function elementHeading(el: ContentElement): boolean {
 .content-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px;
+  gap: 14px;
+  padding: 18px;
   background: var(--yuna-card-bg);
   border: var(--yuna-card-border);
   border-radius: var(--yuna-radius-card);
@@ -229,7 +227,7 @@ function elementHeading(el: ContentElement): boolean {
 
 .content-section--hero {
   gap: 0;
-  padding: 24px 0 4px;
+  padding: 0;
   background: transparent;
   border: none;
   border-radius: 0;
@@ -265,45 +263,35 @@ function elementHeading(el: ContentElement): boolean {
 .el-hero {
   position: relative;
   overflow: hidden;
-  padding: 52px 44px;
-  background: linear-gradient(
-    135deg,
-    var(--yuna-blue-50) 0%,
-    var(--yuna-surface) 58%,
-    rgba(128, 255, 192, 0.22) 100%
-  );
-  border: 1px solid var(--yuna-gray-200);
-  border-radius: 20px;
+  padding: 28px;
+  background: var(--yuna-surface);
+  border: var(--yuna-card-border);
+  border-left: 3px solid var(--yuna-primary);
+  border-radius: var(--yuna-radius-lg);
 }
 
 .el-hero__glow {
-  position: absolute;
-  top: -140px;
-  right: -100px;
-  width: 360px;
-  height: 360px;
-  pointer-events: none;
-  background: radial-gradient(circle, rgba(160, 216, 239, 0.6) 0%, rgba(160, 216, 239, 0) 70%);
+  display: none;
 }
 
 .el-hero__inner {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  max-width: 720px;
+  gap: 12px;
+  max-width: 880px;
 }
 
 .el-hero__title {
-  font-size: 42px;
-  font-weight: 800;
+  font-size: clamp(24px, 2.5vw, 30px);
+  font-weight: 600;
   line-height: 1.18;
   letter-spacing: -0.02em;
   color: var(--yuna-gray-900);
 }
 
 .el-hero__text {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.8;
   color: var(--yuna-gray-700);
 }
@@ -412,7 +400,9 @@ function elementHeading(el: ContentElement): boolean {
   background: var(--yuna-gray-50);
   border: 1px solid var(--yuna-gray-200);
   border-radius: var(--yuna-radius-lg);
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .el-card.is-clickable {
@@ -473,7 +463,9 @@ function elementHeading(el: ContentElement): boolean {
   background: var(--yuna-gray-50);
   border: 1px solid var(--yuna-gray-200);
   border-radius: var(--yuna-radius-md);
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .el-link:hover {

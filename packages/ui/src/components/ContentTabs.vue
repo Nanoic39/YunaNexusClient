@@ -143,7 +143,12 @@ function onAuxClick(event: MouseEvent, tab: ContentTab): void {
           @click.stop="emit('close', tab.key)"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path
+              d="M6 6l12 12M18 6L6 18"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
           </svg>
         </button>
       </div>
@@ -155,10 +160,12 @@ function onAuxClick(event: MouseEvent, tab: ContentTab): void {
 .yuna-tabs {
   display: flex;
   align-items: center;
-  min-height: 40px;
+  flex: 0 0 36px;
+  min-height: 36px;
+  min-width: 0;
   padding: 0 12px;
   overflow: hidden;
-  border-bottom: 1px solid var(--yuna-glass-border);
+  border-bottom: 1px solid var(--yuna-gray-200);
   background: var(--yuna-card-bg);
 }
 
@@ -188,8 +195,11 @@ function onAuxClick(event: MouseEvent, tab: ContentTab): void {
   cursor: pointer;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  border-radius: var(--yuna-radius-sm);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .yuna-tabs__tab:hover {

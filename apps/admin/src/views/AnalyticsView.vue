@@ -41,10 +41,10 @@ function rateText(rate: number | null): string {
 /** 留存热力格：以留存率驱动背景透明度 */
 function cellStyle(rate: number | null): Record<string, string> {
   if (rate === null || rate === undefined) return {}
-  const alpha = 0.12 + Math.min(Math.max(rate, 0), 1) * 0.78
+  const alpha = 0.06 + Math.min(Math.max(rate, 0), 1) * 0.24
   return {
-    background: `rgba(46, 143, 196, ${alpha.toFixed(3)})`,
-    color: rate > 0.55 ? '#ffffff' : 'var(--yuna-gray-900)',
+    background: `color-mix(in srgb, var(--yuna-primary) ${(alpha * 100).toFixed(1)}%, var(--yuna-surface))`,
+    color: 'var(--yuna-gray-900)',
   }
 }
 

@@ -331,7 +331,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 16px;
   padding: 14px 0;
-  border-top: 1px solid var(--border-color, #e9ebef);
+  border-top: 1px solid var(--yuna-gray-200);
 }
 .items li > div {
   display: flex;
