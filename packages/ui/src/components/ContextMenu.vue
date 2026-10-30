@@ -207,7 +207,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .yuna-ctx.is-opening :deep(.yuna-ctx-list) {
-  animation: yuna-ctx-content 0.18s ease-out 0.08s both;
+  animation: yuna-ctx-content 0.22s ease-out 0.1s both;
 }
 
 @keyframes yuna-ctx-content {
@@ -250,14 +250,14 @@ onBeforeUnmount(() => {
 }
 
 .yuna-ctx.is-opening {
-  animation: yuna-ctx-in 0.26s cubic-bezier(0.2, 0.9, 0.2, 1);
+  animation: yuna-ctx-in 0.38s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 
 @keyframes yuna-ctx-in {
   from {
     opacity: 0;
-    transform: scale(0.28);
+    transform: scale(0.2);
     border-radius: 18px;
   }
 
