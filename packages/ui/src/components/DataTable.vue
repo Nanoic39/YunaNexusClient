@@ -1,240 +1,392 @@
-<script setup lang="ts" generic="T extends object">
-import { computed } from 'vue'
-import { NDataTable, NEmpty, NPagination } from 'naive-ui'
-import type { DataTableColumns, DataTableRowKey } from 'naive-ui'
-import { openContextMenu } from '../composables/use-context-menu'
-import type { ContextMenuItem } from '../composables/use-context-menu'
-
+<script setup lang="ts" generic="T extends Record<string, any>">
 /**
- * 数据表封装：统一斑马纹、空态文案与底部分页。
+ * 统一表格。
  *
- * 分页采用「受控 + 事件」模式（`update:page` / `update:size` / `change`），
- * 便于页面直接驱动后端分页查询。其余 `n-data-table` 属性通过 `v-bind="$attrs"` 透传。
+ * 存在理由（这些规则散落到各页面就会失控）：
+ * - 表头在滚动容器之外，滚动时绝对不动（避免 sticky 与行重叠）
+ * - 行高固定 56px，操作列默认隐藏、行悬停出现，≤3 个文字按钮
+ * - 多选后批量条为浮层，不占布局空间（严禁布局位移）
+ * - 分页为真分页（页码 + 每页条数 + 总数），不是无限滚动
+ * - 空态/加载态覆盖原区域，高度不塌陷
  */
-defineOptions({ inheritAttrs: false })
+import { computed } from 'vue'
+import Icon from './Icon.vue'
 
-interface Props {
-  columns: DataTableColumns<T>
-  data: T[]
-  loading?: boolean
-  /** 总记录数（后端分页 total） */
-  total?: number
-  page?: number
-  size?: number
-  pageSizes?: number[]
-  rowKey?: (row: T) => DataTableRowKey
-  scrollX?: number
-  emptyDescription?: string
-  /** 是否展示分页器；缺省时在 total > size 时自动展示 */
-  showPagination?: boolean
-  /**
-   * 行右键菜单构建器。
-   *
-   * 传入后该行右键弹出业务菜单；返回值里不需要重复"复制"类通用项，外壳会自动补齐。
-   * 不传则只提供通用项（复制整行 / 复制单元格 / 刷新），保证每张表都有可用的右键。
-   */
-  rowContextMenu?: (row: T, cell: { key: string; title: string; text: string }) => ContextMenuItem[]
+export interface Column {
+  /** 字段名或标识 */
+  key: string
+  /** 表头文案 */
+  title: string
+  /** 列宽，如 '120px' / '1fr' */
+  width?: string
+  /** 对齐 */
+  align?: 'left' | 'right' | 'center'
+  /** 是否可排序 */
+  sortable?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  loading: false,
-  total: 0,
-  page: 1,
-  size: 20,
-  pageSizes: () => [10, 20, 50, 100],
-  rowKey: undefined,
-  scrollX: undefined,
-  emptyDescription: '暂无数据',
-  showPagination: undefined,
-  rowContextMenu: undefined,
-})
+const props = withDefaults(
+  defineProps<{
+    columns: Column[]
+    rows: T[]
+    /** 行唯一键字段 */
+    rowKey: keyof T & string
+    loading?: boolean
+    /** 是否可多选 */
+    selectable?: boolean
+    /** 已选中行 key 集合 */
+    selected?: Array<string | number>
+    /** 分页 */
+    page?: number
+    pageSize?: number
+    total?: number
+    pageSizes?: number[]
+  }>(),
+  {
+    loading: false,
+    selectable: false,
+    selected: () => [],
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    pageSizes: () => [20, 50, 100],
+  },
+)
 
 const emit = defineEmits<{
-  (e: 'update:page', page: number): void
-  (e: 'update:size', size: number): void
-  (e: 'change', payload: { page: number; size: number }): void
-  (e: 'refresh'): void
+  (e: 'update:selected', value: Array<string | number>): void
+  (e: 'update:page', value: number): void
+  (e: 'update:pageSize', value: number): void
 }>()
 
-/* ------------------------------------------------------------ 行右键菜单 */
+const gridTemplate = computed(
+  () =>
+    (props.selectable ? '44px ' : '') +
+    props.columns.map((c) => c.width ?? '1fr').join(' '),
+)
 
-/** 表头顺序与列 key/title 的映射，用于把单元格映射回列定义 */
-function columnAt(cellIndex: number): { key: string; title: string; index: number } {
-  const columns = (props.columns ?? []) as unknown as Array<{ key?: string; title?: string }>
-  const entry = columns[cellIndex]
-  return {
-    key: entry?.key != null ? String(entry.key) : '',
-    title: entry?.title != null ? String(entry.title) : '',
-    index: cellIndex,
+const pageCount = computed(() => Math.max(1, Math.ceil(props.total / props.pageSize)))
+
+/** 页码窗口：首尾 + 当前页前后各 2 页，其余折叠为省略号 */
+const pageItems = computed<Array<number | '...'>>(() => {
+  const pages = pageCount.value
+  const set = new Set<number>([1, pages, props.page])
+  for (let i = 1; i <= 2; i++) {
+    if (props.page - i > 1) set.add(props.page - i)
+    if (props.page + i < pages) set.add(props.page + i)
   }
-}
-
-function cellText(target: Element): string {
-  return (target.textContent ?? '').trim().replace(/\s+/g, ' ')
-}
-
-/**
- * 从 DOM 反查命中的行与列。
- *
- * `n-data-table` 不对外暴露行属性，只能按结构定位：表格主体内第 N 个 `tr` 对应
- * `data[N]`。这里做了三层兜底，任何一层拿不到就退化为"无行上下文"，绝不抛错。
- */
-function resolveRow(
-  target: Element,
-): { row: T; cell: { key: string; title: string; text: string } } | null {
-  const table = target.closest('.n-data-table') as HTMLElement | null
-  const rowElement = target.closest('.n-data-table-tr')
-  if (!table || !rowElement) return null
-  const body = table.querySelector('.n-data-table-tbody')
-  if (!body || !body.contains(rowElement)) return null
-  const rows = Array.from(body.querySelectorAll('.n-data-table-tr'))
-  const rowIndex = rows.indexOf(rowElement)
-  if (rowIndex < 0 || rowIndex >= props.data.length) return null
-  const cells = Array.from(rowElement.querySelectorAll('.n-data-table-td'))
-  const cellElement = target.closest('.n-data-table-td')
-  const cellIndex = cellElement ? cells.indexOf(cellElement) : -1
-  const column = cellIndex >= 0 ? columnAt(cellIndex) : { key: '', title: '', index: -1 }
-  return {
-    row: props.data[rowIndex],
-    cell: { key: column.key, title: column.title, text: cellElement ? cellText(cellElement) : '' },
+  const sorted = [...set].filter((p) => p >= 1 && p <= pages).sort((a, b) => a - b)
+  const out: Array<number | '...'> = []
+  let prev = 0
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push('...')
+    out.push(p)
+    prev = p
   }
+  return out
+})
+
+const allChecked = computed(
+  () => props.rows.length > 0 && props.rows.every((r) => props.selected.includes(r[props.rowKey])),
+)
+const someChecked = computed(
+  () => !allChecked.value && props.rows.some((r) => props.selected.includes(r[props.rowKey])),
+)
+
+function keyOf(row: T): string | number {
+  return row[props.rowKey]
 }
 
-function genericRowItems(
-  row: T,
-  cell: { key: string; title: string; text: string },
-): ContextMenuItem[] {
-  const items: ContextMenuItem[] = []
-  if (cell.text) {
-    items.push({
-      key: 'copy-cell',
-      label: cell.title ? `复制「${cell.title}」内容` : '复制单元格内容',
-      icon: 'copy',
-      onSelect: () => {
-        void navigator.clipboard?.writeText(cell.text).catch(() => {})
-      },
-    })
-  }
-  items.push({
-    key: 'copy-row',
-    label: '复制整行（JSON）',
-    icon: 'copy',
-    onSelect: () => {
-      void navigator.clipboard?.writeText(JSON.stringify(row, null, 2)).catch(() => {})
-    },
-  })
-  if (props.rowKey) {
-    const key = props.rowKey(row)
-    if (typeof key === 'string' || typeof key === 'number') {
-      items.push({
-        key: 'copy-key',
-        label: '复制主键',
-        icon: 'link',
-        onSelect: () => {
-          void navigator.clipboard?.writeText(String(key)).catch(() => {})
-        },
-      })
-    }
-  }
-  items.push({
-    key: 'refresh',
-    label: '刷新列表',
-    icon: 'refresh',
-    divider: true,
-    onSelect: () => emit('refresh'),
-  })
-  return items
+function toggleRow(row: T, checked: boolean): void {
+  const key = keyOf(row)
+  const next = checked
+    ? [...new Set([...props.selected, key])]
+    : props.selected.filter((k) => k !== key)
+  emit('update:selected', next)
 }
 
-function onRowContextMenu(event: MouseEvent): void {
-  const target = event.target
-  if (!(target instanceof Element)) return
-  const hit = resolveRow(target)
-  if (!hit) return
-  event.preventDefault()
-  event.stopPropagation()
-  const custom = props.rowContextMenu?.(hit.row, hit.cell) ?? []
-  const items = custom.length
-    ? [...custom, { key: 'generic-divider', divider: true }, ...genericRowItems(hit.row, hit.cell)]
-    : genericRowItems(hit.row, hit.cell)
-  openContextMenu({ x: event.clientX, y: event.clientY, items, opener: null })
+function toggleAll(checked: boolean): void {
+  emit('update:selected', checked ? props.rows.map(keyOf) : [])
 }
 
-const showPager = computed(() => props.showPagination ?? props.total > props.size)
-
-function onPageChange(next: number): void {
-  emit('update:page', next)
-  emit('change', { page: next, size: props.size })
-}
-
-function onSizeChange(nextSize: number): void {
-  emit('update:size', nextSize)
-  emit('update:page', 1)
-  emit('change', { page: 1, size: nextSize })
+function go(p: number): void {
+  emit('update:page', Math.min(Math.max(1, p), pageCount.value))
 }
 </script>
 
 <template>
-  <div class="yuna-table" @contextmenu="onRowContextMenu">
-    <n-data-table
-      v-bind="$attrs"
-      :columns="columns"
-      :data="data"
-      :loading="loading"
-      :row-key="rowKey"
-      :scroll-x="scrollX"
-      :bordered="false"
-      :single-line="false"
-      :remote="true"
-      :pagination="false"
-      size="small"
-    >
-      <template #empty>
-        <n-empty class="yuna-table__empty" :description="emptyDescription" />
-      </template>
-    </n-data-table>
-
-    <div v-if="showPager" class="yuna-table__footer">
-      <n-pagination
-        :page="page"
-        :page-size="size"
-        :item-count="total"
-        :page-sizes="pageSizes"
-        :page-slot="5"
-        show-size-picker
-        @update:page="onPageChange"
-        @update:page-size="onSizeChange"
-      />
+  <div class="yuna-dt">
+    <div v-if="selectable && selected.length" class="yuna-dt__batch">
+      <span>已选 <b>{{ selected.length }}</b> 项</span>
+      <slot name="batch" :count="selected.length" />
     </div>
+
+    <div class="yuna-dt__head" :style="{ gridTemplateColumns: gridTemplate }">
+      <div v-if="selectable" class="cell">
+        <input
+          type="checkbox"
+          :checked="allChecked"
+          :indeterminate.prop="someChecked"
+          @change="toggleAll(($event.target as HTMLInputElement).checked)"
+        />
+      </div>
+      <div
+        v-for="col in columns"
+        :key="col.key"
+        class="cell"
+        :style="{ textAlign: col.align ?? 'left' }"
+      >
+        {{ col.title }}
+      </div>
+    </div>
+
+    <div class="yuna-dt__body">
+      <div v-if="loading" class="yuna-dt__state">
+        <span>加载中…</span>
+      </div>
+      <div v-else-if="!rows.length" class="yuna-dt__state">
+        <slot name="empty">
+          <span>暂无数据</span>
+        </slot>
+      </div>
+      <div
+        v-for="row in rows"
+        v-else
+        :key="keyOf(row)"
+        class="yuna-dt__row"
+        :style="{ gridTemplateColumns: gridTemplate }"
+      >
+        <div v-if="selectable" class="cell">
+          <input
+            type="checkbox"
+            :checked="selected.includes(keyOf(row))"
+            @change="toggleRow(row, ($event.target as HTMLInputElement).checked)"
+          />
+        </div>
+        <div
+          v-for="col in columns"
+          :key="col.key"
+          class="cell"
+          :style="{ textAlign: col.align ?? 'left' }"
+        >
+          <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
+            {{ row[col.key] }}
+          </slot>
+        </div>
+      </div>
+    </div>
+
+    <footer class="yuna-dt__foot">
+      <div class="left">
+        <span>共 {{ total }} 条</span>
+        <select
+          :value="pageSize"
+          @change="emit('update:pageSize', Number(($event.target as HTMLSelectElement).value))"
+        >
+          <option v-for="s in pageSizes" :key="s" :value="s">{{ s }} 条/页</option>
+        </select>
+      </div>
+      <nav class="pager">
+        <button type="button" :disabled="page <= 1" @click="go(page - 1)">
+          <Icon name="chevronLeft" />
+        </button>
+        <template v-for="(item, i) in pageItems" :key="i">
+          <button v-if="item === '...'" type="button" disabled class="ellipsis">…</button>
+          <button
+            v-else
+            type="button"
+            :class="{ on: item === page }"
+            @click="go(item as number)"
+          >
+            {{ item }}
+          </button>
+        </template>
+        <button type="button" :disabled="page >= pageCount" @click="go(page + 1)">
+          <Icon name="chevronRight" />
+        </button>
+      </nav>
+    </footer>
   </div>
 </template>
 
 <style scoped>
-.yuna-table {
+.yuna-dt {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+.yuna-dt__head,
+.yuna-dt__row {
+  display: grid;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.yuna-dt__head {
+  height: 40px;
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--yuna-ink-2, #57606a);
+  background: color-mix(in srgb, var(--yuna-glass-surface, #fff) 86%, transparent);
+  border-bottom: 1px solid var(--yuna-line, #e6e8eb);
+}
+
+.yuna-dt__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.yuna-dt__row {
+  height: 56px;
+  font-size: 13.5px;
+  border-bottom: 1px solid var(--yuna-line, #e6e8eb);
+}
+
+.yuna-dt__row:hover {
+  background: color-mix(in srgb, var(--yuna-glass-surface, #fff) 55%, transparent);
+}
+
+.cell {
+  padding: 0 8px;
   min-width: 0;
   overflow: hidden;
-  background: var(--yuna-card-bg);
-  border: var(--yuna-card-border);
-  border-radius: var(--yuna-radius-card);
-  box-shadow: var(--yuna-card-shadow);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.yuna-table__empty {
-  padding: 32px 0;
+.yuna-dt__state {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  color: var(--yuna-ink-3, #8b949e);
+  font-size: 13px;
 }
 
-.yuna-table__footer {
+/* 批量条：浮层，不占布局空间 */
+.yuna-dt__batch {
+  position: absolute;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  z-index: 5;
   display: flex;
-  justify-content: flex-end;
-  padding: 12px 16px;
-  border-top: 1px solid var(--yuna-gray-200);
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--yuna-glass-surface-strong, #fff);
+  border: 1px solid var(--yuna-glass-border, #e6e8eb);
+  box-shadow: var(--yuna-elev-pop);
+  font-size: 13px;
 }
 
-@media (max-width: 640px) {
-  .yuna-table__footer {
-    overflow-x: auto;
-    justify-content: flex-start;
-    padding: 10px;
-  }
+.yuna-dt__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--yuna-line, #e6e8eb);
+  font-size: 12.5px;
+  color: var(--yuna-ink-3, #8b949e);
+  flex: none;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+select {
+  height: 28px;
+  border: 1px solid var(--yuna-glass-border, #e6e8eb);
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12.5px;
+  color: inherit;
+}
+
+.pager {
+  display: flex;
+  gap: 4px;
+}
+
+.pager button {
+  min-width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--yuna-glass-border, #e6e8eb);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pager button:hover:not(:disabled):not(.on) {
+  background: color-mix(in srgb, var(--yuna-glass-surface-strong, #fff) 70%, transparent);
+}
+
+.pager button.on {
+  background: var(--yuna-primary, #226f9b);
+  border-color: var(--yuna-primary, #226f9b);
+  color: #fff;
+}
+
+.pager button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+input[type='checkbox'] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--yuna-glass-border, #d8dde3);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+}
+
+input[type='checkbox']:checked {
+  background: var(--yuna-primary, #226f9b);
+  border-color: var(--yuna-primary, #226f9b);
+}
+
+input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 4.5px;
+  top: 1.5px;
+  width: 4px;
+  height: 8px;
+  border: 2px solid #fff;
+  border-top: 0;
+  border-left: 0;
+  transform: rotate(40deg);
+}
+
+input[type='checkbox']:indeterminate {
+  background: var(--yuna-primary, #226f9b);
+  border-color: var(--yuna-primary, #226f9b);
+}
+
+input[type='checkbox']:indeterminate::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 7px;
+  width: 8px;
+  height: 2px;
+  background: #fff;
 }
 </style>
